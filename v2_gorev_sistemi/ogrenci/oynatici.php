@@ -1004,48 +1004,28 @@ $gorevPuani   = $gorev ? (int) $gorev['puan'] : 0;
          ==================================================================== -->
     <script>
     (function () {
-        // Görevde izin verilen bloklar tanımlıysa sadece onları göster,
-        // yoksa tüm mBlock bloklarını kategorilere ayırıp sun.
+        /* [2026-08] BLOKLARIN İÇİNDEKİ SAYILAR KAYBOLMUŞTU:
+           Burada elle kurulmuş bir araç kutusu vardı ve blokları
+           <block type="..."></block> şeklinde ekliyordu — yani içindeki
+           hazır sayı (shadow) blokları olmadan. Bu yüzden öğrenci
+           "10 adım git" yerine boş yuvalı "adım git" görüyordu.
+
+           mblock_bloklari.js zaten shadow blokları içeren hazır bir araç
+           kutusu üretiyor (window.toolboxOlustur) ve admin tasarlayıcısı
+           onu kullanıyordu. Artık öğrenci tarafı da AYNI kaynağı kullanıyor;
+           böylece iki taraf birbirinden ayrışamaz. */
+
+        // Görevde izin verilen bloklar tanımlıysa sadece onları göster
         const izinliler = (SUNUCUDAN_GELEN_GOREV && SUNUCUDAN_GELEN_GOREV.izin_verilen_bloklar) || [];
 
-        const kategoriler = [
-            { ad: 'Hareket',  renk: '#4C97FF', onEk: 'mblock_hareket_' },
-            { ad: 'Görünüm',  renk: '#9966FF', onEk: 'mblock_gorunum_' },
-            { ad: 'Ses',      renk: '#CF63CF', onEk: 'mblock_ses_' },
-            { ad: 'Olaylar',  renk: '#FFBF00', onEk: 'mblock_olay_' },
-            { ad: 'Kontrol',  renk: '#FFAB19', onEk: 'mblock_kontrol_' },
-            { ad: 'Algılama', renk: '#5CB1D6', onEk: 'mblock_algilama_' },
-            { ad: 'İşlemler', renk: '#59C059', onEk: 'mblock_islem_' }
-        ];
-
-        // Kayıtlı tüm blok tiplerini topla
-        const tumTipler = Object.keys(Blockly.Blocks).filter(t => t.indexOf('mblock_') === 0);
-
-        function kategoriBloklari(onEk) {
-            return tumTipler
-                .filter(t => t.indexOf(onEk) === 0)
-                .filter(t => izinliler.length === 0 || izinliler.indexOf(t) !== -1);
+        let toolboxXml;
+        if (typeof window.toolboxOlustur === 'function') {
+            toolboxXml = window.toolboxOlustur(izinliler.length > 0 ? izinliler : 'HEPSI');
+        } else {
+            // Güvenlik ağı: mblock_bloklari.js yüklenmediyse en azından boş bir kutu
+            console.error('toolboxOlustur bulunamadı — mblock_bloklari.js yüklenmemiş olabilir.');
+            toolboxXml = '<xml id="toolbox" style="display:none"></xml>';
         }
-
-        // Araç kutusu (toolbox) XML'ini kur
-        let toolboxXml = '<xml id="toolbox" style="display:none">';
-        kategoriler.forEach(function (kat) {
-            const bloklar = kategoriBloklari(kat.onEk);
-            if (bloklar.length === 0) return;
-
-            toolboxXml += '<category name="' + kat.ad + '" colour="' + kat.renk + '">';
-            bloklar.forEach(function (tip) {
-                toolboxXml += '<block type="' + tip + '"></block>';
-            });
-            toolboxXml += '</category>';
-        });
-
-        // Sayı ve metin blokları her zaman lazım
-        toolboxXml += '<category name="Değerler" colour="#40BF4A">'
-                    + '<block type="math_number"><field name="NUM">10</field></block>'
-                    + '<block type="text"><field name="TEXT">Merhaba</field></block>'
-                    + '</category>';
-        toolboxXml += '</xml>';
 
         const hedef = document.getElementById('blocklyOgrenci');
         if (!hedef) return;

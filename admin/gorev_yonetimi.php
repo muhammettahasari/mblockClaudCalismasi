@@ -223,42 +223,49 @@ $toplamV2 = count($v2_ham);
 
 <script>
 /* ====================================================================
- * 1. İPTAL EDİLEBİLİR SİLME (v1 görevler ve bölümler için)
+ * 1. SİLME (v1 görevler ve bölümler için)
+ *
+ * [2026-08] 5 SANİYELİK GERİ SAYIM KALDIRILDI:
+ * Eskiden silme işlemi 5 saniyelik bir setTimeout ile bekletiliyordu.
+ * Kullanıcı o 5 saniye içinde sayfayı yenilerse veya başka sayfaya
+ * geçerse zamanlayıcı hiç çalışmıyor ve KAYIT SİLİNMİYORDU — ekranda
+ * "sildim ama hâlâ duruyor" durumu bundan kaynaklanıyordu.
+ * Artık onaydan hemen sonra siliniyor ve sonuç doğrulanıyor.
  * ================================================================== */
 function silmeBaslat(buton, tur, id) {
-    if (!confirm("Dikkat! Silmek istediğinize emin misiniz?")) return;
+    const isim = tur === 'bolum'
+        ? 'Bu bölüm VE içindeki tüm görevler (v1 + v2) ile quiz soruları'
+        : 'Bu görev';
+
+    if (!confirm(`⚠️ ${isim} kalıcı olarak silinecek.\nBu işlem geri alınamaz.\n\nDevam edilsin mi?`)) return;
 
     const satir = document.getElementById(`satir_${tur}_${id}`);
     const normalIcerik = satir.innerHTML;
-    let saniye = 5;
 
-    satir.innerHTML = `
-        <div class="sayac-kutu">
-            <strong style="color:#ef4444; font-size: 16px;">🚨 ${tur === 'bolum' ? 'Bölüm ve içindeki TÜM görevler (v1+v2)' : 'Görev'} siliniyor... Son <span id="sayac_${tur}_${id}" style="font-size:20px;">${saniye}</span> saniye!</strong>
-            <button id="btn_iptal_${tur}_${id}" style="background:#3b82f6; color:white; padding:8px 20px; font-size:16px; border:none; border-radius:6px; cursor:pointer; font-weight:bold;">⏳ İPTAL ET</button>
-        </div>`;
+    // Silme sürerken satırı kilitle
+    satir.innerHTML = `<div class="sayac-kutu"><strong style="color:#ef4444;">⏳ Siliniyor...</strong></div>`;
 
-    const gosterge = document.getElementById(`sayac_${tur}_${id}`);
-    const btnIptal = document.getElementById(`btn_iptal_${tur}_${id}`);
-
-    const interval = setInterval(() => { saniye--; if (gosterge) gosterge.innerText = saniye; }, 1000);
-
-    const timeout = setTimeout(() => {
-        clearInterval(interval);
-        fetch('../api/yonetim_api.php', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'same-origin',
-            body: JSON.stringify({ islem: 'sil', tur: tur, id: id })
-        })
-        .then(r => r.json())
-        .then(d => {
-            if (d.success) { satir.remove(); }
-            else { alert("Silme işlemi başarısız oldu."); satir.innerHTML = normalIcerik; }
-        });
-    }, 5000);
-
-    btnIptal.onclick = () => { clearTimeout(timeout); clearInterval(interval); satir.innerHTML = normalIcerik; };
+    fetch('../api/yonetim_api.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ islem: 'sil', tur: tur, id: id })
+    })
+    .then(r => r.json())
+    .then(d => {
+        if (d.success) {
+            satir.style.transition = 'opacity .3s';
+            satir.style.opacity = '0';
+            setTimeout(() => satir.remove(), 300);
+        } else {
+            satir.innerHTML = normalIcerik;
+            alert('❌ Silinemedi: ' + (d.message || d.mesaj || 'Bilinmeyen hata'));
+        }
+    })
+    .catch(() => {
+        satir.innerHTML = normalIcerik;
+        alert('❌ Sunucuya ulaşılamadı, silme işlemi yapılmadı.');
+    });
 }
 
 /* 2. v1 GÖREV / BÖLÜM SIRALAMA */
