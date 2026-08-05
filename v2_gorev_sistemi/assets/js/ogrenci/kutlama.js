@@ -3,46 +3,52 @@
  * KULLANICI / SAYFA: Öğrenci -> Görev Oynatıcı
  *
  * NE İŞE YARAR? (HALK DİLİNDE):
- * Öğrenci görevi doğru çözdüğünde ekranın ortasında konfeti patlatan
- * kutlama penceresini açar. Bölüm sonunda daha büyük bir kutlama gelir.
+ * Ekranın ortasında açılan iki küçük pencereyi yönetir:
+ *   1. KUTLAMA KARTI  — renkli, süslü, konfeti patlar. Görev/bölüm bitince.
+ *   2. UYARI KARTI    — kırmızı. Öğretmen bir bölümü tekrar ettirdiğinde.
  *
- * ÖNEMLİ: OTOMATİK GEÇİŞ YOK.
- * Kutlama penceresi kapanınca sıradaki göreve KENDİLİĞİNDEN geçilmez.
- * Öğrenci "Sıradaki Göreve Geç" düğmesine basmalı ya da penceredeki
- * "Burada Kal" ile aynı görevde kalıp kodunu incelemeye devam etmeli.
+ * ORTAK DAVRANIŞ:
+ *   - Kart açıkken arka plan (şerit + çalışma alanı) BULANIKLAŞIR.
+ *   - Kartta tek düğme vardır: "Kapat".
+ *   - Kapatınca sayfa YENİLENİR. Böylece öğrenci otomatik olarak sıradaki
+ *     göreve (ceza aldıysa tekrar etmesi gereken göreve) geçer.
  *
- * DIŞ BAĞIMLILIK YOK: konfeti saf canvas ile çizilir, CDN kütüphanesi
- * kullanılmaz (okul internetleri CDN'leri sık sık engelliyor).
+ * NEDEN "SAYFAYI YENİLE"?
+ * Görev değişince Blockly çalışma alanı, kuklalar, sahne ve cevap anahtarı
+ * baştan kurulmalı. Bunları tek tek JS ile değiştirmek yerine sayfayı
+ * yenilemek hem çok daha güvenli hem de kod olarak sade.
+ *
+ * DIŞ BAĞIMLILIK YOK: konfeti saf canvas ile çizilir (okul ağları CDN'leri
+ * sık sık engelliyor).
  *
  * DIŞARI AÇILAN FONKSİYONLAR:
- *   window.kutlamaGoster(ayar)  — kutlama penceresini açar
- *   window.konfetiPatlat(sure)  — sadece konfeti
+ *   window.kutlamaGoster(ayar)   — renkli kutlama kartı
+ *   window.uyariKartiGoster(ayar)— kırmızı uyarı kartı
+ *   window.kartiKapat()          — kartı kapatır (ve gerekirse yeniler)
+ *   window.konfetiPatlat(guc)    — sadece konfeti
  *
  * YENİ EKLENEN ÖZELLİKLER:
  *  - [2026-08] Dosya oluşturuldu.
+ *  - [2026-08] "Sıradaki Görev" düğmesi kaldırıldı; tek "Kapat" + yenileme.
+ *  - [2026-08] Kırmızı uyarı kartı ve arka plan bulanıklığı eklendi.
  * ========================================================================== */
 
 (function () {
     'use strict';
 
-    /* --------------------------------------------------------------------
+    /* ====================================================================
      * 1. KONFETİ MOTORU (saf canvas)
-     * ------------------------------------------------------------------ */
-    var tuval = null;
-    var ctx = null;
-    var parcaciklar = [];
-    var animasyonId = null;
+     * ================================================================== */
+    var tuval = null, ctx = null, parcaciklar = [], animasyonId = null;
 
     var RENKLER = ['#10b981', '#f59e0b', '#7c3aed', '#3b82f6', '#ef4444', '#ec4899', '#facc15'];
 
     function tuvaliHazirla() {
         if (tuval) return;
-
         tuval = document.createElement('canvas');
         tuval.id = 'konfetiTuval';
         document.body.appendChild(tuval);
         ctx = tuval.getContext('2d');
-
         boyutlandir();
         window.addEventListener('resize', boyutlandir);
     }
@@ -53,7 +59,6 @@
         tuval.height = window.innerHeight;
     }
 
-    /** Belirtilen sayıda konfeti parçacığı üretir */
     function parcacikUret(adet, kaynakX, kaynakY) {
         for (var i = 0; i < adet; i++) {
             parcaciklar.push({
@@ -77,18 +82,13 @@
 
         for (var i = parcaciklar.length - 1; i >= 0; i--) {
             var p = parcaciklar[i];
-
-            p.vy += 0.35;          // yerçekimi
-            p.vx *= 0.995;         // hava sürtünmesi
-            p.x += p.vx;
-            p.y += p.vy;
+            p.vy += 0.35;    // yerçekimi
+            p.vx *= 0.995;   // hava sürtünmesi
+            p.x += p.vx; p.y += p.vy;
             p.aci += p.donme;
             p.omur -= 0.006;
 
-            if (p.omur <= 0 || p.y > tuval.height + 60) {
-                parcaciklar.splice(i, 1);
-                continue;
-            }
+            if (p.omur <= 0 || p.y > tuval.height + 60) { parcaciklar.splice(i, 1); continue; }
 
             ctx.save();
             ctx.translate(p.x, p.y);
@@ -107,51 +107,39 @@
         }
     }
 
-    /**
-     * Konfeti patlat.
-     * @param {number} guc  1 = normal görev, 2 = bölüm sonu (iki kat)
-     */
+    /** @param {number} guc 1 = normal görev, 2 = bölüm sonu (daha şenlikli) */
     window.konfetiPatlat = function (guc) {
         guc = guc || 1;
         tuvaliHazirla();
         tuval.classList.add('acik');
 
-        var merkezX = window.innerWidth / 2;
-        var merkezY = window.innerHeight * 0.45;
+        var mx = window.innerWidth / 2, my = window.innerHeight * 0.42;
+        parcacikUret(70 * guc, mx, my);
 
-        parcacikUret(70 * guc, merkezX, merkezY);
-
-        // Yanlardan da birer salkım — bölüm sonunda daha şenlikli olsun
         if (guc >= 2) {
-            setTimeout(function () { parcacikUret(50, window.innerWidth * 0.15, merkezY); }, 180);
-            setTimeout(function () { parcacikUret(50, window.innerWidth * 0.85, merkezY); }, 340);
-            setTimeout(function () { parcacikUret(60, merkezX, merkezY); }, 520);
+            setTimeout(function () { parcacikUret(50, window.innerWidth * 0.15, my); }, 180);
+            setTimeout(function () { parcacikUret(50, window.innerWidth * 0.85, my); }, 340);
+            setTimeout(function () { parcacikUret(60, mx, my); }, 520);
         }
 
-        if (!animasyonId) {
-            animasyonId = requestAnimationFrame(cizimDongusu);
-        }
+        if (!animasyonId) animasyonId = requestAnimationFrame(cizimDongusu);
     };
 
 
-    /* --------------------------------------------------------------------
-     * 2. KUTLAMA PENCERESİ
-     * ------------------------------------------------------------------ */
+    /* ====================================================================
+     * 2. KART PENCERESİ (ortak iskelet)
+     * ================================================================== */
+    var kapatincaYenile = false;   // kart kapanınca sayfa yenilensin mi?
+
     function perdeyiHazirla() {
-        var perde = document.getElementById('kutlamaPerde');
+        var perde = document.getElementById('kartPerde');
         if (perde) return perde;
 
         perde = document.createElement('div');
-        perde.id = 'kutlamaPerde';
-        perde.className = 'kutlama-perde';
-        perde.innerHTML = '<div class="kutlama-kart" id="kutlamaKart"></div>';
+        perde.id = 'kartPerde';
+        perde.className = 'kart-perde';
+        perde.innerHTML = '<div class="kart" id="kartGovde"></div>';
         document.body.appendChild(perde);
-
-        // Perdeye tıklayınca kapansın (kart hariç)
-        perde.addEventListener('click', function (e) {
-            if (e.target === perde) window.kutlamaKapat();
-        });
-
         return perde;
     }
 
@@ -161,79 +149,121 @@
         return d.innerHTML;
     }
 
-    window.kutlamaKapat = function () {
-        var perde = document.getElementById('kutlamaPerde');
+    /**
+     * Kartı kapatır.
+     * kapatincaYenile true ise sayfa yenilenir → öğrenci sıradaki göreve geçer.
+     */
+    window.kartiKapat = function () {
+        var perde = document.getElementById('kartPerde');
         if (perde) perde.classList.remove('acik');
+        document.body.classList.remove('kart-acik');
+
+        if (kapatincaYenile) {
+            kapatincaYenile = false;
+            // Adres çubuğundaki ?gorev_id=... temizlenir ki sunucu
+            // "sıradaki çözülmemiş görev"i kendisi seçebilsin.
+            window.location.href = window.V2_OYNATICI_URL || 'oynatici.php';
+        }
     };
 
-    /**
-     * Kutlama penceresini açar.
+    /** Kart iskeletini ekrana basar */
+    function kartiAc(sinif, ivHtml, yenile) {
+        kapatincaYenile = !!yenile;
+
+        var perde = perdeyiHazirla();
+        var govde = document.getElementById('kartGovde');
+
+        govde.className = 'kart ' + sinif;
+        govde.innerHTML = ivHtml;
+
+        perde.classList.add('acik');
+        document.body.classList.add('kart-acik');
+    }
+
+
+    /* ====================================================================
+     * 3. KUTLAMA KARTI (renkli, süslü)
      *
      * @param {object} ayar
-     *   tur          'gorev' | 'bolum' | 'tumu'
-     *   baslik       Ana başlık
-     *   altMetin     Açıklama satırı
-     *   puan         Kazanılan puan (0 ise gösterilmez)
-     *   elmas        Kazanılan elmas
-     *   sonrakiId    Sıradaki görev id'si (yoksa buton çıkmaz)
-     *   sonrakiAd    Sıradaki görevin adı
-     *   ilkGorevMi   true ise "ilk görevini geçtin" vurgusu
-     */
+     *   tur       'gorev' | 'bolum' | 'tumu'
+     *   ikon      Emoji (verilmezse türe göre seçilir)
+     *   baslik    Ana başlık
+     *   altMetin  Açıklama
+     *   puan      Kazanılan puan (0 ise gösterilmez)
+     *   elmas     Kazanılan elmas
+     *   yenile    Kapatınca sayfa yenilensin mi (varsayılan: evet)
+     * ================================================================== */
     window.kutlamaGoster = function (ayar) {
         ayar = ayar || {};
         var tur = ayar.tur || 'gorev';
-
-        var perde = perdeyiHazirla();
-        var kart = document.getElementById('kutlamaKart');
-
         var ikonlar = { gorev: '🎉', bolum: '🏆', tumu: '👑' };
         var ikon = ayar.ikon || ikonlar[tur] || '🎉';
 
-        kart.className = 'kutlama-kart' + (tur !== 'gorev' ? ' bolum-sonu' : '');
-
-        var odulHtml = '';
+        var odul = '';
         if (ayar.puan > 0 || ayar.elmas > 0) {
-            odulHtml = '<div class="kutlama-odul">';
-            if (ayar.puan > 0) odulHtml += '<div>+' + (ayar.puan | 0) + ' Puan</div>';
-            if (ayar.elmas > 0) odulHtml += '<div class="elmas">+' + (ayar.elmas | 0) + ' 💎</div>';
-            odulHtml += '</div>';
+            odul = '<div class="k-odul">';
+            if (ayar.puan > 0)  odul += '<div>+' + (ayar.puan | 0) + ' Puan</div>';
+            if (ayar.elmas > 0) odul += '<div class="elmas">+' + (ayar.elmas | 0) + ' 💎</div>';
+            odul += '</div>';
         }
 
-        var dugmeHtml = '<div class="kutlama-dugmeler">';
-        if (ayar.sonrakiId) {
-            dugmeHtml += '<button class="ku-kal" onclick="kutlamaKapat()">Burada Kal</button>';
-            dugmeHtml += '<button class="ku-devam" onclick="kutlamaSonrakiGorev(' +
-                (ayar.sonrakiId | 0) + ')">Sıradaki Görev →</button>';
-        } else {
-            dugmeHtml += '<button class="ku-devam" onclick="kutlamaKapat()">Harika!</button>';
-        }
-        dugmeHtml += '</div>';
-
-        kart.innerHTML =
-            '<div class="ku-ikon">' + ikon + '</div>' +
+        kartiAc(
+            'kutlama' + (tur !== 'gorev' ? ' buyuk' : ''),
+            '<div class="k-ikon">' + ikon + '</div>' +
             '<h2>' + kacir(ayar.baslik || 'Tebrikler!') + '</h2>' +
-            '<div class="ku-alt">' + kacir(ayar.altMetin || '') + '</div>' +
-            odulHtml +
-            (ayar.sonrakiAd
-                ? '<div class="ku-alt" style="margin-bottom:14px;font-size:13px;">Sırada: <b>' +
-                  kacir(ayar.sonrakiAd) + '</b></div>'
-                : '') +
-            dugmeHtml;
+            '<div class="k-alt">' + kacir(ayar.altMetin || '') + '</div>' +
+            odul +
+            '<button class="k-kapat" onclick="kartiKapat()">Kapat</button>',
+            ayar.yenile !== false
+        );
 
-        perde.classList.add('acik');
         window.konfetiPatlat(tur === 'gorev' ? 1 : 2);
     };
 
-    /* Sıradaki göreve MANUEL geçiş — öğrenci düğmeye bastığında çalışır */
-    window.kutlamaSonrakiGorev = function (gorevId) {
-        if (!gorevId) { window.kutlamaKapat(); return; }
-        var taban = window.V2_OYNATICI_URL || 'oynatici.php';
-        window.location.href = taban + '?gorev_id=' + (gorevId | 0);
+
+    /* ====================================================================
+     * 4. UYARI KARTI (kırmızı)
+     *
+     * @param {object} ayar
+     *   baslik       Ana başlık
+     *   altMetin     Açıklama
+     *   gorevSayisi  Tekrar edilecek görev sayısı
+     *   elmasCezasi  Geri alınan elmas
+     *   sebep        Öğretmenin yazdığı gerekçe
+     *   yenile       Kapatınca sayfa yenilensin mi (varsayılan: evet)
+     * ================================================================== */
+    window.uyariKartiGoster = function (ayar) {
+        ayar = ayar || {};
+
+        var satir = '';
+        if (ayar.gorevSayisi > 0 || ayar.elmasCezasi > 0) {
+            satir = '<div class="k-ceza-satir">';
+            if (ayar.gorevSayisi > 0) satir += '<div>' + (ayar.gorevSayisi | 0) + ' görev tekrar</div>';
+            if (ayar.elmasCezasi > 0) satir += '<div>-' + (ayar.elmasCezasi | 0) + ' 💎</div>';
+            satir += '</div>';
+        }
+
+        var sebep = ayar.sebep
+            ? '<div class="k-sebep">“' + kacir(ayar.sebep) + '”</div>'
+            : '';
+
+        kartiAc(
+            'uyari',
+            '<div class="k-ikon">' + (ayar.ikon || '⚠️') + '</div>' +
+            '<h2>' + kacir(ayar.baslik || 'Öğretmeninden Mesaj Var') + '</h2>' +
+            '<div class="k-alt">' + kacir(ayar.altMetin || '') + '</div>' +
+            satir + sebep +
+            '<button class="k-kapat" onclick="kartiKapat()">Kapat</button>',
+            ayar.yenile !== false
+        );
     };
 
-    /* ESC ile kapat */
+
+    /* ESC ile kapat (kart açıksa) */
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') window.kutlamaKapat();
+        if (e.key !== 'Escape') return;
+        var perde = document.getElementById('kartPerde');
+        if (perde && perde.classList.contains('acik')) window.kartiKapat();
     });
 
 })();

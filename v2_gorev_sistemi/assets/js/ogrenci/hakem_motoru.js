@@ -292,17 +292,21 @@ window.hakemiCagir = function () {
  * [2026-08] İlerleme çubuğu özelliğiyle eklendi.
  *
  * Görev doğru çözüldükten sonra:
- *   1. Üstteki ilerleme çubuğunu sunucudan tazeler (daire yeşile döner)
- *   2. Sıradaki görevi bulur
- *   3. Duruma göre kutlama penceresini açar:
- *        - Tüm görevler bitti          -> 👑 taç
- *        - Bölüm bitti                 -> 🏆 kupa
- *        - İlk görev                   -> 🎉 "İlk görevini geçtin!"
- *        - Normal görev                -> 🎉
- *   4. OTOMATİK GEÇİŞ YOK — öğrenci düğmeye kendisi basar.
+ *   1. Üstteki ilerleme şeridini sunucudan tazeler (daire yeşile döner)
+ *   2. Duruma göre kutlama kartını açar:
+ *        - Tüm görevler bitti  -> 👑 taç
+ *        - Bölüm bitti         -> 🏆 kupa
+ *        - Ceza görevi kapandı -> 💪 / 🎊
+ *        - İlk görev           -> 🎉 "İlk görevini geçtin!"
+ *        - Normal görev        -> 🎉
  *
- * Puanı daha önce alınmış bir görev tekrar çözüldüyse kutlama açılmaz,
- * sadece çubuk tazelenir (öğrenci tekrar oynuyordur).
+ * KARTTA TEK DÜĞME VAR: "Kapat".
+ * Kapatınca sayfa yenilenir; sunucu "sıradaki çözülmemiş görev"i seçtiği için
+ * öğrenci otomatik olarak bir sonraki göreve (ceza aldıysa tekrar etmesi
+ * gereken göreve) geçer. Kart kapanana kadar hiçbir şey olmaz.
+ *
+ * Puanı daha önce alınmış bir görev tekrar çözüldüyse kart açılmaz,
+ * sadece şerit tazelenir (öğrenci kendi isteğiyle tekrar oynuyordur).
  * ========================================================================== */
 function kutlamaVeIlerleme(data) {
     var kutlamaVar = !!data.puan_verildi;
@@ -325,25 +329,11 @@ function kutlamaVeIlerleme(data) {
         if (!kutlamaVar || typeof window.kutlamaGoster !== 'function') return;
 
         var harita = (v && v.harita) || null;
-
-        /* --- Sıradaki çözülmemiş görevi bul --- */
-        var sonrakiId = 0, sonrakiAd = '', cozulenToplam = 0, tumuBitti = false;
+        var cozulenToplam = 0, tumuBitti = false;
 
         if (harita) {
             cozulenToplam = harita.cozulen_gorev | 0;
             tumuBitti = (harita.toplam_gorev > 0 && cozulenToplam >= harita.toplam_gorev);
-
-            (harita.bolumler || []).some(function (b) {
-                if (!b.acik) return false;
-                return (b.gorevler || []).some(function (g) {
-                    if (g.durum !== 'tamam' && g.id !== window.v2AktifGorevId) {
-                        sonrakiId = g.id;
-                        sonrakiAd = g.ad;
-                        return true;
-                    }
-                    return false;
-                });
-            });
         }
 
         /* --- Hangi kutlama? --- */
@@ -354,24 +344,14 @@ function kutlamaVeIlerleme(data) {
                 tur: 'tumu',
                 baslik: 'Tüm Görevleri Bitirdin!',
                 altMetin: 'Bütün bölümleri tamamladın. Öğretmenin yeni görevler ekleyene kadar '
-                        + 'arenada ve markette keyfine bak!',
-                sonrakiId: 0
+                        + 'arenada ve markette keyfine bak!'
             };
         } else if (data.bolum_bitti) {
             ayar = {
                 tur: 'bolum',
                 baslik: 'Bölümü Tamamladın!',
-                altMetin: 'Bu bölümdeki bütün görevleri çözdün. Yeni bölümün kilidi açıldı.',
-                sonrakiId: sonrakiId,
-                sonrakiAd: sonrakiAd
-            };
-        } else if (cozulenToplam === 1) {
-            ayar = {
-                tur: 'gorev',
-                baslik: 'İlk Görevini Geçtin!',
-                altMetin: 'Harika bir başlangıç. Böyle devam edersen bu işi çözersin.',
-                sonrakiId: sonrakiId,
-                sonrakiAd: sonrakiAd
+                altMetin: 'Bu bölümdeki bütün görevleri çözdün. Yeni bölümün kilidi açıldı. '
+                        + 'Kapat düğmesine basınca sıradaki göreve geçeceksin.'
             };
         } else if (data.tekrar_cozum) {
             /* Öğretmenin geri gönderdiği bir görev tekrar çözüldü:
@@ -384,22 +364,25 @@ function kutlamaVeIlerleme(data) {
                 altMetin: cezaKaldi
                     ? 'Öğretmenin tekrar istediği görevi çözdün. Kalan: '
                       + (data.ceza.gorev_sayisi | 0) + ' görev.'
-                    : 'Tekrar etmen gereken bütün görevleri bitirdin. Kırmızı efekt kalktı!',
-                sonrakiId: sonrakiId,
-                sonrakiAd: sonrakiAd
+                    : 'Tekrar etmen gereken bütün görevleri bitirdin. Kırmızı efekt kalktı!'
+            };
+        } else if (cozulenToplam === 1) {
+            ayar = {
+                tur: 'gorev',
+                baslik: 'İlk Görevini Geçtin!',
+                altMetin: 'Harika bir başlangıç. Böyle devam edersen bu işi çözersin.'
             };
         } else {
             ayar = {
                 tur: 'gorev',
                 baslik: 'Tebrikler!',
-                altMetin: 'Görevi doğru çözdün.',
-                sonrakiId: sonrakiId,
-                sonrakiAd: sonrakiAd
+                altMetin: 'Görevi doğru çözdün. Kapat düğmesine basınca sıradaki göreve geçeceksin.'
             };
         }
 
-        ayar.puan  = (data.puan_odulu  != null ? data.puan_odulu  : data.kazanilan) || 0;
-        ayar.elmas = (data.elmas_odulu != null ? data.elmas_odulu : data.kazanilan) || 0;
+        ayar.puan   = (data.puan_odulu  != null ? data.puan_odulu  : data.kazanilan) || 0;
+        ayar.elmas  = (data.elmas_odulu != null ? data.elmas_odulu : data.kazanilan) || 0;
+        ayar.yenile = true;   // kart kapanınca sayfa yenilenir -> sıradaki göreve geçer
 
         // Sonuç mesajı okunsun diye kısa bir nefes payı
         setTimeout(function () { window.kutlamaGoster(ayar); }, 450);

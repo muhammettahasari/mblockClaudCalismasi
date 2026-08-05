@@ -91,19 +91,30 @@ if ($istenenGorevId > 0) {
     }
 }
 
-/* Parametre yoksa: öğrencinin en son açtığı görev (kaldığın yerden devam) */
+/* Parametre yoksa: öğrencinin en son açtığı görev (kaldığın yerden devam)
+ *
+ * [2026-08 ÖNEMLİ] Son açılan görev ZATEN ÇÖZÜLMÜŞSE onu tekrar açmayız.
+ * Sebebi: kutlama kartı kapatıldığında sayfa yenileniyor. Çözülmüş göreve
+ * geri dönseydik öğrenci aynı görevde kilitli kalır, "sıradaki göreve
+ * geçmiyor" derdi. Çözülmüşse aşağıdaki adım sıradaki görevi bulur. */
 if (!$gorev && $ogrenciId > 0) {
     $st = $pdo->prepare("SELECT aktif_v2_gorev_id FROM ogrenciler WHERE id = ?");
     $st->execute([$ogrenciId]);
     $sonAcilan = (int) ($st->fetchColumn() ?: 0);
 
     if ($sonAcilan > 0) {
-        $st = $pdo->prepare("SELECT * FROM v2_gorevler WHERE id = ? AND yayinda = 1");
-        $st->execute([$sonAcilan]);
-        $aday = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+        $ilerlemeKayitlari = ogrencininIlerlemesi($pdo, $ogrenciId);
+        $kayit   = $ilerlemeKayitlari[$sonAcilan] ?? null;
+        $cozuldu = $kayit && (int) $kayit['kazanilan_puan'] > 0;
 
-        if ($aday && in_array((int) $aday['bolum_id'], $acikBolumler, true)) {
-            $gorev = $aday;
+        if (!$cozuldu) {
+            $st = $pdo->prepare("SELECT * FROM v2_gorevler WHERE id = ? AND yayinda = 1");
+            $st->execute([$sonAcilan]);
+            $aday = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+
+            if ($aday && in_array((int) $aday['bolum_id'], $acikBolumler, true)) {
+                $gorev = $aday;
+            }
         }
     }
 }
@@ -169,52 +180,34 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
 
  <body<?= $cezaDurumu['cezali'] ? ' class="ceza-modu"' : '' ?>>
 
+    <!-- ====================================================================
+         [2026-08] İLERLEME ŞERİDİ — sayfanın en üstünde, boydan boya
+         Sol: bölüm › görev başlığı.  Sağ: yüzde çubuğu.  Orta: görev daireleri.
+           yeşil = bitti | turuncu = şu an buradasın | gri = sırası gelmedi
+           kırmızı = öğretmen tekrar istedi
+         SADECE ÖĞRENCİNİN İÇİNDE BULUNDUĞU BÖLÜM gösterilir; bitirdiği
+         bölümler ekranı kalabalık etmesin diye gizlenir.
+         Şerit sol/sağ panelin DIŞINDA olduğu için sahne küçülmez.
+         ==================================================================== -->
+    <div id="ilerlemeCubugu" class="ilerleme-serit">
+        <div class="ic-sol">
+            <span class="ic-bolum" id="icBolumAdi"><?= temizle($aktifBolumAdi ?: 'Bölüm') ?></span>
+            <span class="ic-ayrac">›</span>
+            <span class="ic-gorev" id="icGorevAdi"><?= temizle($baslik) ?></span>
+        </div>
+
+        <div class="ic-orta" id="icGovde"><!-- görev daireleri: JS doldurur --></div>
+
+        <div class="ic-sag">
+            <div class="ic-bar"><span id="icBarDolgu" style="width:<?= (int) $ilerlemeVerisi['genel_yuzde'] ?>%"></span></div>
+            <small id="icOran"><?= (int) $ilerlemeVerisi['cozulen_gorev'] ?>/<?= (int) $ilerlemeVerisi['toplam_gorev'] ?></small>
+        </div>
+    </div>
+
+    <!-- Şeridin altındaki asıl çalışma alanı: solda görev+sahne, sağda kod -->
+    <div class="calisma-alani" id="calismaAlani">
+
     <div class="sol-panel">
-
-        <!-- ================================================================
-             [2026-08] İLERLEME ÇUBUĞU
-             Bölüm adı + görev adı, altında renkli daireler.
-               yeşil  = tamamlandı        turuncu = şu an buradasın
-               gri    = sırası gelmedi    kırmızı = öğretmen tekrar istedi
-               kilit  = bölüme ulaşılmadı
-             Dairelere tıklayınca o göreve gidilir (eski görevler tekrar
-             oynanabilir, puan ikinci kez verilmez).
-             ================================================================ -->
-        <div id="ilerlemeCubugu" class="ilerleme-cubugu">
-            <div class="ic-ust">
-                <div class="ic-baslik">
-                    <span class="ic-bolum"><?= temizle($aktifBolumAdi ?: 'Bölüm') ?></span>
-                    <span class="ic-ayrac">›</span>
-                    <span class="ic-gorev"><?= temizle($baslik) ?></span>
-                </div>
-                <button class="ic-katla" id="icKatlaBtn" title="Haritayı aç / kapat">🗺️</button>
-            </div>
-
-            <div class="ic-genel">
-                <div class="ic-bar"><span style="width:<?= (int) $ilerlemeVerisi['genel_yuzde'] ?>%"></span></div>
-                <small><?= (int) $ilerlemeVerisi['cozulen_gorev'] ?>/<?= (int) $ilerlemeVerisi['toplam_gorev'] ?></small>
-            </div>
-
-            <div class="ic-govde" id="icGovde"><!-- JS doldurur --></div>
-        </div>
-
-        <?php if ($cezaBildirimi): ?>
-        <!-- Öğretmen geri gönderdi uyarısı — bir kez gösterilir -->
-        <div id="cezaBildirimi" class="ceza-bildirimi">
-            <div class="cb-baslik">📌 Öğretmenin bir mesajı var</div>
-            <div class="cb-metin">
-                Öğretmenin <b><?= (int) $cezaBildirimi['gorev_sayisi'] ?> görevi</b> tekrar yapmanı istedi.
-                <?php if ((int) $cezaBildirimi['elmas_cezasi'] > 0): ?>
-                    Bu görevlerden aldığın <b><?= (int) $cezaBildirimi['elmas_cezasi'] ?> 💎</b> geri alındı —
-                    tekrar çözdüğünde geri kazanacaksın.
-                <?php endif; ?>
-                <?php if (!empty($cezaBildirimi['sebep'])): ?>
-                    <div class="cb-sebep">“<?= temizle($cezaBildirimi['sebep']) ?>”</div>
-                <?php endif; ?>
-            </div>
-            <button class="cb-tamam" onclick="cezaBildiriminiKapat()">Anladım</button>
-        </div>
-        <?php endif; ?>
 
         <div id="hikayeAlani" class="hikaye-icerik">Yükleniyor...</div>
 
@@ -300,7 +293,10 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
         </div>
     </div>
 
- <div class="sag-panel" style="display: flex; flex-direction: column; flex: 1 !important; min-width: 0; height: 100vh; position: relative; padding-right: 15px; box-sizing: border-box;">
+ <!-- [2026-08] height:100vh KALDIRILDI: artık .calisma-alani içindeyiz,
+      yükseklik oradan geliyor. 100vh bırakılsaydı şeridin boyu kadar
+      taşar, sayfa aşağı kayardı. -->
+ <div class="sag-panel" style="display: flex; flex-direction: column; flex: 1 !important; min-width: 0; height: 100%; position: relative; padding-right: 15px; box-sizing: border-box;">
         
 <div style="flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(145deg, #1e293b, #0f172a); padding: 12px 20px; border-radius: 12px; margin-bottom: 10px; border: 1.5px solid #38bdf8; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.2);">
            <div style="display: flex; align-items: center; gap: 15px;">
@@ -365,6 +361,8 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
 
         </div>
     </div>
+
+    </div><!-- /.calisma-alani -->
 
      <script>
         function sekmeDegistir(hedef) {
@@ -1028,8 +1026,25 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
         /* Sunucudan gelen ilk harita — sayfa açılırken beklemeden çizilsin */
         window.V2_ILERLEME     = <?= json_encode($ilerlemeVerisi, JSON_UNESCAPED_UNICODE) ?>;
         window.V2_CEZA         = <?= json_encode($cezaDurumu, JSON_UNESCAPED_UNICODE) ?>;
+        window.V2_BILDIRIM     = <?= json_encode($cezaBildirimi, JSON_UNESCAPED_UNICODE) ?>;
         window.V2_ILERLEME_API = '<?= varlik('v2_gorev_sistemi/api/ilerleme_haritasi.php', '../../') ?>';
         window.V2_OYNATICI_URL = 'oynatici.php';
+
+        /* [2026-08] Üst şerit eklendiğinde çalışma alanının yüksekliği değişti.
+           Blockly kendi tuvalini pencere boyutuna göre kurduğu için bir kez
+           yeniden ölçmesi gerekiyor; yoksa kod alanı taşar ya da eksik kalır. */
+        window.addEventListener('load', function () {
+            setTimeout(function () {
+                try {
+                    var w = window.ogrenciWorkspace
+                         || (typeof Blockly !== 'undefined' ? Blockly.mainWorkspace : null);
+                    if (w && typeof Blockly !== 'undefined' && Blockly.svgResize) {
+                        Blockly.svgResize(w);
+                    }
+                    window.dispatchEvent(new Event('resize'));
+                } catch (e) { /* Blockly henüz hazır değilse sorun değil */ }
+            }, 250);
+        });
     </script>
     <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/kutlama.js', '../../') ?>"></script>
     <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/ilerleme_cubugu.js', '../../') ?>"></script>
