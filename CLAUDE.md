@@ -20,18 +20,52 @@ Ortaokul öğrencilerine **mBlock / blok tabanlı kodlama** öğreten, oyunlaşt
 
 ---
 
+> **⚠️ 2026-08 BÜYÜK REVİZYON YAPILDI.** Veritabanı değişti.
+> Yeni kuruluma başlamadan önce `kurulum/KURULUM.md` oku ve
+> `kurulum/migration_2026_08_guvenlik.sql` dosyasını çalıştır.
+
 ## 2. Kullanıcı Rolleri (3 Katman)
 
 | Rol | Giriş | Panel |
 |---|---|---|
-| **Süper Admin** (patron) | Giriş ekranı YOK, URL ile direkt erişim | `admin/ogretmen_yonetimi.php`, `admin/gorev_*.php`, `admin/admin_market.php`, `admin/super_quiz_yonetimi.php` |
+| **Süper Admin** (patron) | `admin/super_giris.php` — **varsayılan `super` / `123`** | `admin/super_panel.php` (hub), `super_bakim.php`, `ogretmen_yonetimi.php`, `gorev_*.php`, `admin_market.php`, `super_quiz_yonetimi.php` |
 | **Öğretmen** | `index.php` → kullanıcı adı + şifre | `admin/ogretmen_paneli.php`, `admin/ogrenci_yonetimi.php`, `admin/quiz_kontrol_merkezi.php` |
 | **Öğrenci** | `index.php` → **PIN + sınıf + kullanıcı adı + şifre** | `ogrenci_paneli.php`, `profil.php`, `market.php`, `quiz_arena.php`, `duello_arena.php` |
 
 **Kayıt akışı:**
 Öğretmen kayıt olur → Süper Admin onaylar + **4 haneli PIN** üretir + üyelik süresi verir → Öğrenci o PIN ile sınıfını bulup kayıt olur → Öğretmen öğrenciyi onaylar (`onay_durumu=1`).
 
-**Oturum anahtarları:** `$_SESSION['ogrenci_id']`, `$_SESSION['ogretmen_id']`, `ogretmen_pin`, `okul_adi`, `sinif_id`, `hata_sayaci`
+**Oturum anahtarları:** `$_SESSION['ogrenci_id']`, `$_SESSION['ogretmen_id']`, `$_SESSION['super_admin_id']`, `ogretmen_pin`, `okul_adi`, `sinif_id`, `hata_sayaci`, `bolum_onay_bileti`
+
+---
+
+## 2b. ⭐ ORTAK ÇEKİRDEK DOSYALARI (yeni kod yazarken bunları kullan)
+
+Bu dört dosya 2026-08 revizyonunda eklendi. **Yeni PHP dosyası yazarken
+`db.php`'yi doğrudan require etme, bunları kullan.**
+
+| Dosya | Ne verir |
+|---|---|
+| `bilesenler/guvenlik.php` | `guvenliOturumBaslat()`, `superAdminZorunlu()`, `ogretmenZorunlu()`, `ogrenciZorunlu()`, `*ZorunluApi()`, `csrfAlani()`, `csrfDogrula()`, `csrfDogrulaSayfa()`, `temizle()`, `istekVerisi()`, `beyazListe()` |
+| `bilesenler/api_yanit.php` | `apiBasari()`, `apiHata()`, `apiJson()`, `apiIstisna()` — üç eski format anahtarını (`success`/`status`/`durum`) birlikte döndürür, eski JS'ler bozulmaz |
+| `bilesenler/rpg_matris.php` | `RPG_MATRIS`, `AVATAR_YUVALARI`, `statlariHesapla()`, `ogrencininGucu()`, `sinifGucListesi()` (tek sorgu), `gucOnbelleginiTemizle()`, `orduGucuOzeti()` |
+| `bilesenler/canavar_ayar.php` | `CANAVAR_SAVAS_GUNU` (18), `CANAVAR_ZAFER_ESIGI` (%50), `canavaraKalanGun()`, `canavarBuyumeYuzdesi()` |
+
+**Standart API dosyası şablonu:**
+```php
+require_once __DIR__ . '/../bilesenler/guvenlik.php';
+require_once __DIR__ . '/../bilesenler/api_yanit.php';
+
+$ogrenci_id = ogrenciZorunluApi();   // kimlik SADECE oturumdan, asla POST'tan!
+$veri = istekVerisi();               // JSON / POST / GET fark etmez
+
+try {
+    // ... iş mantığı ...
+    apiBasari(['anahtar' => $deger], 'Mesaj');
+} catch (Throwable $e) {
+    apiIstisna($e, 'Kullanıcıya gösterilecek mesaj.');
+}
+```
 
 ---
 
@@ -110,42 +144,66 @@ Hasar = `genel_guc × rand(0.8–1.2) × (çeviklik şansıyla 1.5 kritik)`. Pua
 Canavar ölürse yumurtadan doğar (yeni can = Türkiye ortalaması × 1.15), ölmezse "dev" olarak büyür.
 Ayrıca `api/canavara_saldir.php` ile öğrenci envanterinden eşya feda edip (33 enerji) `seviye×20` hasar vurabilir.
 
-### F. Quiz Arena (çoklu, canlı)
-Öğretmen `quiz_oturum` açar (bölüm + zorluk seçer) → öğrenciler `quiz_arena.php`'ye çekilir.
+### F. Quiz Arena (çoklu, canlı) — **SINIF BAZLI**
+Öğretmen `quiz_oturum` açar (**sınıf** + bölüm + zorluk seçer) → SADECE o sınıfın öğrencileri çekilir.
+`quiz_oturum.ogretmen_id` + `sinif_id` bu bağı kurar.
 4 güç (her biri 1 hak): **kilic** (hedef yanlış bilirse -20/+20), **kalkan** (kılıcı geri teptirir, +20 ödül), **glitch**, **saat** (doğru bilirse 2 kat geri teper).
-`quiz_savas_log` tablosu üzerinden polling ile saldırı bildirimi.
 
-### G. Düello (1v1)
-`duello_ayarlari` (id=1) tek satır global şalter. Öğretmen dakikalık açar.
-Meydan oku → karşı taraf kabul → seviyeye uygun rastgele soru → ilk doğru bilen kazanır.
+### G. Düello (1v1) — **SINIF İÇİ**
+Şalter: **`ogretmenler.duello_bitis`** (arena ile aynı desen; eski global `duello_ayarlari` KULLANIM DIŞI).
+Meydan okuma sadece **aynı sınıftaki** öğrenciye yapılabilir.
 Puan: okuyan kazanırsa +5/-3, okunan kazanırsa +6/-6, süre biterse ikisi de ceza (-5/-3, `kazanan_id=-2`).
 
-### H. v2 Görev Sistemi 🚧 (yarım)
-Admin Blockly ile "Master Blueprint" (doğru kod dizilimi) + alternatif çözümler tasarlar → `v2_gorevler.icerik_json`.
-Öğrenci `oynatici.php`'de kodu blokla kurar, `kod_tercumani.js` JS'e çevirir, `oyun_sahnesi.js` çalıştırır, `hakem_motoru.js` kontrol eder.
+### H. v2 Görev Sistemi ✅ (çalışır durumda)
+Admin `tasarlayici.php`'de Blockly ile "Master Blueprint" (cevap anahtarı) + alternatif çözümler kurar, **bölüm/sıra/puan seçer** → `v2_gorevler.icerik_json`.
+`admin/gorev_listesi.php` ile görevler listelenir, sıralanır, yayına alınır.
+
+Öğrenci `oynatici.php?gorev_id=N`'de kodu blokla kurar → **"Görevimi Kontrol Et"** →
+`hakem_motoru.js` workspace XML'ini `api/v2_gorev_tamamla.php`'ye gönderir →
+**`api/v2_hakem.php` SUNUCUDA** cevap anahtarıyla karşılaştırır (XML sadeleştirilip
+id/x/y atılır, blok tipi + alan değerleri + bağlanma sırası karşılaştırılır) →
+doğruysa **anında** `kalici_puan` + `elmas` yazılır. Bekleyen puan / öğretmen şifresi YOK.
+
+`v2_ogrenci_ilerleme` aynı görevden iki kez puan alınmasını engeller.
+Bölümün tüm görevleri bitince `mevcut_bolum` otomatik artar.
+
 Ayrıca **Paper.js tabanlı Kostüm Atölyesi** (vektör çizim editörü) var.
-**Son durum notu (`ne yapılacak nerede kaldım.txt`):** *"skorboardın üstündeki avatar resmini sayfaya yerleştirmeye çalışıyorum."*
 
 ---
 
 ## 5. Kritik Mimari Kurallar
 
-1. **Framework yok.** Composer, autoload, router yok. Her PHP dosyası kendi başına çalışır ve `require_once 'db.php'` (veya `../db.php`) yapar.
-2. **API sözleşmesi tutarsız.** Bazı endpoint `{"success":bool}`, bazısı `{"status":"success|error"}`, bazısı `{"durum":...}` döner. Yeni kod yazarken **o dosyanın etrafındaki mevcut kalıbı taklit et**, tek tip yapmaya çalışıp diğerlerini bozma.
-3. **Girdi formatı karışık.** Bazıları `json_decode(file_get_contents("php://input"))`, bazıları `$_POST`, bazıları `$_GET`. Değiştirmeden önce çağıran JS'i kontrol et.
-4. **CSS çoğunlukla inline.** `css/` klasöründe sadece 4 dosya var; asıl stil `<style>` bloklarında ve `style=""` içinde. (bkz. `docs/STIL_REHBERI.md`)
-5. **Yorum başlıkları zorunlu.** Her dosyanın başında Türkçe blok yorum var: dosya yolu, kullanıcı/sayfa, "halk dilinde işlevi", temel işlevler, yeni eklenen özellikler. **Yeni dosya oluştururken aynı formatı kullan.**
-6. **`js/db.php`** kök `db.php`'nin gereksiz kopyası — kullanılmıyor.
+1. **Framework yok.** Composer, autoload, router yok. Her PHP dosyası kendi başına çalışır.
+   Ama artık `db.php`'yi doğrudan çağırma → `bilesenler/guvenlik.php` kullan (o zaten db'yi yükler).
+2. **Kimlik ASLA istekten alınmaz.** `$_POST['ogrenci_id']` gibi bir şey yazma.
+   Her zaman `ogrenciZorunluApi()` / `ogretmenZorunluApi()` / `superAdminZorunluApi()`.
+   *(Eski kodda bu yüzden herkes başkasına puan yazdırabiliyordu.)*
+3. **Sorguya gömülecek her kullanıcı girdisi beyaz listeden geçer.**
+   Sütun adı, tablo adı, ORDER BY yönü → `beyazListe($deger, [...])`.
+4. **API cevabı** → `apiBasari()` / `apiHata()` kullan (`bilesenler/api_yanit.php`).
+   Üç eski format anahtarını birlikte döndürdüğü için mevcut JS'ler bozulmaz.
+5. **Girdi formatı karışık.** `istekVerisi()` JSON/POST/GET farkını sen düşünmeden çözer.
+6. **Çıktı temizliği:** ekrana basılan her kullanıcı verisi `temizle()` (htmlspecialchars) ile.
+   JS tarafında `innerHTML` kullanıyorsan önce `textContent` ile kaçır.
+7. **CSS çoğunlukla inline.** `css/` klasöründe 4 dosya var; asıl stil `<style>` bloklarında. (bkz. `docs/STIL_REHBERI.md`)
+8. **Yorum başlıkları zorunlu.** Her dosyanın başında Türkçe blok yorum: dosya yolu, kullanıcı/sayfa, "halk dilinde işlevi", temel işlevler, yeni eklenen özellikler.
+9. **Çok kiracılık:** Yeni bir özellik yazarken *"bu başka bir okulun/sınıfın verisine sızar mı?"* diye sor.
+   Quiz ve düello bu yüzden yeniden yazıldı.
 
 ---
 
 ## 6. Değişiklik Yaparken Kontrol Listesi
 
 - [ ] Dosya başına Türkçe açıklama bloğu eklendi mi?
-- [ ] Stat matrisi değiştiyse **3 dosyada birden** güncellendi mi?
-- [ ] Yeni tablo/sütun eklendiyse `docs/VERITABANI.md` güncellendi mi?
-- [ ] Yeni endpoint eklendiyse `docs/API_REFERANS.md` güncellendi mi?
-- [ ] Session kontrolü var mı? (Çoğu admin dosyasında **yok** — bkz. `docs/BILINEN_SORUNLAR.md` #1)
+- [ ] `guvenlik.php` kapıcısı eklendi mi? (`*Zorunlu()` / `*ZorunluApi()`)
+- [ ] Kimlik oturumdan mı alınıyor (istekten DEĞİL)?
+- [ ] Sorguya gömülen kullanıcı girdisi `beyazListe()`'den geçti mi?
+- [ ] Sınıf/öğretmen filtresi var mı? (başka okulun verisi sızmasın)
+- [ ] Ekrana basılan veri `temizle()`'den geçti mi?
+- [ ] Stat matrisi değiştiyse `bilesenler/rpg_matris.php` (**tek yer**) güncellendi mi?
+- [ ] Avatar/envanter değiştiyse `gucOnbelleginiTemizle()` çağrıldı mı?
+- [ ] Yeni tablo/sütun → `docs/VERITABANI.md` + `kurulum/` altına migration
+- [ ] Yeni endpoint → `docs/API_REFERANS.md`
 - [ ] Renkler `docs/STIL_REHBERI.md` paletinden mi?
 
 ---
