@@ -79,6 +79,29 @@ function blueprintSadelestir(?string $xml): ?array
         }
     }
 
+    /* [2026-08] BOŞTA DURAN (YETİM) BLOKLARI YOK SAY
+       Çalışma alanında hiçbir yere bağlanmamış bloklar KOD ÜRETMEZ —
+       kod_tercumani.js zaten onları atlıyor ("başıboş blokları engelle").
+       Ama hakem onları sayıyordu. Sonuç: admin tasarlarken bir sayı bloğunu
+       boşta unutunca cevap anahtarı 1 blok fazla görünüyor ve hiçbir öğrenci
+       görevi tamamlayamıyordu.
+       Kural: en az bir ŞAPKA bloğu (mblock_olay_*) varsa, üst seviyedeki
+       diğer her şey ölü koddur ve yok sayılır. Hiç şapka yoksa dokunmuyoruz
+       (eski görevler bozulmasın). */
+    $sapkaVarMi = false;
+    foreach ($bloklar as $b) {
+        if (strpos($b['t'], 'mblock_olay_') === 0) {
+            $sapkaVarMi = true;
+            break;
+        }
+    }
+
+    if ($sapkaVarMi) {
+        $bloklar = array_values(array_filter($bloklar, static function ($b) {
+            return strpos($b['t'], 'mblock_olay_') === 0;
+        }));
+    }
+
     // Üst seviye blok yığınlarının sırası kullanıcıya göre değişebilir → sırala
     usort($bloklar, static fn($a, $b) => strcmp(
         json_encode($a, JSON_UNESCAPED_UNICODE),
@@ -228,9 +251,44 @@ function cozumDogruMu(string $ogrenciXml, array $blueprint): array
     } elseif ($eksikler && $fazlalar) {
         $sebep = 'Eksik: ' . implode(', ', $eksikler) . ' | Fazla: ' . implode(', ', $fazlalar);
     } else {
-        // Blok türleri aynı → fark ya sıralamada ya da sayı/metin değerlerinde
-        $sebep = 'Bloklar doğru! Ama sıralama ya da içlerindeki sayı/metin değerleri farklı. '
-               . 'Görev metnindeki değerleri kontrol et.';
+        /* Blok TÜRLERİ aynı → fark ya sıralamada ya da sayı/metin değerlerinde.
+           [2026-08] Hangi satırda ayrıldığını söyleyelim; "değerler farklı"
+           demek öğrenciye hiçbir şey anlatmıyordu. */
+        $ogrenciSatirlar = blokTipleriniListele($ogrenci);
+        $anaSatirlar     = $ana ? blokTipleriniListele($ana) : [];
+
+        $ilkFark = null;
+        $adet    = max(count($ogrenciSatirlar), count($anaSatirlar));
+        for ($i = 0; $i < $adet; $i++) {
+            $seninki  = $ogrenciSatirlar[$i] ?? '(yok)';
+            $olmasiGereken = $anaSatirlar[$i] ?? '(yok)';
+            if ($seninki !== $olmasiGereken) {
+                $ilkFark = [trim($seninki), trim($olmasiGereken)];
+                break;
+            }
+        }
+
+        if ($ilkFark) {
+            // Sayı/metin satırlarını öğrencinin anlayacağı dile çevir
+            $okunur = static function (string $satir): string {
+                if (preg_match('/^math_number\(NUM=(.*)\)$/', $satir, $m)) {
+                    return 'sayı: ' . $m[1];
+                }
+                if (preg_match('/^text\(TEXT=(.*)\)$/', $satir, $m)) {
+                    return 'metin: "' . $m[1] . '"';
+                }
+                if (preg_match('/^(\w+)\((.*)\)$/', $satir, $m)) {
+                    return blokAdi($m[1]) . ' (' . $m[2] . ')';
+                }
+                return $satir === '(yok)' ? 'hiçbir şey' : blokAdi($satir);
+            };
+
+            $sebep = 'Bloklar doğru ama bir değer tutmuyor → '
+                   . 'sende: ' . $okunur($ilkFark[0])
+                   . ' | olması gereken: ' . $okunur($ilkFark[1]);
+        } else {
+            $sebep = 'Bloklar doğru ama sıralama farklı. Blokların yukarıdan aşağı dizilişini kontrol et.';
+        }
     }
 
     return ['dogru' => false, 'eslesen' => null, 'sebep' => $sebep, 'teshis' => $teshis];
