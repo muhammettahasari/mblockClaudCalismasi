@@ -199,19 +199,103 @@ function cozumDogruMu(string $ogrenciXml, array $blueprint): array
         }
     }
 
-    // 3. Yaklaşan ipucu: blok sayısı farkına göre yönlendir
-    $ogrenciBlokSayisi = blokSay($ogrenci);
-    $anaBlokSayisi     = $ana ? blokSay($ana) : 0;
+    /* 3. AKILLI İPUCU
+       [2026-08] Eskiden sadece "Eksik blok var" deniyordu ve öğrenci hangi
+       bloğu unuttuğunu bilemiyordu. Artık eksik/fazla blokların ADI yazılıyor. */
+    $ogrenciTipler = blokTipSayaci($ogrenci);
+    $anaTipler     = $ana ? blokTipSayaci($ana) : [];
 
-    if ($anaBlokSayisi > 0 && $ogrenciBlokSayisi < $anaBlokSayisi) {
-        $sebep = 'Eksik blok var gibi görünüyor. Görev metnini tekrar oku.';
-    } elseif ($anaBlokSayisi > 0 && $ogrenciBlokSayisi > $anaBlokSayisi) {
-        $sebep = 'Fazladan blok kullanmışsın. Gereksiz blokları kaldırmayı dene.';
+    $eksikler = [];
+    foreach ($anaTipler as $tip => $adet) {
+        $fark = $adet - ($ogrenciTipler[$tip] ?? 0);
+        if ($fark > 0 && $tip !== 'math_number' && $tip !== 'text') {
+            $eksikler[] = blokAdi($tip) . ($fark > 1 ? " ({$fark} tane)" : '');
+        }
+    }
+
+    $fazlalar = [];
+    foreach ($ogrenciTipler as $tip => $adet) {
+        $fark = $adet - ($anaTipler[$tip] ?? 0);
+        if ($fark > 0 && $tip !== 'math_number' && $tip !== 'text') {
+            $fazlalar[] = blokAdi($tip) . ($fark > 1 ? " ({$fark} tane)" : '');
+        }
+    }
+
+    if ($eksikler && !$fazlalar) {
+        $sebep = 'Şu blok(lar) eksik: ' . implode(', ', $eksikler);
+    } elseif ($fazlalar && !$eksikler) {
+        $sebep = 'Şu blok(lar) fazla: ' . implode(', ', $fazlalar) . '. Gereksiz olanları sil.';
+    } elseif ($eksikler && $fazlalar) {
+        $sebep = 'Eksik: ' . implode(', ', $eksikler) . ' | Fazla: ' . implode(', ', $fazlalar);
     } else {
-        $sebep = 'Bloklar doğru ama sıralama ya da içlerindeki değerler farklı.';
+        // Blok türleri aynı → fark ya sıralamada ya da sayı/metin değerlerinde
+        $sebep = 'Bloklar doğru! Ama sıralama ya da içlerindeki sayı/metin değerleri farklı. '
+               . 'Görev metnindeki değerleri kontrol et.';
     }
 
     return ['dogru' => false, 'eslesen' => null, 'sebep' => $sebep, 'teshis' => $teshis];
+}
+
+/**
+ * [2026-08] Blok tiplerinin öğrenciye gösterilecek Türkçe adları.
+ * "Eksik blok var" demek yerine "Eksik: 'Merhaba! de' bloğu" diyebilmek için.
+ */
+function blokAdi(string $tip): string
+{
+    static $sozluk = [
+        // Olaylar
+        'mblock_olay_bayrak_tiklandiginda'   => '🏳️ Yeşil bayrak tıklandığında',
+        'mblock_olay_tus_basildiginda'       => '⌨️ Tuşa basıldığında',
+        'mblock_olay_kukla_tiklandiginda'    => '🖱️ Kuklaya tıklandığında',
+        // Hareket
+        'mblock_hareket_git'                 => '👣 adım git',
+        'mblock_hareket_don_sag'             => '↻ sağa dön',
+        'mblock_hareket_don_sol'             => '↺ sola dön',
+        'mblock_hareket_xy_git'              => '📍 x,y konumuna git',
+        'mblock_hareket_rastgele_git'        => '🎲 rastgele konuma git',
+        'mblock_hareket_suzul_xy'            => '🕊️ x,y konumuna süzül',
+        'mblock_hareket_suzul_rastgele'      => '🕊️ rastgele konuma süzül',
+        'mblock_hareket_yone_don'            => '🧭 yönüne dön',
+        'mblock_hareket_hedefe_don'          => '🧭 hedefe doğru dön',
+        'mblock_hareket_x_yap'               => 'x konumunu ayarla',
+        'mblock_hareket_y_yap'               => 'y konumunu ayarla',
+        'mblock_hareket_x_degistir'          => "x'i değiştir",
+        'mblock_hareket_y_degistir'          => "y'yi değiştir",
+        'mblock_hareket_kenardaysa_sek'      => '🪃 kenara gelince sek',
+        // Görünüm
+        'mblock_gorunum_merhaba_de'          => '💬 ... de',
+        'mblock_gorunum_merhaba_de_sureli'   => '💬 ... saniye boyunca de',
+        'mblock_gorunum_dusun'               => '💭 ... düşün',
+        'mblock_gorunum_dusun_sureli'        => '💭 ... saniye boyunca düşün',
+        'mblock_gorunum_goster'              => '👁️ göster',
+        'mblock_gorunum_gizle'               => '🚫 gizle',
+        'mblock_gorunum_sonraki_kilik'       => '👕 sonraki kostüm',
+        'mblock_gorunum_kiligina_gec'        => '👕 kostüme geç',
+        'mblock_gorunum_boyut_yap'           => '📏 boyutu ayarla',
+        'mblock_gorunum_boyut_degistir'      => '📏 boyutu değiştir',
+        'mblock_gorunum_sonraki_dekor'       => '🖼️ sonraki dekor',
+        'mblock_gorunum_dekora_gec'          => '🖼️ dekora geç',
+        // Kontrol
+        'mblock_kontrol_bekle'               => '⏳ saniye bekle',
+        'mblock_kontrol_tekrarla'            => '🔁 kez tekrarla',
+        'mblock_kontrol_surekli'             => '🔄 sürekli tekrarla',
+        'mblock_kontrol_eger_ise'            => '❓ eğer ... ise',
+        'mblock_kontrol_eger_degilse'        => '❓ eğer ... değilse',
+        'mblock_kontrol_olana_kadar_tekrarla'=> '🔁 ... olana kadar tekrarla',
+        // Ses
+        'mblock_ses_cal_bitene_kadar'        => '🔊 sesi bitene kadar çal',
+        // Değerler
+        'math_number'                        => 'sayı',
+        'text'                               => 'metin',
+    ];
+
+    if (isset($sozluk[$tip])) {
+        return $sozluk[$tip];
+    }
+
+    // Sözlükte yoksa tip adından okunabilir bir ad türet
+    $sade = preg_replace('/^mblock_(hareket|gorunum|ses|olay|kontrol|algilama|islem)_/', '', $tip);
+    return str_replace('_', ' ', $sade);
 }
 
 /**
@@ -266,6 +350,36 @@ function blokTipleriniListele($dugum, int $derinlik = 0): array
     }
 
     return $liste;
+}
+
+/**
+ * [2026-08] Sadeleşmiş yapıdaki blok tiplerini sayar.
+ * Örn: ['mblock_hareket_git' => 1, 'math_number' => 2]
+ * Eksik/fazla blok ipucu üretmek için kullanılır.
+ */
+function blokTipSayaci($dugum, array &$sayac = []): array
+{
+    if (is_array($dugum) && isset($dugum['t'])) {
+        $tip = $dugum['t'];
+        $sayac[$tip] = ($sayac[$tip] ?? 0) + 1;
+
+        foreach ($dugum['g'] as $grup) {
+            foreach ($grup as $ic) {
+                blokTipSayaci($ic, $sayac);
+            }
+        }
+        if ($dugum['n']) {
+            blokTipSayaci($dugum['n'], $sayac);
+        }
+        return $sayac;
+    }
+
+    if (is_array($dugum)) {
+        foreach ($dugum as $eleman) {
+            blokTipSayaci($eleman, $sayac);
+        }
+    }
+    return $sayac;
 }
 
 /** Sadeleşmiş yapıdaki toplam blok sayısını verir (ipucu üretmek için). */
