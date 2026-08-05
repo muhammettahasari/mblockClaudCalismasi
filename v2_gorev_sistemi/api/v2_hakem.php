@@ -119,6 +119,9 @@ function blokSadelestir(DOMElement $blok): array
         'f' => [],                                      // alanlar (field)
         'g' => [],                                      // girdiler (value / statement)
         'n' => null,                                    // alta bağlanan blok (next)
+        // [2026-08] Gölge (shadow) blok mu? Gölge = kullanıcının koymadığı,
+        // bloğun kendi varsayılan değeri. Bayat yuvaları ayıklamak için gerekli.
+        's' => ($blok->localName === 'shadow'),
     ];
 
     foreach ($blok->childNodes as $cocuk) {
@@ -199,11 +202,12 @@ function cozumDogruMu(string $ogrenciXml, array $blueprint): array
                 'teshis' => $teshis];
     }
 
-    $ogrenciImza = json_encode($ogrenci, JSON_UNESCAPED_UNICODE);
+    /* [2026-08] Karşılaştırma artık düz metin (json_encode) eşitliği DEĞİL,
+       yapısal: blok tanımı değiştiğinde geride kalan bayat yuvaları eler.
+       Bkz. blokEsit() üzerindeki açıklama. */
 
     // 1. Ana çözüm
-    if ($ana !== null && $ana !== []
-        && json_encode($ana, JSON_UNESCAPED_UNICODE) === $ogrenciImza) {
+    if ($ana !== null && $ana !== [] && listeEsit($ogrenci, $ana)) {
         return ['dogru' => true, 'eslesen' => 'ana',
                 'sebep' => 'Ana çözümle birebir eşleşti.', 'teshis' => $teshis];
     }
@@ -214,8 +218,7 @@ function cozumDogruMu(string $ogrenciXml, array $blueprint): array
         foreach (array_values($alternatifler) as $i => $altXml) {
             $ham = is_array($altXml) ? ($altXml['xml'] ?? '') : $altXml;
             $alt = blueprintSadelestir($ham);
-            if ($alt !== null && $alt !== []
-                && json_encode($alt, JSON_UNESCAPED_UNICODE) === $ogrenciImza) {
+            if ($alt !== null && $alt !== [] && listeEsit($ogrenci, $alt)) {
                 return ['dogru' => true, 'eslesen' => 'alternatif_' . ($i + 1),
                         'sebep' => 'Alternatif çözümle eşleşti.', 'teshis' => $teshis];
             }
@@ -292,6 +295,100 @@ function cozumDogruMu(string $ogrenciXml, array $blueprint): array
     }
 
     return ['dogru' => false, 'eslesen' => null, 'sebep' => $sebep, 'teshis' => $teshis];
+}
+
+/* ============================================================================
+ * [2026-08] YAPISAL KARŞILAŞTIRMA (düz metin eşitliği yerine)
+ *
+ * NEDEN GEREKLİ:
+ * Cevap anahtarı XML'i, blok tanımı değiştikten sonra ARTIK VAR OLMAYAN bir
+ * yuvayı içerebiliyor. Gerçek örnek: mblock_gorunum_merhaba_de bloğunun
+ * eskiden SURE girdisi varmış; sonra kaldırılmış. Veritabanındaki anahtarda
+ * hâlâ <value name="SURE"><shadow math_number 2></value> duruyor.
+ * Öğrenci aynı bloğu bugünkü tanımla kurduğu için o yuva onda YOK —
+ * ve görevi ASLA tamamlayamıyor.
+ *
+ * KURAL:
+ * İki blok AYNI TİPTEYSE aynı tanımı paylaşır; dolayısıyla bir tarafta olup
+ * diğerinde olmayan yuva "bayat veri"dir. Böyle yuvalar YALNIZCA içi tamamen
+ * gölge (shadow) blokla doluysa yok sayılır — gölge, kullanıcının koymadığı
+ * varsayılan değer demektir. İçinde gerçek blok varsa yok sayılmaz.
+ * ========================================================================== */
+
+/** Bir yuvadaki bütün düğümler gölge mi? (yani hepsi varsayılan değer mi) */
+function hepsiGolgeMi(array $dugumler): bool
+{
+    foreach ($dugumler as $d) {
+        if (empty($d['s'])) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/** İki blok listesi yapısal olarak eşit mi? */
+function listeEsit(?array $a, ?array $b): bool
+{
+    $a = $a ?? [];
+    $b = $b ?? [];
+
+    if (count($a) !== count($b)) {
+        return false;
+    }
+    foreach ($a as $i => $eleman) {
+        if (!blokEsit($eleman, $b[$i] ?? null)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/** İki bloğu (ve altındaki her şeyi) karşılaştırır. */
+function blokEsit(?array $a, ?array $b): bool
+{
+    if ($a === null || $b === null) {
+        return $a === $b;
+    }
+
+    // 1. Blok tipi
+    if (($a['t'] ?? '') !== ($b['t'] ?? '')) {
+        return false;
+    }
+
+    // 2. Alan değerleri (açılır menü, sayı alanı vb.) birebir aynı olmalı
+    $af = $a['f'] ?? [];
+    $bf = $b['f'] ?? [];
+    ksort($af);
+    ksort($bf);
+    if ($af !== $bf) {
+        return false;
+    }
+
+    // 3. Yuvalar — bayat olanları eleyerek
+    $ag = $a['g'] ?? [];
+    $bg = $b['g'] ?? [];
+    $tumYuvalar = array_unique(array_merge(array_keys($ag), array_keys($bg)));
+
+    foreach ($tumYuvalar as $yuva) {
+        $aVar = isset($ag[$yuva]);
+        $bVar = isset($bg[$yuva]);
+
+        if ($aVar && $bVar) {
+            if (!listeEsit($ag[$yuva], $bg[$yuva])) {
+                return false;
+            }
+            continue;
+        }
+
+        // Tek tarafta var: yalnızca tamamen gölgeyse bayat kabul edilip atlanır
+        $tekTaraf = $aVar ? $ag[$yuva] : $bg[$yuva];
+        if (!hepsiGolgeMi($tekTaraf)) {
+            return false;   // gerçek blok var, görmezden gelinemez
+        }
+    }
+
+    // 4. Alta bağlanan blok
+    return blokEsit($a['n'] ?? null, $b['n'] ?? null);
 }
 
 /**
