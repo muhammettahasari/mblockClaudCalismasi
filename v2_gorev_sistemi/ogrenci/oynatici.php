@@ -833,6 +833,84 @@ $gorevPuani   = $gorev ? (int) $gorev['puan'] : 0;
         const SUNUCUDAN_GELEN_GOREV = <?= $gorevPaketi ?>;
         // [2026-08] Hakem ve ipucu motorunun erişebilmesi için global kopya (#17)
         window.v2GorevPaketi = SUNUCUDAN_GELEN_GOREV;
+        window.v2GorevBasligi = <?= json_encode($baslik, JSON_UNESCAPED_UNICODE) ?>;
+
+        /* ====================================================================
+         * GÖREV METNİNİ EKRANA ÇİZ
+         * [2026-08] Bu kod HİÇ YAZILMAMIŞTI. #hikayeAlani kutusunda
+         * "Yükleniyor..." yazısı duruyor ve hiçbir zaman değişmiyordu —
+         * bu yüzden öğrenci sayfasında görev metni hiç görünmüyordu.
+         *
+         * Admin tarafı hikâyeyi Editor.js ile yazıyor ve şu yapıda saklıyor:
+         *   { blocks: [ {type:'paragraph', data:{text:'...'}}, ... ] }
+         * Burada o blokları güvenli HTML'e çeviriyoruz.
+         * ================================================================== */
+        (function goreviCiz() {
+            const kutu = document.getElementById('hikayeAlani');
+            if (!kutu) return;
+
+            /** Metin içindeki [kukla:ripley] gibi kısa kodları rozete çevirir. */
+            function kisaKodlariSusle(html) {
+                return html.replace(/\[([a-zA-ZğüşıöçĞÜŞİÖÇ_]+):([^\]]+)\]/g, function (t, tur, deger) {
+                    const ikonlar = { kukla: '🎭', dongu: '🔄', blok: '🧩', kod: '💻' };
+                    const ikon = ikonlar[tur.toLowerCase()] || '🏷️';
+                    return '<span style="display:inline-block; background:#eef2ff; color:#4338ca; '
+                         + 'border:1px solid #c7d2fe; padding:2px 9px; border-radius:20px; '
+                         + 'font-size:13px; font-weight:600; margin:0 2px;">'
+                         + ikon + ' ' + deger.replace(/_/g, ' ') + '</span>';
+                });
+            }
+
+            const paket = SUNUCUDAN_GELEN_GOREV || {};
+            const hikaye = paket.hikaye_metni || {};
+            const bloklar = Array.isArray(hikaye.blocks) ? hikaye.blocks : [];
+
+            // Başlık her zaman en üstte
+            let html = '<h2 style="margin:0 0 14px 0; color:#1e293b; font-size:21px;">📝 '
+                     + (window.v2GorevBasligi || 'Görev') + '</h2>';
+
+            if (bloklar.length === 0) {
+                html += '<p style="color:#94a3b8; line-height:1.7;">'
+                      + 'Bu görevin metni henüz yazılmamış.<br>'
+                      + '<span style="font-size:13px;">Öğretmenine haber verebilirsin.</span></p>';
+                kutu.innerHTML = html;
+                return;
+            }
+
+            bloklar.forEach(function (blok) {
+                const d = blok.data || {};
+                switch (blok.type) {
+                    case 'header': {
+                        const seviye = Math.min(6, Math.max(2, parseInt(d.level, 10) || 3));
+                        html += '<h' + seviye + ' style="color:#1e293b; margin:18px 0 8px 0;">'
+                              + kisaKodlariSusle(d.text || '') + '</h' + seviye + '>';
+                        break;
+                    }
+                    case 'list': {
+                        const etiket = (d.style === 'ordered') ? 'ol' : 'ul';
+                        html += '<' + etiket + ' style="color:#334155; line-height:1.9; padding-left:22px; margin:10px 0;">';
+                        (d.items || []).forEach(function (oge) {
+                            // Editor.js sürümüne göre öğe düz metin veya {content:...} olabilir
+                            const icerik = (oge && typeof oge === 'object') ? (oge.content || '') : oge;
+                            html += '<li>' + kisaKodlariSusle(icerik) + '</li>';
+                        });
+                        html += '</' + etiket + '>';
+                        break;
+                    }
+                    case 'paragraph':
+                    default: {
+                        const metin = d.text || '';
+                        if (metin.trim() !== '') {
+                            html += '<p style="color:#334155; line-height:1.8; margin:10px 0;">'
+                                  + kisaKodlariSusle(metin) + '</p>';
+                        }
+                        break;
+                    }
+                }
+            });
+
+            kutu.innerHTML = html;
+        })();
 
         /* [2026-08] DÜELLO MOTORU AYARI
            Bu sayfa ogrenci_paneli.php içinde bir iframe olarak açılıyor ve

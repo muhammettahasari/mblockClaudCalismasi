@@ -10,7 +10,15 @@
  * - '/' tuşuna basıldığında açılan kısa kod menüsünü (Slash Menu) oluşturur.
  * - Seçilen kısa kodu (Örn: [kukla:ripley]) imlecin bulunduğu yere yapıştırır.
  * * YENİ EKLENEN ÖZELLİKLER:
- * * ============================================================================
+ *  - [2026-08] DÜZENLEME MODU DÜZELTİLDİ:
+ *      Editor.js hiçbir zaman `data` ile başlatılmıyordu. Bu yüzden mevcut
+ *      bir görevi düzenlemeye açtığında metin alanı BOŞ geliyordu; öyle
+ *      kaydedince de görevin hikâyesi siliniyordu.
+ *  - [2026-08] BAŞLIK VE LİSTE ARAÇLARI KAYDEDİLDİ:
+ *      header ve list eklentileri sayfaya yükleniyordu ama Editor.js'e
+ *      `tools` olarak tanıtılmamıştı; başlık/liste blokları ne yazılabiliyor
+ *      ne de kayıtlı olanlar geri yüklenebiliyordu.
+ * ============================================================================
  */
 
 // 1. mBlock Kısa Kod Sözlüğümüz
@@ -22,10 +30,36 @@ const mblockSozlugu = [
 ];
 
 // 2. Editor.js'i Başlat
+// --- Araçları kaydet (CDN'den gelen global isimler: Header, List) ---
+const v2Araclar = {};
+if (typeof Header !== 'undefined') {
+    v2Araclar.header = { class: Header, inlineToolbar: true };
+}
+if (typeof List !== 'undefined') {
+    v2Araclar.list = { class: List, inlineToolbar: true };
+}
+
+// --- Düzenleme modundaysak kayıtlı hikâyeyi başlangıç verisi olarak ver ---
+let v2BaslangicVerisi = undefined;
+try {
+    const kayit = window.v2DuzenlenenGorev;
+    if (kayit && kayit.icerik && kayit.icerik.hikaye_metni) {
+        const h = kayit.icerik.hikaye_metni;
+        // Geçerli bir Editor.js paketi mi? (blocks dizisi olmalı)
+        if (h && Array.isArray(h.blocks) && h.blocks.length > 0) {
+            v2BaslangicVerisi = h;
+        }
+    }
+} catch (e) {
+    console.warn('Kayıtlı görev metni okunamadı:', e);
+}
+
 // Diğer dosyalardan (api_yoneticisi.js) erişilebilmesi için window objesine ekliyoruz.
-window.v2Editor = new EditorJS({ 
-    holder: 'v2-editorjs', 
-    placeholder: 'Görev yazın veya mBlock kısa kodları eklemek için / tuşuna basın...' 
+window.v2Editor = new EditorJS({
+    holder: 'v2-editorjs',
+    placeholder: 'Görev yazın veya mBlock kısa kodları eklemek için / tuşuna basın...',
+    tools: v2Araclar,
+    data: v2BaslangicVerisi
 });
 
 // 3. Eğik Çizgi (/) Menüsü Arayüzünü Oluştur

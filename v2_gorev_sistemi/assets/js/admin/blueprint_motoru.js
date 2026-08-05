@@ -14,6 +14,11 @@
  * * * YENİ EKLENEN ÖZELLİKLER:
  * - [Bugün] Sınırsız Alternatif Çözüm ekleme ve silme altyapısı kuruldu.
  * - [Bugün] Tüm çözümlerin XML çıktıları tek bir Blueprint objesinde birleştirildi.
+ * - [2026-08] DÜZENLEME MODU DÜZELTİLDİ:
+ *      Kayıtlı cevap anahtarı (XML) çalışma alanına HİÇ geri yüklenmiyordu.
+ *      Mevcut bir görevi düzenlemeye açınca Blockly alanı boş geliyor,
+ *      öyle kaydedince de görevin cevap anahtarı siliniyordu.
+ *      Artık ana çözüm ve tüm alternatifler geri yükleniyor.
  * ============================================================================
  */
 
@@ -34,7 +39,12 @@ const anaWorkspace = Blockly.inject('blocklyAnaCozum', {
 let alternatifWorkspaces = []; // Alternatif alanları hafızada tutacağımız dizi
 let alternatifSayaci = 0;
 
-document.getElementById('btnAlternatifEkle').addEventListener('click', function() {
+/**
+ * Yeni bir alternatif çözüm alanı açar.
+ * @param {string|null} yuklenecekXml  Varsa bu XML yüklenir (düzenleme modu),
+ *                                     yoksa ana çözüm kopyalanır (kolaylık).
+ */
+function alternatifCozumEkle(yuklenecekXml) {
     alternatifSayaci++;
     const containerId = 'alt_workspace_' + alternatifSayaci;
 
@@ -66,13 +76,67 @@ document.getElementById('btnAlternatifEkle').addEventListener('click', function(
         zoom: { controls: true, wheel: false, startScale: 0.8 }
     });
 
-    // Ana çözümdeki blokları kolaylık olsun diye otomatik olarak alternatife kopyala
-    const anaXmlDom = Blockly.Xml.workspaceToDom(anaWorkspace);
-    Blockly.Xml.domToWorkspace(anaXmlDom, altWs);
+    // Düzenleme modunda kayıtlı XML, yeni eklemede ana çözümün kopyası yüklenir
+    try {
+        if (yuklenecekXml && String(yuklenecekXml).trim() !== '') {
+            Blockly.Xml.domToWorkspace(xmlMetnindenDom(yuklenecekXml), altWs);
+        } else {
+            Blockly.Xml.domToWorkspace(Blockly.Xml.workspaceToDom(anaWorkspace), altWs);
+        }
+    } catch (e) {
+        console.error('Alternatif çözüm yüklenemedi:', e);
+    }
 
     // Hafızaya Kaydet
     alternatifWorkspaces.push({ id: containerId, workspace: altWs });
+    return altWs;
+}
+
+// Butona basınca boş (ana çözümün kopyası) bir alternatif açılır
+document.getElementById('btnAlternatifEkle').addEventListener('click', function () {
+    alternatifCozumEkle(null);
 });
+
+/** Blockly sürüm farklarını gözeten XML metin -> DOM çevirici */
+function xmlMetnindenDom(xmlMetni) {
+    if (Blockly.utils && Blockly.utils.xml && typeof Blockly.utils.xml.textToDom === 'function') {
+        return Blockly.utils.xml.textToDom(xmlMetni);
+    }
+    return Blockly.Xml.textToDom(xmlMetni);
+}
+
+/* ============================================================================
+ * DÜZENLEME MODU: kayıtlı cevap anahtarını geri yükle
+ * [2026-08] Bu blok yoktu — düzenlemeye açılan görev boş görünüyordu.
+ * ========================================================================== */
+(function kayitliCozumuYukle() {
+    const kayit = window.v2DuzenlenenGorev;
+    if (!kayit || !kayit.icerik || !kayit.icerik.blueprint) return;
+
+    const bp = kayit.icerik.blueprint;
+
+    // 1. Ana çözüm
+    if (bp.ana_cozum && String(bp.ana_cozum).trim() !== '') {
+        try {
+            anaWorkspace.clear();
+            Blockly.Xml.domToWorkspace(xmlMetnindenDom(bp.ana_cozum), anaWorkspace);
+        } catch (e) {
+            console.error('Ana çözüm yüklenemedi:', e);
+            alert('⚠️ Bu görevin kayıtlı cevap anahtarı okunamadı. Kaydetmeden önce yeniden kurmanız gerekebilir.');
+        }
+    }
+
+    // 2. Alternatif çözümler
+    const alternatifler = bp.alternatif_cozumler || [];
+    if (Array.isArray(alternatifler)) {
+        alternatifler.forEach(function (xml) {
+            const metin = (xml && typeof xml === 'object') ? (xml.xml || '') : xml;
+            if (metin && String(metin).trim() !== '') {
+                alternatifCozumEkle(metin);
+            }
+        });
+    }
+})();
 
 // Alternatif Çözüm Silme Fonksiyonu
 window.silAlternatifCozum = function(butonElementi, id) {

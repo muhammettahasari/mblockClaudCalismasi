@@ -67,6 +67,25 @@ document.getElementById('btnGoreviKaydet').addEventListener('click', function ()
             return;
         }
 
+        /* [2026-08] VERİ KAYBI FRENİ
+           Düzenleme modunda kayıtlı hikâye yüklenemezse (bozuk JSON, eski
+           sürüm vb.) editör boş görünür; öyle kaydedilirse görevin metni
+           silinir. Kayıtta metin VARDI ama şimdi BOŞSA kullanıcıya soralım. */
+        const yeniBlokSayisi = (editorVerisi && Array.isArray(editorVerisi.blocks)) ? editorVerisi.blocks.length : 0;
+        const kayitli = window.v2DuzenlenenGorev;
+        const eskiBlokSayisi = (kayitli && kayitli.icerik && kayitli.icerik.hikaye_metni
+                                && Array.isArray(kayitli.icerik.hikaye_metni.blocks))
+                               ? kayitli.icerik.hikaye_metni.blocks.length : 0;
+
+        if (gorev_id > 0 && eskiBlokSayisi > 0 && yeniBlokSayisi === 0) {
+            if (!confirm("⚠️ DİKKAT: Bu görevin kayıtlı metni vardı ama şu an editör BOŞ.\n\n"
+                       + "Kaydedersen görev metni SİLİNİR.\n\nYine de devam edilsin mi?")) {
+                btn.disabled = false;
+                btn.innerHTML = eskiYazi;
+                return;
+            }
+        }
+
         const superPaket = {
             hikaye_metni: editorVerisi,
             blueprint: blueprintVerisi,
