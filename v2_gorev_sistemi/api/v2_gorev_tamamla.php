@@ -90,14 +90,25 @@ try {
                 ->execute([$oncekiKayit['id']]);
         }
 
-        apiJson([
+        $cevap = [
             'success' => false,
             'status'  => 'error',
             'durum'   => 'yanlis',
             'dogru'   => false,
             'mesaj'   => $karar['sebep'],
             'message' => $karar['sebep'],
-        ]);
+        ];
+
+        /* [2026-08] SORUN AYIKLAMA BİLGİSİ (sadece localhost)
+           "Hiç blok eklememişsin" gibi hataların kaynağını görebilmek için
+           kaç blok okunduğunu tarayıcı konsoluna gönderiyoruz. Canlı
+           sunucuda bu blok çalışmaz. */
+        if (in_array($_SERVER['SERVER_NAME'] ?? '', ['localhost', '127.0.0.1'], true)) {
+            $cevap['teshis'] = $karar['teshis'] ?? [];
+            $cevap['teshis']['gelen_xml_onizleme'] = mb_substr($ogrenciXml, 0, 400);
+        }
+
+        apiJson($cevap);
     }
 
     /* ---- 5. DOĞRU: daha önce puan alınmış mı? ---- */

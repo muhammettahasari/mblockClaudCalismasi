@@ -214,6 +214,16 @@ window.hakemiCagir = function () {
     .then(data => {
         if (btn) { btn.disabled = false; }
 
+        // [2026-08] Sorun ayıklama: sunucu kaç blok okudu? (sadece localhost'ta gelir)
+        if (data.teshis) {
+            console.group('🔍 Hakem teşhisi');
+            console.log('Gönderilen XML uzunluğu :', data.teshis.gelen_xml_uzunluk);
+            console.log('Öğrenci üst blok / toplam:', data.teshis.ogrenci_ust_blok, '/', data.teshis.ogrenci_toplam_blok);
+            console.log('Anahtar üst blok / toplam:', data.teshis.anahtar_ust_blok, '/', data.teshis.anahtar_toplam_blok);
+            console.log('XML önizleme:', data.teshis.gelen_xml_onizleme);
+            console.groupEnd();
+        }
+
         if (!data.dogru) {
             hakemSonucGoster('❌ ' + (data.mesaj || 'Henüz doğru değil, tekrar dene.'), 'yanlis');
             return;

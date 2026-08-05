@@ -16,7 +16,7 @@
  * NASIL KARŞILAŞTIRIR?
  * Blockly XML'inde blokların id'si, ekrandaki x/y konumu ve boşluklar her
  * seferinde değişir; bunlar anlamsızdır. Hakem önce XML'i "sadeleştirir":
- *   - id, x, y, blok ismi gibi gürültüyü atar
+ *   - id, x, y, editör bilgisi gibi gürültüyü atar
  *   - geriye blok TİPİ, alan DEĞERLERİ ve blokların BAĞLANMA SIRASI kalır
  * Sonra iki sadeleşmiş yapıyı karşılaştırır. Böylece öğrenci blokları
  * ekranın neresine koyarsa koysun, doğru dizdiyse kabul edilir.
@@ -24,9 +24,21 @@
  * TEMEL İŞLEVLER:
  *  1. blueprintSadelestir($xml)   — XML'i karşılaştırılabilir yapıya çevirir
  *  2. cozumDogruMu($ogrenciXml, $blueprint) — ana çözüm + alternatifleri dener
+ *  3. hakemTeshis($xml)           — sorun ayıklama için özet bilgi
  *
  * YENİ EKLENEN ÖZELLİKLER:
  *  - [2026-08] Dosya oluşturuldu (Bilinen Sorunlar #17).
+ *  - [2026-08] KRİTİK: XML NAMESPACE SORUNU ÇÖZÜLDÜ.
+ *      Blockly XML'i varsayılan namespace ile yazar:
+ *          <xml xmlns="https://developers.google.com/blockly/xml">
+ *      SimpleXML'de $kok->children() bu namespace'teki çocukları DÖNDÜRMEZ.
+ *      Bu yüzden öğrenci ne yaparsa yapsın sadeleştirme [] dönüyor,
+ *      hakem her seferinde "Hiç blok eklememişsin." diyordu. Üstelik cevap
+ *      anahtarı da aynı şekilde boş okunduğu için hiçbir görev ASLA doğru
+ *      sayılamazdı.
+ *      Çözüm: SimpleXML yerine DOMDocument + localName kullanılıyor;
+ *      localName namespace'ten tamamen bağımsızdır. Ayrıca güvenlik için
+ *      xmlns bildirimi de temizleniyor.
  * ============================================================================
  */
 
@@ -34,7 +46,7 @@
  * Blockly XML metnini karşılaştırılabilir sade bir diziye çevirir.
  * Anlamsız veriler (id, x, y, editör bilgisi) atılır.
  *
- * @return array|null  XML bozuksa null
+ * @return array|null  XML bozuksa null, blok yoksa boş dizi
  */
 function blueprintSadelestir(?string $xml): ?array
 {
@@ -43,76 +55,79 @@ function blueprintSadelestir(?string $xml): ?array
         return null;
     }
 
-    /* [2026-08] KRİTİK HATA DÜZELTİLDİ — XML NAMESPACE:
-       Blockly ürettiği XML'i varsayılan namespace ile yazar:
-           <xml xmlns="https://developers.google.com/blockly/xml">...</xml>
-       SimpleXML'de $kok->children() varsayılan namespace'teki çocukları
-       DÖNDÜRMEZ; boş liste verir. Bu yüzden öğrenci ne kadar blok koyarsa
-       koysun sadeleştirme [] dönüyor ve hakem her seferinde
-       "Hiç blok eklememişsin." diyordu.
-       Çözüm: karşılaştırma için namespace bildirimini kaldırıyoruz —
-       blok tipi, alan değerleri ve sıralama zaten namespace'ten bağımsız. */
-    $xml = preg_replace('/\s+xmlns(:\w+)?=(["\'])[^"\']*\2/', '', $xml);
+    // Güvenlik ağı: namespace bildirimlerini temizle (DOM zaten localName kullanıyor)
+    $xml = preg_replace('/\s+xmlns(:\w+)?\s*=\s*(["\'])[^"\']*\2/', '', $xml);
 
     $oncekiAyar = libxml_use_internal_errors(true);
-    $kok = simplexml_load_string($xml);
+
+    $dom = new DOMDocument();
+    $dom->preserveWhiteSpace = false;
+    $yuklendi = $dom->loadXML($xml, LIBXML_NONET);
+
     libxml_clear_errors();
     libxml_use_internal_errors($oncekiAyar);
 
-    if ($kok === false) {
+    if (!$yuklendi || !$dom->documentElement) {
         return null;
     }
 
     $bloklar = [];
-    foreach ($kok->children() as $cocuk) {
-        if ($cocuk->getName() === 'block') {
+    foreach ($dom->documentElement->childNodes as $cocuk) {
+        // localName namespace ön ekini yok sayar — <block> de <b:block> de yakalanır
+        if ($cocuk->nodeType === XML_ELEMENT_NODE && $cocuk->localName === 'block') {
             $bloklar[] = blokSadelestir($cocuk);
         }
     }
 
     // Üst seviye blok yığınlarının sırası kullanıcıya göre değişebilir → sırala
-    usort($bloklar, static fn($a, $b) => strcmp(json_encode($a), json_encode($b)));
+    usort($bloklar, static fn($a, $b) => strcmp(
+        json_encode($a, JSON_UNESCAPED_UNICODE),
+        json_encode($b, JSON_UNESCAPED_UNICODE)
+    ));
 
     return $bloklar;
 }
 
 /** Tek bir <block> düğümünü ve altındaki her şeyi sadeleştirir. */
-function blokSadelestir(SimpleXMLElement $blok): array
+function blokSadelestir(DOMElement $blok): array
 {
     $sonuc = [
-        't' => (string) ($blok['type'] ?? ''),   // blok tipi
-        'f' => [],                                // alanlar (field)
-        'g' => [],                                // girdiler (value / statement)
-        'n' => null,                              // alta bağlanan blok (next)
+        't' => (string) $blok->getAttribute('type'),   // blok tipi
+        'f' => [],                                      // alanlar (field)
+        'g' => [],                                      // girdiler (value / statement)
+        'n' => null,                                    // alta bağlanan blok (next)
     ];
 
-    foreach ($blok->children() as $cocuk) {
-        $ad = $cocuk->getName();
+    foreach ($blok->childNodes as $cocuk) {
+        if ($cocuk->nodeType !== XML_ELEMENT_NODE) {
+            continue;
+        }
 
-        switch ($ad) {
+        switch ($cocuk->localName) {
             case 'field':
                 // Örn: <field name="NUM">10</field>
-                $sonuc['f'][(string) $cocuk['name']] = trim((string) $cocuk);
+                $sonuc['f'][$cocuk->getAttribute('name')] = trim($cocuk->textContent);
                 break;
 
             case 'value':      // Sayı / metin yuvası
             case 'statement':  // İçine blok girilen yuva (döngü gövdesi vb.)
                 $icBloklar = [];
-                foreach ($cocuk->children() as $icCocuk) {
-                    if ($icCocuk->getName() === 'block' || $icCocuk->getName() === 'shadow') {
-                        $icBloklar[] = blokSadelestir($icCocuk);
+                foreach ($cocuk->childNodes as $ic) {
+                    if ($ic->nodeType === XML_ELEMENT_NODE
+                        && ($ic->localName === 'block' || $ic->localName === 'shadow')) {
+                        $icBloklar[] = blokSadelestir($ic);
                     }
                 }
                 if ($icBloklar) {
-                    $sonuc['g'][(string) $cocuk['name']] = $icBloklar;
+                    $sonuc['g'][$cocuk->getAttribute('name')] = $icBloklar;
                 }
                 break;
 
             case 'next':
-                foreach ($cocuk->children() as $icCocuk) {
-                    if ($icCocuk->getName() === 'block') {
-                        $sonuc['n'] = blokSadelestir($icCocuk);
-                        break;
+                foreach ($cocuk->childNodes as $ic) {
+                    if ($ic->nodeType === XML_ELEMENT_NODE && $ic->localName === 'block') {
+                        $sonuc['n'] = blokSadelestir($ic);
+                        break 2;
                     }
                 }
                 break;
@@ -121,7 +136,6 @@ function blokSadelestir(SimpleXMLElement $blok): array
         }
     }
 
-    // Alan sırası XML'de değişebilir → anahtara göre sırala
     ksort($sonuc['f']);
     ksort($sonuc['g']);
 
@@ -133,40 +147,51 @@ function blokSadelestir(SimpleXMLElement $blok): array
  *
  * @param string $ogrenciXml  Öğrencinin blok haritası (Blockly XML)
  * @param array  $blueprint   ['ana_cozum' => xml, 'alternatif_cozumler' => [xml, ...]]
- * @return array ['dogru' => bool, 'eslesen' => 'ana'|'alternatif_2'|null, 'sebep' => string]
+ * @return array ['dogru'=>bool, 'eslesen'=>string|null, 'sebep'=>string, 'teshis'=>array]
  */
 function cozumDogruMu(string $ogrenciXml, array $blueprint): array
 {
     $ogrenci = blueprintSadelestir($ogrenciXml);
+    $ana     = blueprintSadelestir($blueprint['ana_cozum'] ?? '');
+
+    // Sorun ayıklama için sayılar (yanlış cevapta arayüze gönderilir)
+    $teshis = [
+        'gelen_xml_uzunluk'   => strlen($ogrenciXml),
+        'ogrenci_ust_blok'    => is_array($ogrenci) ? count($ogrenci) : -1,
+        'ogrenci_toplam_blok' => is_array($ogrenci) ? blokSay($ogrenci) : -1,
+        'anahtar_ust_blok'    => is_array($ana) ? count($ana) : -1,
+        'anahtar_toplam_blok' => is_array($ana) ? blokSay($ana) : -1,
+    ];
 
     if ($ogrenci === null) {
-        return ['dogru' => false, 'eslesen' => null, 'sebep' => 'Kod okunamadı.'];
+        return ['dogru' => false, 'eslesen' => null,
+                'sebep' => 'Kodun okunamadı. Sayfayı yenileyip tekrar dene.', 'teshis' => $teshis];
     }
     if ($ogrenci === []) {
-        return ['dogru' => false, 'eslesen' => null, 'sebep' => 'Hiç blok eklememişsin.'];
+        return ['dogru' => false, 'eslesen' => null,
+                'sebep' => 'Kod alanında hiç blok görünmüyor. Blokları soldaki menüden sürükleyip bırak.',
+                'teshis' => $teshis];
     }
 
     $ogrenciImza = json_encode($ogrenci, JSON_UNESCAPED_UNICODE);
 
     // 1. Ana çözüm
-    $ana = blueprintSadelestir($blueprint['ana_cozum'] ?? '');
     if ($ana !== null && $ana !== []
         && json_encode($ana, JSON_UNESCAPED_UNICODE) === $ogrenciImza) {
-        return ['dogru' => true, 'eslesen' => 'ana', 'sebep' => 'Ana çözümle birebir eşleşti.'];
+        return ['dogru' => true, 'eslesen' => 'ana',
+                'sebep' => 'Ana çözümle birebir eşleşti.', 'teshis' => $teshis];
     }
 
     // 2. Alternatif çözümler
     $alternatifler = $blueprint['alternatif_cozumler'] ?? [];
     if (is_array($alternatifler)) {
         foreach (array_values($alternatifler) as $i => $altXml) {
-            $alt = blueprintSadelestir(is_array($altXml) ? ($altXml['xml'] ?? '') : $altXml);
+            $ham = is_array($altXml) ? ($altXml['xml'] ?? '') : $altXml;
+            $alt = blueprintSadelestir($ham);
             if ($alt !== null && $alt !== []
                 && json_encode($alt, JSON_UNESCAPED_UNICODE) === $ogrenciImza) {
-                return [
-                    'dogru'   => true,
-                    'eslesen' => 'alternatif_' . ($i + 1),
-                    'sebep'   => 'Alternatif çözümle eşleşti.',
-                ];
+                return ['dogru' => true, 'eslesen' => 'alternatif_' . ($i + 1),
+                        'sebep' => 'Alternatif çözümle eşleşti.', 'teshis' => $teshis];
             }
         }
     }
@@ -183,7 +208,7 @@ function cozumDogruMu(string $ogrenciXml, array $blueprint): array
         $sebep = 'Bloklar doğru ama sıralama ya da içlerindeki değerler farklı.';
     }
 
-    return ['dogru' => false, 'eslesen' => null, 'sebep' => $sebep];
+    return ['dogru' => false, 'eslesen' => null, 'sebep' => $sebep, 'teshis' => $teshis];
 }
 
 /** Sadeleşmiş yapıdaki toplam blok sayısını verir (ipucu üretmek için). */
