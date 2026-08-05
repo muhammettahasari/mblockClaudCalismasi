@@ -98,10 +98,17 @@ try {
             $st->execute([$ogrenci_id]);
             $bakiye = $st->fetch(PDO::FETCH_ASSOC) ?: ['kalici_puan' => 0, 'elmas' => 0];
 
+            /* [2026-08] Sıradaki görevi de söylüyoruz.
+               Öğretmen ceza verdiğinde açılan kırmızı kart kapanınca tarayıcı
+               doğrudan bu göreve gidiyor; hangi bölüme döneceğini tahmin
+               etmesi gerekmiyor. */
+            $sonraki = sonrakiGoreviBul($pdo, $ogrenci_id) ?: sonErisilenGorev($pdo, $ogrenci_id);
+
             apiBasari([
-                'harita'   => $harita,
-                'ceza'     => $ceza,
-                'bildirim' => $bildirim,
+                'harita'           => $harita,
+                'ceza'             => $ceza,
+                'bildirim'         => $bildirim,
+                'sonraki_gorev_id' => (int) ($sonraki ?: 0),
                 'bakiye'   => [
                     'puan'  => (int) $bakiye['kalici_puan'],
                     'elmas' => (int) $bakiye['elmas'],

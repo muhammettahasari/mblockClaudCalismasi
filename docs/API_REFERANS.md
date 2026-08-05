@@ -158,3 +158,32 @@ Tarayıcı sürekli şu endpoint'leri çağırıyor — düzenleme yaparken yük
   (`v2_gorev_tamamla.php` → `$sifirlanmis` kontrolü). Aksi halde ceza ödüle dönerdi.
 - "Cezalı mı?" bilgisi ayrı bir sütunda tutulmaz; `kazanilan_puan = 0 AND sifirlanma_tarihi IS NOT NULL`
   sorgusundan türetilir → görevler bitince kırmızı efekt kendiliğinden kalkar.
+
+### Sıradaki görevi SUNUCU söyler (2026-08 hata düzeltmesi)
+
+`v2_gorev_tamamla.php` ve `ilerleme_haritasi.php` cevaplarına `sonraki_gorev_id`
+eklendi. Kart kapanınca tarayıcı doğrudan `oynatici.php?gorev_id=N&t=<zaman>`
+adresine gider.
+
+**Neden:** Eskiden tarayıcı sadece `oynatici.php`ye gidiyor, sayfanın doğru
+görevi seçmesi umuluyordu. İki hata çıkıyordu:
+
+1. Adres değişmediği için tarayıcı sayfayı **önbellekten** veriyor, ekran hiç
+   yenilenmiyordu. (`t=` zaman damgası bunu kırar, `location.replace` geri
+   tuşunun eski göreve dönmesini engeller.)
+2. Öğretmen ceza verince öğrenci 1. bölüme gidiyor ama bitirince **geri
+   dönemiyordu**.
+
+**`sonrakiGoreviBul()` öncelik sırası:**
+
+1. Öğretmenin sıfırladığı görevler (önce ceza kapanır)
+2. Kalan çözülmemiş görevlerin ilki (bölüm sırası → görev sırası)
+3. Hiçbiri yoksa `null` → `sonErisilenGorev()` devreye girer
+
+> ⚠️ Sıfırlanan görevlerin ayrı bir adımda öne alınması şart. Önceden "sıfırlanan
+> görev zaten önde olur" varsayılmıştı; öğretmen yeni görev ekleyince sıralama
+> değişiyor ve öğrenci ceza görevi ile yeni görev arasında gidip geliyordu.
+
+> ⚠️ Tüm görevler bitince `oynatici.php` **yayındaki ilk göreve DÜŞMEMELİ**.
+> `sonErisilenGorev()` öğrenciyi ulaştığı son görevde bırakır; aksi hâlde her
+> şeyi bitiren öğrenci 1. bölümün 1. görevine atılıp orada takılı kalıyordu.

@@ -76,6 +76,7 @@ body{
     flex:0 0 auto;
     width:100%;
     box-sizing:border-box;
+    position:relative;   /* açılır harita buna göre konumlanır */
     height:var(--serit-boy);
     display:flex;
     align-items:center;
@@ -88,15 +89,78 @@ body{
     z-index:50;
 }
 
-/* --- Sol: bölüm › görev --- */
+/* --- Sol: bölüm › görev (aynı zamanda harita düğmesi) --- */
 .ilerleme-serit .ic-sol{
-    flex:0 0 auto; max-width:32%;
+    flex:0 0 auto; max-width:34%;
     font-size:14px; color:var(--ic-metin);
     white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    /* düğme görünümünü sıfırla */
+    background:transparent; border:none; padding:6px 10px;
+    border-radius:9px; cursor:pointer; font-family:inherit;
+    display:flex; align-items:center; gap:2px;
+    transition:background .15s;
 }
+.ilerleme-serit .ic-sol:hover{ background:#f1f5f9; }
+.ilerleme-serit .ic-sol[aria-expanded="true"]{ background:#ede9fe; }
+
 .ilerleme-serit .ic-bolum{ font-weight:800; color:var(--ic-mor); }
+.ilerleme-serit .ic-ok{
+    color:var(--ic-mor); font-size:11px; margin:0 4px 0 3px;
+    transition:transform .2s;
+}
+.ilerleme-serit .ic-sol[aria-expanded="true"] .ic-ok{ transform:rotate(180deg); }
 .ilerleme-serit .ic-ayrac{ color:var(--ic-gri); margin:0 6px; }
-.ilerleme-serit .ic-gorev{ font-weight:600; }
+.ilerleme-serit .ic-gorev{ font-weight:600; overflow:hidden; text-overflow:ellipsis; }
+
+
+/* ==========================================================================
+   1b. AÇILIR BÖLÜM HARİTASI
+   Şeridin altından aşağı doğru iner. Öğrenci nerede olduğunu görür.
+   ========================================================================== */
+.ic-harita{
+    position:absolute;
+    top:var(--serit-boy); left:12px;
+    width:380px; max-width:calc(100vw - 24px);
+    max-height:min(60vh, 460px); overflow-y:auto;
+    background:#fff;
+    border:1px solid #e2e8f0; border-top:none;
+    border-radius:0 0 14px 14px;
+    box-shadow:0 14px 34px rgba(15,23,42,.18);
+    padding:12px 14px 14px;
+    z-index:60;
+    /* kapalı hâl */
+    opacity:0; transform:translateY(-8px); pointer-events:none;
+    transition:opacity .18s ease, transform .18s ease;
+}
+.ic-harita.acik{ opacity:1; transform:translateY(0); pointer-events:auto; }
+
+.ic-harita-baslik{
+    font-size:12px; font-weight:800; color:var(--ic-soluk);
+    text-transform:uppercase; letter-spacing:.5px;
+    padding-bottom:9px; margin-bottom:10px;
+    border-bottom:1px solid #f1f5f9;
+}
+
+.ic-h-bolum{
+    padding:9px 10px; border-radius:10px; margin-bottom:6px;
+    border:1.5px solid transparent;
+}
+.ic-h-bolum:last-child{ margin-bottom:0; }
+.ic-h-bolum.burada{ border-color:var(--ic-turuncu); background:#fffbeb; }
+.ic-h-bolum.bitti{ background:#f0fdf4; }
+.ic-h-bolum.kilitli{ opacity:.5; }
+
+.ic-h-ust{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:10px; margin-bottom:7px;
+}
+.ic-h-ad{ font-size:13px; font-weight:700; color:var(--ic-metin); }
+.ic-h-oran{ font-size:11.5px; font-weight:700; color:var(--ic-soluk); white-space:nowrap; }
+
+.ic-h-daireler{ display:flex; flex-wrap:wrap; gap:5px; }
+.ic-h-daireler .ic-daire{ width:26px; height:26px; font-size:11.5px; }
+
+.ic-h-bos{ font-size:12px; color:#94a3b8; font-style:italic; }
 
 /* --- Orta: görev daireleri (sadece bulunulan bölüm) --- */
 .ilerleme-serit .ic-orta{
@@ -257,6 +321,14 @@ body.kart-acik .ilerleme-serit{
     box-shadow:0 5px 16px rgba(16,185,129,.4);
 }
 .kart.kutlama .k-kapat:hover{ filter:brightness(1.07); transform:translateY(-1px); }
+
+/* "Sırada: ..." satırı */
+.k-sonraki{
+    font-size:13px; color:var(--ic-soluk);
+    background:#f8fafc; border:1px solid #e2e8f0;
+    border-radius:9px; padding:8px 10px; margin-bottom:16px;
+}
+.k-sonraki b{ color:var(--ic-metin); }
 
 /* Ödül kutucukları */
 .k-odul{ display:flex; justify-content:center; gap:10px; margin-bottom:18px; flex-wrap:wrap; }

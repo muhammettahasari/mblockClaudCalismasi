@@ -130,6 +130,7 @@
      * 2. KART PENCERESİ (ortak iskelet)
      * ================================================================== */
     var kapatincaYenile = false;   // kart kapanınca sayfa yenilensin mi?
+    var hedefGorevId    = 0;       // kapanınca gidilecek görev (0 = sunucu seçsin)
 
     function perdeyiHazirla() {
         var perde = document.getElementById('kartPerde');
@@ -151,24 +152,39 @@
 
     /**
      * Kartı kapatır.
+     *
      * kapatincaYenile true ise sayfa yenilenir → öğrenci sıradaki göreve geçer.
+     *
+     * [2026-08 HATA DÜZELTMESİ] Eskiden sadece "oynatici.php"ye gidiliyor ve
+     * sayfanın doğru görevi seçmesi umuluyordu. İki sorun çıkıyordu:
+     *   1. Adres aynı kaldığı için tarayıcı bazen sayfayı ÖNBELLEKTEN veriyor,
+     *      ekran hiç değişmiyordu.
+     *   2. Öğretmen ceza verdiğinde öğrenci 1. bölüme gidiyor ama bitirince
+     *      geri dönemiyordu.
+     * Artık sunucu sıradaki görevin kimliğini söylüyor, oraya doğrudan
+     * gidiyoruz. Ayrıca adresin sonuna zaman damgası koyup önbelleği kırıyoruz.
      */
     window.kartiKapat = function () {
         var perde = document.getElementById('kartPerde');
         if (perde) perde.classList.remove('acik');
         document.body.classList.remove('kart-acik');
 
-        if (kapatincaYenile) {
-            kapatincaYenile = false;
-            // Adres çubuğundaki ?gorev_id=... temizlenir ki sunucu
-            // "sıradaki çözülmemiş görev"i kendisi seçebilsin.
-            window.location.href = window.V2_OYNATICI_URL || 'oynatici.php';
-        }
+        if (!kapatincaYenile) return;
+        kapatincaYenile = false;
+
+        var taban = window.V2_OYNATICI_URL || 'oynatici.php';
+        var adres = hedefGorevId > 0
+            ? taban + '?gorev_id=' + hedefGorevId + '&t=' + Date.now()
+            : taban + '?t=' + Date.now();
+
+        hedefGorevId = 0;
+        window.location.replace(adres);   // replace: geri tuşu eski göreve dönmesin
     };
 
     /** Kart iskeletini ekrana basar */
-    function kartiAc(sinif, ivHtml, yenile) {
+    function kartiAc(sinif, ivHtml, yenile, gorevId) {
         kapatincaYenile = !!yenile;
+        hedefGorevId    = gorevId | 0;
 
         var perde = perdeyiHazirla();
         var govde = document.getElementById('kartGovde');
@@ -191,6 +207,8 @@
      *   altMetin  Açıklama
      *   puan      Kazanılan puan (0 ise gösterilmez)
      *   elmas     Kazanılan elmas
+     *   sonraki   Kapatınca gidilecek görev adı (bilgi amaçlı gösterilir)
+     *   gorevId   Kapatınca gidilecek görev kimliği
      *   yenile    Kapatınca sayfa yenilensin mi (varsayılan: evet)
      * ================================================================== */
     window.kutlamaGoster = function (ayar) {
@@ -207,14 +225,20 @@
             odul += '</div>';
         }
 
+        // Öğrenci nereye gideceğini kapatmadan önce görsün
+        var sonraki = ayar.sonraki
+            ? '<div class="k-sonraki">Sırada: <b>' + kacir(ayar.sonraki) + '</b></div>'
+            : '';
+
         kartiAc(
             'kutlama' + (tur !== 'gorev' ? ' buyuk' : ''),
             '<div class="k-ikon">' + ikon + '</div>' +
             '<h2>' + kacir(ayar.baslik || 'Tebrikler!') + '</h2>' +
             '<div class="k-alt">' + kacir(ayar.altMetin || '') + '</div>' +
-            odul +
+            odul + sonraki +
             '<button class="k-kapat" onclick="kartiKapat()">Kapat</button>',
-            ayar.yenile !== false
+            ayar.yenile !== false,
+            ayar.gorevId
         );
 
         window.konfetiPatlat(tur === 'gorev' ? 1 : 2);
@@ -254,7 +278,8 @@
             '<div class="k-alt">' + kacir(ayar.altMetin || '') + '</div>' +
             satir + sebep +
             '<button class="k-kapat" onclick="kartiKapat()">Kapat</button>',
-            ayar.yenile !== false
+            ayar.yenile !== false,
+            ayar.gorevId
         );
     };
 

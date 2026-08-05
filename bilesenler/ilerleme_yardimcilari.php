@@ -279,34 +279,92 @@ function erisilebilirBolumler(PDO $pdo, int $ogrenciId): array
 
 
 /**
- * Öğrencinin oynaması gereken SIRADAKİ görevi bulur.
+ * Öğrencinin erişebildiği TÜM görevleri sıralı düz liste hâlinde verir.
+ * Her eleman: ['id','bolum_id','ad','cozuldu','sifirli']
  *
- * Sıralama: bölüm sıra_no -> görev sıra_no.
- * İlk "çözülmemiş ve erişilebilir" görevi döndürür.
- * Sıfırlanmış görevler öncelikli sayılır (öğrenci önce cezasını kapatsın)
- * — ama bu sadece sıralamadan doğal olarak gelir, ekstra kural yok:
- * sıfırlanan görev zaten daha küçük sıra numarasındadır.
- *
- * Her şey bittiyse null döner.
+ * Sıralama: bölüm sıra_no -> görev sıra_no. "Sıradaki görev" hesapları
+ * hep bu liste üzerinden yapılır, böylece tek bir sıralama tanımı olur.
  */
-function sonrakiGoreviBul(PDO $pdo, int $ogrenciId): ?int
+function erisilebilirGorevAkisi(PDO $pdo, int $ogrenciId): array
 {
     $bolumler = bolumleriGetir($pdo);
     $ilerleme = ogrencininIlerlemesi($pdo, $ogrenciId);
     $erisilen = erisilebilirBolumler($pdo, $ogrenciId);
 
+    $akis = [];
     foreach ($bolumler as $b) {
         if (!in_array((int) $b['id'], $erisilen, true)) {
             continue;
         }
         foreach ($b['gorevler'] as $g) {
             $k = $ilerleme[$g['id']] ?? null;
-            if (!$k || (int) $k['kazanilan_puan'] <= 0) {
-                return $g['id'];
-            }
+            $akis[] = [
+                'id'       => (int) $g['id'],
+                'bolum_id' => (int) $b['id'],
+                'ad'       => $g['gorev_adi'],
+                'cozuldu'  => (bool) ($k && (int) $k['kazanilan_puan'] > 0),
+                'sifirli'  => (bool) ($k && (int) $k['kazanilan_puan'] <= 0 && !empty($k['sifirlanma_tarihi'])),
+            ];
         }
     }
+    return $akis;
+}
+
+
+/**
+ * Öğrencinin oynaması gereken SIRADAKİ görevi bulur.
+ *
+ * ÖNCELİK SIRASI:
+ *   1. ÖĞRETMENİN SIFIRLADIĞI görevler — önce ceza kapanır.
+ *   2. Kalan çözülmemiş görevlerin ilki (bölüm sırası -> görev sırası).
+ *   3. Hiçbiri yoksa null (öğrenci her şeyi bitirmiş).
+ *
+ * NEDEN CEZA AYRI BİR ADIM?
+ * [2026-08 HATA DÜZELTMESİ] Eskiden "ilk çözülmemiş görev" yeterli sanılmıştı;
+ * sıfırlanan görev zaten önde olur diye düşünülmüştü. Ama öğretmen görev
+ * ekleyince sıralama değişebiliyor ve öğrenci ceza görevi ile yeni görev
+ * arasında gidip geliyordu. Artık ceza görevleri açıkça öne alınıyor.
+ *
+ * @param int $haricGorevId Bu görevi atla (az önce çözülen görevi tekrar verme)
+ */
+function sonrakiGoreviBul(PDO $pdo, int $ogrenciId, int $haricGorevId = 0): ?int
+{
+    $akis = erisilebilirGorevAkisi($pdo, $ogrenciId);
+
+    // 1) Önce cezalar
+    foreach ($akis as $g) {
+        if ($g['sifirli'] && $g['id'] !== $haricGorevId) {
+            return $g['id'];
+        }
+    }
+
+    // 2) Sonra normal çözülmemiş görevler
+    foreach ($akis as $g) {
+        if (!$g['cozuldu'] && $g['id'] !== $haricGorevId) {
+            return $g['id'];
+        }
+    }
+
     return null;
+}
+
+
+/**
+ * Her şey bitmişse öğrenciyi nereye koyacağız?
+ *
+ * [2026-08 HATA DÜZELTMESİ] Eskiden oynatici.php "yayındaki ilk görev"e
+ * düşüyordu; yani bütün görevleri bitiren öğrenci 1. bölümün 1. görevine
+ * geri atılıyor ve orada takılı kalıyordu. Artık ulaştığı EN SON görevde
+ * kalır.
+ */
+function sonErisilenGorev(PDO $pdo, int $ogrenciId): ?int
+{
+    $akis = erisilebilirGorevAkisi($pdo, $ogrenciId);
+    if (!$akis) {
+        return null;
+    }
+    $son = end($akis);
+    return (int) $son['id'];
 }
 
 

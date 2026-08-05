@@ -189,6 +189,13 @@ konfetili kutlama açılır (`kutlama.js`), öğrenci "Sıradaki Görev"e kendis
 > sıradaki bölüm `sonrakiBolumuHesapla()` ile "tamamlanmamış ilk bölüm" olarak bulunur.
 > Böylece 1'e geri gönderilen öğrenci 1'i bitirince 2-3-4 tamamsa doğrudan 5'e döner.
 
+> ⚠️ **"Sıradaki görev"i SUNUCU söyler, tarayıcı tahmin etmez.**
+> `sonrakiGoreviBul()` önce **sıfırlanan görevleri** verir (ceza kapansın), sonra ilk
+> çözülmemiş görevi. Cevaptaki `sonraki_gorev_id` ile kart kapanınca doğrudan
+> `oynatici.php?gorev_id=N&t=<zaman>` adresine gidilir — `t=` önbelleği kırar.
+> Hepsi bittiyse `sonErisilenGorev()` öğrenciyi son görevde bırakır;
+> **yayındaki ilk göreve düşürme**, yoksa öğrenci 1. bölümde takılı kalır.
+
 ---
 
 ## 5. Kritik Mimari Kurallar

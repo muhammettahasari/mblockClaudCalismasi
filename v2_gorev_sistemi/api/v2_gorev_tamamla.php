@@ -220,6 +220,36 @@ try {
     /* ---- Ceza kapandı mı? (kırmızı efekt için) ---- */
     $ceza = ogrencininCezasi($pdo, $ogrenci_id);
 
+    /* ========================================================================
+     * SIRADAKİ GÖREVİ SUNUCU SÖYLER
+     *
+     * [2026-08 HATA DÜZELTMESİ] Kutlama kartı kapanınca tarayıcı sadece
+     * "oynatici.php"ye gidiyordu ve sayfanın doğru görevi seçmesini umuyorduk.
+     * Tarayıcı önbelleği ya da eski aktif_v2_gorev_id yüzünden öğrenci aynı
+     * bölümde takılı kalabiliyordu.
+     *
+     * Artık sıradaki görevin kimliğini BURADA hesaplayıp cevaba koyuyoruz;
+     * tarayıcı doğrudan "oynatici.php?gorev_id=N" adresine gidiyor.
+     * Tahmin yok, önbellek sorunu yok.
+     * ====================================================================== */
+    $sonrakiGorevId = sonrakiGoreviBul($pdo, $ogrenci_id, $gorev_id);
+
+    // Her şey bittiyse öğrenciyi 1. bölüme geri atma; bulunduğu yerde kalsın
+    if (!$sonrakiGorevId) {
+        $sonrakiGorevId = $gorev_id;
+    }
+
+    $sonrakiAd = '';
+    if ($sonrakiGorevId && $sonrakiGorevId !== $gorev_id) {
+        $st = $pdo->prepare("SELECT gorev_adi FROM v2_gorevler WHERE id = ?");
+        $st->execute([$sonrakiGorevId]);
+        $sonrakiAd = (string) ($st->fetchColumn() ?: '');
+
+        // Öğrenciyi oraya "kaldığın yer" olarak işaretle
+        $pdo->prepare("UPDATE ogrenciler SET aktif_v2_gorev_id = ? WHERE id = ?")
+            ->execute([$sonrakiGorevId, $ogrenci_id]);
+    }
+
     // Güncel bakiye
     $st = $pdo->prepare("SELECT kalici_puan, elmas FROM ogrenciler WHERE id = ?");
     $st->execute([$ogrenci_id]);
@@ -244,6 +274,9 @@ try {
         'elmas'        => (int) $bakiye['elmas'],
         'bolum_bitti'  => $bolumBitti,
         'ceza'         => $ceza,
+        'sonraki_gorev_id' => (int) $sonrakiGorevId,
+        'sonraki_gorev_ad' => $sonrakiAd,
+        'hepsi_bitti'      => ($sonrakiGorevId === $gorev_id),
         'eslesen'      => $karar['eslesen'],
         'mesaj'        => $mesaj,
         'message'      => $mesaj,

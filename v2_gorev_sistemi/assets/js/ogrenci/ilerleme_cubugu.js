@@ -81,6 +81,38 @@
 
 
     /* ====================================================================
+     * TEK BİR GÖREV DAİRESİ
+     * Hem üst şeritte hem açılır haritada aynı görünüm kullanılsın diye
+     * tek yerde üretiliyor.
+     * ================================================================== */
+    var DURUM_ETIKETI = {
+        tamam:      ' ✅ tamamladın',
+        aktif:      ' ⏳ şu an buradasın',
+        sifirlandi: ' 🔴 öğretmenin tekrar yapmanı istedi',
+        bekliyor:   ' ⚪ sırası gelmedi',
+        kilitli:    ' 🔒 henüz ulaşmadın'
+    };
+
+    function daireYap(gorev, sira) {
+        var d = document.createElement('button');
+        d.type = 'button';
+        d.className = 'ic-daire ' + gorev.durum + (gorev.burada ? ' burada' : '');
+        d.title = (sira + 1) + '. ' + gorev.ad + (DURUM_ETIKETI[gorev.durum] || '');
+        d.textContent = gorev.durum === 'kilitli' ? '🔒' : (sira + 1);
+
+        if (gorev.durum === 'kilitli') {
+            d.disabled = true;
+        } else {
+            d.addEventListener('click', function (e) {
+                e.stopPropagation();
+                goreveGit(gorev.id);
+            });
+        }
+        return d;
+    }
+
+
+    /* ====================================================================
      * ÇİZİM
      * ================================================================== */
     window.ilerlemeCubuguCiz = function (harita) {
@@ -104,27 +136,7 @@
             }
 
             bolum.gorevler.forEach(function (gorev, sira) {
-                var etiketler = {
-                    tamam:      ' ✅ tamamladın',
-                    aktif:      ' ⏳ şu an buradasın',
-                    sifirlandi: ' 🔴 öğretmenin tekrar yapmanı istedi',
-                    bekliyor:   '',
-                    kilitli:    ' 🔒 henüz ulaşmadın'
-                };
-
-                var d = document.createElement('button');
-                d.type = 'button';
-                d.className = 'ic-daire ' + gorev.durum + (gorev.burada ? ' burada' : '');
-                d.title = (sira + 1) + '. ' + gorev.ad + (etiketler[gorev.durum] || '');
-                d.textContent = gorev.durum === 'kilitli' ? '🔒' : (sira + 1);
-
-                if (gorev.durum === 'kilitli') {
-                    d.disabled = true;
-                } else {
-                    d.addEventListener('click', function () { goreveGit(gorev.id); });
-                }
-
-                govde.appendChild(d);
+                govde.appendChild(daireYap(gorev, sira));
             });
 
             /* Aktif görevin adı başlıkta */
@@ -141,7 +153,126 @@
 
         var oran = el('icOran');
         if (oran) oran.textContent = harita.cozulen_gorev + '/' + harita.toplam_gorev;
+
+        /* Açılır haritayı da tazele */
+        haritayiCiz(harita, bolum ? bolum.id : 0);
     };
+
+
+    /* ====================================================================
+     * AÇILIR BÖLÜM HARİTASI
+     * Şeritteki bölüm adına tıklanınca açılır; öğrenci TÜM bölümleri ve
+     * nerede olduğunu görür. Dışarı tıklayınca ya da fare menüden çıkınca
+     * kapanır.
+     * ================================================================== */
+    function haritayiCiz(harita, aktifBolumId) {
+        var kutu = el('icHaritaGovde');
+        if (!kutu || !harita) return;
+
+        kutu.innerHTML = '';
+
+        var bolumler = (harita.bolumler || []).filter(function (b) {
+            return b.gorevler && b.gorevler.length > 0;
+        });
+
+        if (!bolumler.length) {
+            kutu.innerHTML = '<div class="ic-h-bos">Henüz görev tanımlanmamış.</div>';
+            return;
+        }
+
+        bolumler.forEach(function (b) {
+            var satir = document.createElement('div');
+            satir.className = 'ic-h-bolum'
+                + (b.id === aktifBolumId ? ' burada' : '')
+                + (b.bitti ? ' bitti' : '')
+                + (b.acik ? '' : ' kilitli');
+
+            var isaret = !b.acik ? '🔒 ' : (b.bitti ? '✅ ' : (b.id === aktifBolumId ? '📍 ' : ''));
+
+            var ust = document.createElement('div');
+            ust.className = 'ic-h-ust';
+
+            var ad = document.createElement('span');
+            ad.className = 'ic-h-ad';
+            ad.textContent = isaret + b.ad;
+
+            var oran = document.createElement('span');
+            oran.className = 'ic-h-oran';
+            oran.textContent = b.cozulen + '/' + b.toplam;
+
+            ust.appendChild(ad);
+            ust.appendChild(oran);
+            satir.appendChild(ust);
+
+            var daireler = document.createElement('div');
+            daireler.className = 'ic-h-daireler';
+
+            b.gorevler.forEach(function (g, sira) {
+                daireler.appendChild(daireYap(g, sira));
+            });
+
+            satir.appendChild(daireler);
+            kutu.appendChild(satir);
+        });
+    }
+
+    function haritayiAc() {
+        var menu = el('icHarita');
+        var tetik = el('icHaritaTetik');
+        if (!menu || !tetik) return;
+        menu.classList.add('acik');
+        tetik.setAttribute('aria-expanded', 'true');
+    }
+
+    function haritayiKapat() {
+        var menu = el('icHarita');
+        var tetik = el('icHaritaTetik');
+        if (!menu || !tetik) return;
+        menu.classList.remove('acik');
+        tetik.setAttribute('aria-expanded', 'false');
+    }
+
+    function haritaKurulumu() {
+        var menu  = el('icHarita');
+        var tetik = el('icHaritaTetik');
+        var serit = el('ilerlemeCubugu');
+        if (!menu || !tetik || !serit) return;
+
+        tetik.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (menu.classList.contains('acik')) haritayiKapat();
+            else haritayiAc();
+        });
+
+        /* Fare şeridin + menünün dışına çıkınca kendiliğinden toparlansın.
+           Küçük bir gecikme veriyoruz ki başlıktan menüye giderken
+           aradaki 1-2 pikselde kapanmasın. */
+        var kapatmaZamani = null;
+
+        function gecikmeliKapat() {
+            clearTimeout(kapatmaZamani);
+            kapatmaZamani = setTimeout(haritayiKapat, 320);
+        }
+        function kapatmayiIptalEt() {
+            clearTimeout(kapatmaZamani);
+        }
+
+        serit.addEventListener('mouseleave', gecikmeliKapat);
+        serit.addEventListener('mouseenter', kapatmayiIptalEt);
+        menu.addEventListener('mouseenter', kapatmayiIptalEt);
+        menu.addEventListener('mouseleave', gecikmeliKapat);
+
+        /* Sayfanın herhangi bir yerine tıklayınca kapansın */
+        document.addEventListener('click', function (e) {
+            if (!menu.classList.contains('acik')) return;
+            if (menu.contains(e.target) || tetik.contains(e.target)) return;
+            haritayiKapat();
+        });
+
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape') haritayiKapat();
+        });
+    }
 
 
     /* ====================================================================
@@ -193,7 +324,8 @@
             cezaEfektiniUygula(v.ceza);
             return v;
         })
-        .catch(function () { return null; });
+        .catch(function () { return null; })
+        .then(function (v) { return v || null; });   // her koşulda bir değer dön
     };
 
 
@@ -240,7 +372,7 @@
     /* ====================================================================
      * ÖĞRETMEN UYARISI — kırmızı kartı aç
      * ================================================================== */
-    function uyariyiGoster(bildirim) {
+    function uyariyiGoster(bildirim, sonrakiGorevId) {
         if (!bildirim || !bildirim.id) return;
         if (Number(bildirim.id) === gosterilenUyari) return;   // aynısını iki kez açma
         gosterilenUyari = Number(bildirim.id);
@@ -270,7 +402,10 @@
             gorevSayisi: bildirim.gorev_sayisi | 0,
             elmasCezasi: elmas,
             sebep: bildirim.sebep || '',
-            yenile: true          // kapatınca sayfa yenilenir -> ilgili göreve geçer
+            /* Kapatınca doğrudan tekrar edilecek göreve gidilir.
+               Kimliği sunucu söylüyor; tarayıcı tahmin etmiyor. */
+            gorevId: sonrakiGorevId | 0,
+            yenile: true
         });
     }
 
@@ -304,7 +439,7 @@
             window.ilerlemeCubuguCiz(v.harita);
             cezaEfektiniUygula(v.ceza);
 
-            if (v.bildirim) uyariyiGoster(v.bildirim);
+            if (v.bildirim) uyariyiGoster(v.bildirim, v.sonraki_gorev_id);
         })
         .catch(function () { /* ağ koptu, bir sonraki turda tekrar dener */ })
         .finally(function () { yoklamaSuruyor = false; });
@@ -317,10 +452,14 @@
     function baslat() {
         window.ilerlemeCubuguCiz(sonHarita);
         cezaEfektiniUygula(window.V2_CEZA);
+        haritaKurulumu();
 
-        // Sayfa açılırken okunmamış bir uyarı varsa hemen göster
+        // Sayfa açılırken okunmamış bir uyarı varsa hemen göster.
+        // Hedef görevi sunucudan öğrenmek için önce haritayı tazeliyoruz.
         if (ilkBildirim) {
-            setTimeout(function () { uyariyiGoster(ilkBildirim); }, 400);
+            window.ilerlemeyiTazele().then(function (v) {
+                uyariyiGoster(ilkBildirim, v ? v.sonraki_gorev_id : 0);
+            });
         }
 
         setInterval(yokla, 15000);

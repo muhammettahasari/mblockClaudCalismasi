@@ -333,8 +333,12 @@ function kutlamaVeIlerleme(data) {
 
         if (harita) {
             cozulenToplam = harita.cozulen_gorev | 0;
-            tumuBitti = (harita.toplam_gorev > 0 && cozulenToplam >= harita.toplam_gorev);
         }
+
+        /* [2026-08] "Hepsi bitti mi?" ve "sıradaki görev hangisi?" sorularının
+           cevabını SUNUCU verir. Tarayıcının haritadan tahmin etmesi, öğretmen
+           yeni görev eklediğinde ya da ceza verdiğinde yanlış sonuç üretiyordu. */
+        tumuBitti = !!data.hepsi_bitti;
 
         /* --- Hangi kutlama? --- */
         var ayar;
@@ -382,7 +386,12 @@ function kutlamaVeIlerleme(data) {
 
         ayar.puan   = (data.puan_odulu  != null ? data.puan_odulu  : data.kazanilan) || 0;
         ayar.elmas  = (data.elmas_odulu != null ? data.elmas_odulu : data.kazanilan) || 0;
-        ayar.yenile = true;   // kart kapanınca sayfa yenilenir -> sıradaki göreve geçer
+
+        /* Kart kapanınca SUNUCUNUN söylediği göreve gidilir.
+           Bu, cezadan sonra doğru bölüme dönmeyi garantiler. */
+        ayar.gorevId = data.sonraki_gorev_id | 0;
+        ayar.sonraki = tumuBitti ? '' : (data.sonraki_gorev_ad || '');
+        ayar.yenile  = !tumuBitti;   // her şey bittiyse boşuna yenileme
 
         // Sonuç mesajı okunsun diye kısa bir nefes payı
         setTimeout(function () { window.kutlamaGoster(ayar); }, 450);

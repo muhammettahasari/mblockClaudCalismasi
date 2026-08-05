@@ -119,9 +119,18 @@ if (!$gorev && $ogrenciId > 0) {
     }
 }
 
-/* Hâlâ yoksa: sıradaki çözülmemiş görev (sıfırlananlar dahil) */
+/* Hâlâ yoksa: sıradaki çözülmemiş görev — ÖNCE CEZALAR, sonra normal akış */
 if (!$gorev && $ogrenciId > 0) {
     $sonraki = sonrakiGoreviBul($pdo, $ogrenciId);
+
+    /* [2026-08 HATA DÜZELTMESİ] Öğrenci HER ŞEYİ bitirdiyse sonrakiGoreviBul
+       null döner. Eskiden burada "yayındaki ilk görev"e düşülüyordu; yani
+       bütün görevleri tamamlayan öğrenci 1. bölümün 1. görevine geri atılıyor
+       ve orada takılı kalıyordu. Artık ulaştığı SON görevde bırakıyoruz. */
+    if (!$sonraki) {
+        $sonraki = sonErisilenGorev($pdo, $ogrenciId);
+    }
+
     if ($sonraki) {
         $st = $pdo->prepare("SELECT * FROM v2_gorevler WHERE id = ?");
         $st->execute([$sonraki]);
@@ -129,7 +138,9 @@ if (!$gorev && $ogrenciId > 0) {
     }
 }
 
-// Hâlâ yoksa: yayındaki ilk görev (admin önizlemesi / boş kurulum / hepsi bitmiş)
+/* Hâlâ yoksa: yayındaki ilk görev.
+   Buraya SADECE öğrenci oturumu olmayan durumlarda düşülür
+   (Süper Admin önizlemesi ya da hiç görev çözmemiş yeni öğrenci). */
 if (!$gorev) {
     $gorev = $pdo->query(
         "SELECT * FROM v2_gorevler WHERE yayinda = 1 ORDER BY bolum_id ASC, sira_no ASC LIMIT 1"
@@ -190,17 +201,32 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
          Şerit sol/sağ panelin DIŞINDA olduğu için sahne küçülmez.
          ==================================================================== -->
     <div id="ilerlemeCubugu" class="ilerleme-serit">
-        <div class="ic-sol">
+        <!-- Bölüm adına tıklayınca aşağı açılan TAM HARİTA gelir -->
+        <button type="button" class="ic-sol" id="icHaritaTetik"
+                aria-haspopup="true" aria-expanded="false"
+                title="Bölüm haritasını aç">
             <span class="ic-bolum" id="icBolumAdi"><?= temizle($aktifBolumAdi ?: 'Bölüm') ?></span>
+            <span class="ic-ok">▾</span>
             <span class="ic-ayrac">›</span>
             <span class="ic-gorev" id="icGorevAdi"><?= temizle($baslik) ?></span>
-        </div>
+        </button>
 
         <div class="ic-orta" id="icGovde"><!-- görev daireleri: JS doldurur --></div>
 
         <div class="ic-sag">
             <div class="ic-bar"><span id="icBarDolgu" style="width:<?= (int) $ilerlemeVerisi['genel_yuzde'] ?>%"></span></div>
             <small id="icOran"><?= (int) $ilerlemeVerisi['cozulen_gorev'] ?>/<?= (int) $ilerlemeVerisi['toplam_gorev'] ?></small>
+        </div>
+
+        <!-- ================================================================
+             AÇILIR BÖLÜM HARİTASI
+             Öğrenci tüm bölümleri, nerede olduğunu ve hangi görevleri
+             bitirdiğini burada görür. Fare dışına çıkınca ya da dışarı
+             tıklayınca kapanır, şerit tekrar sadece aktif bölümü gösterir.
+             ================================================================ -->
+        <div class="ic-harita" id="icHarita" role="menu">
+            <div class="ic-harita-baslik">🗺️ Bölüm Haritan</div>
+            <div class="ic-harita-govde" id="icHaritaGovde"><!-- JS doldurur --></div>
         </div>
     </div>
 
