@@ -116,14 +116,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $isim = preg_replace('/(\d)\s*\.?\s*seviye/i', '$1. Seviye', $isim);
                     $isim = mb_convert_case(trim($isim), MB_CASE_TITLE, 'UTF-8');
 
+                    /* [2026-08] Seviye 5 ("Destansı") desteklendi.
+                       Veritabanında zaten seviye=5 / fiyat=50000 olan eşyalar
+                       vardı ama bu kod Destansı'yı 4'e düşürüyordu; senkronizasyon
+                       çalıştırılınca fiyat/güç tutarsızlığı oluşuyordu. */
+                    $fiyatTablosu = [1 => 100, 2 => 500, 3 => 2000, 4 => 20000, 5 => 50000];
+
                     $seviye = 1;
                     $fiyat  = 100;
                     if (preg_match('/(\d)\s*\.?\s*seviye/i', $hamIsim, $m)) {
-                        $seviye = max(1, min(4, (int) $m[1]));
-                        $fiyat  = [1 => 100, 2 => 500, 3 => 2000, 4 => 20000][$seviye];
+                        $seviye = max(1, min(5, (int) $m[1]));
+                        $fiyat  = $fiyatTablosu[$seviye];
                     }
                     if (stripos($hamIsim, 'destans') !== false) {
-                        $seviye = 4;
+                        $seviye = 5;
                         $fiyat  = 50000;
                     }
 

@@ -86,6 +86,10 @@ $kartlar = [
     ['baslik' => '🔧 Bakım İşlemleri', 'link' => 'super_bakim.php',
      'aciklama' => 'Eşya senkronizasyonu, güç önbelleği, kayıp dosya taraması.',
      'rozet' => '', 'renk' => '#64748b'],
+
+    ['baslik' => '🩺 Veritabanı Raporu', 'link' => 'super_veritabani.php',
+     'aciklama' => 'Şema kontrolü, sağlık taraması, kopyalanabilir durum raporu.',
+     'rozet' => 'salt okunur', 'renk' => '#0ea5e9'],
 ];
 ?>
 <!DOCTYPE html>
