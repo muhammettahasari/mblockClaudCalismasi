@@ -172,3 +172,28 @@ duello_ayarlari (tek satır, global)
 ```
 
 > ⚠️ **Dökümde hiç FOREIGN KEY tanımı yok.** Bütünlük tamamen PHP tarafında. Öğrenci silinince `arena_savaslari`, `ogrenci_envanter`, `ogrenci_avatar_durum` satırları **yetim kalır**.
+
+---
+
+## 📊 İlerleme Takibi (2026-08 eklendi)
+
+### `v2_ogrenci_ilerleme` (genişletildi)
+`id`, `ogrenci_id`, `v2_gorev_id`, `kazanilan_puan`, `deneme_sayisi`, `tamamlanma_tarihi`
+**+ yeni:** `sifirlanma_tarihi`, `sifirlayan_ogretmen_id`, `sifirlama_sebebi`, `sifirlama_sayisi`
+
+> Öğretmen sıfırlama yaptığında **satır SİLİNMEZ**, `kazanilan_puan = 0` yapılır.
+> Böylece `deneme_sayisi` ve geçmiş korunur. "Çözüldü mü?" sorusu her yerde
+> `kazanilan_puan > 0` ile sorulur, o yüzden görev otomatik olarak yeniden açılır.
+
+### `v2_sifirlama_gunlugu` (yeni)
+`id`, `ogrenci_id`, `ogretmen_id`, `bolum_idler` (virgüllü), `gorev_sayisi`,
+`elmas_cezasi`, `sebep`, `okundu`, `tarih`
+> Öğrenciye gösterilen "öğretmenin seni geri gönderdi" bildirimi buradan okunur.
+
+### `ogrenciler` (yeni sütun)
+`aktif_v2_gorev_id` — öğrencinin en son açtığı v2 görevi ("kaldığın yerden devam").
+
+> ⚠️ `mevcut_bolum` artık **sadece kilit tavanı**dır. "Öğrenci nerede?" sorusu
+> `bilesenler/ilerleme_yardimcilari.php` üzerinden `v2_ogrenci_ilerleme`'den
+> hesaplanır. `mevcut_bolum + 1` mantığı kaldırıldı — öğrenci 1'e geri gönderilip
+> 1'i bitirdiğinde 2-3-4 zaten çözülüyse doğrudan 5'e döner.

@@ -1,0 +1,260 @@
+/* ============================================================================
+   DOSYA YOLU: v2_gorev_sistemi/assets/css/ilerleme_cubugu.css
+   KULLANICI / SAYFA: Öğrenci -> Görev Oynatıcı
+
+   NE İŞE YARAR? (HALK DİLİNDE):
+   Oynatıcının tepesindeki "Bölüm 1 › 10 Adım Git" kutucuğunun, altındaki
+   renkli ilerleme dairelerinin, görev tamamlanınca patlayan konfetili
+   kutlama ekranının ve öğretmen ceza verdiğinde beliren kırmızı efektin
+   görünümünü tanımlar.
+
+   RENK ANLAMLARI (docs/STIL_REHBERI.md paletinden):
+     yeşil  #10b981  tamamlandı
+     turuncu#f59e0b  şu an buradasın
+     gri    #cbd5e1  sırası gelmedi
+     kırmızı#ef4444  öğretmen tekrar istedi
+   ========================================================================= */
+
+:root{
+    --ic-yesil:   #10b981;
+    --ic-turuncu: #f59e0b;
+    --ic-gri:     #cbd5e1;
+    --ic-kirmizi: #ef4444;
+    --ic-mor:     #7c3aed;
+    --ic-metin:   #1e293b;
+    --ic-soluk:   #64748b;
+}
+
+/* ==========================================================================
+   1. İLERLEME ÇUBUĞU
+   ========================================================================== */
+.ilerleme-cubugu{
+    background:#fff;
+    border:1px solid #e2e8f0;
+    border-radius:12px;
+    padding:12px 14px;
+    margin-bottom:12px;
+    box-shadow:0 2px 8px rgba(15,23,42,.06);
+    font-family:'Segoe UI',system-ui,sans-serif;
+}
+
+.ilerleme-cubugu .ic-ust{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+}
+
+.ilerleme-cubugu .ic-baslik{
+    font-size:14px; line-height:1.3; color:var(--ic-metin);
+    overflow:hidden; text-overflow:ellipsis;
+}
+.ilerleme-cubugu .ic-bolum{ font-weight:700; color:var(--ic-mor); }
+.ilerleme-cubugu .ic-ayrac{ color:var(--ic-gri); margin:0 4px; }
+.ilerleme-cubugu .ic-gorev{ font-weight:600; }
+
+.ilerleme-cubugu .ic-katla{
+    background:#f1f5f9; border:none; border-radius:8px;
+    padding:6px 10px; cursor:pointer; font-size:16px; line-height:1;
+    transition:.15s;
+}
+.ilerleme-cubugu .ic-katla:hover{ background:#e2e8f0; }
+
+/* Genel yüzde çubuğu */
+.ilerleme-cubugu .ic-genel{
+    display:flex; align-items:center; gap:8px; margin-top:9px;
+}
+.ilerleme-cubugu .ic-bar{
+    flex:1; height:7px; background:#e2e8f0; border-radius:99px; overflow:hidden;
+}
+.ilerleme-cubugu .ic-bar span{
+    display:block; height:100%;
+    background:linear-gradient(90deg,var(--ic-yesil),#34d399);
+    transition:width .5s ease;
+}
+.ilerleme-cubugu .ic-genel small{ font-size:11px; color:var(--ic-soluk); font-weight:600; }
+
+/* Bölüm/görev ağacı */
+.ilerleme-cubugu .ic-govde{ margin-top:10px; }
+.ilerleme-cubugu.katli .ic-govde{ display:none; }
+
+.ic-bolum-satir{ margin-bottom:9px; }
+.ic-bolum-satir:last-child{ margin-bottom:0; }
+
+.ic-bolum-ad{
+    font-size:11.5px; font-weight:700; color:var(--ic-soluk);
+    text-transform:uppercase; letter-spacing:.4px;
+    display:flex; align-items:center; gap:6px; margin-bottom:5px;
+}
+.ic-bolum-ad .ic-oran{
+    font-weight:600; color:#94a3b8; text-transform:none; letter-spacing:0;
+}
+.ic-bolum-satir.kilitli .ic-bolum-ad{ opacity:.5; }
+.ic-bolum-satir.bitti .ic-bolum-ad{ color:var(--ic-yesil); }
+
+.ic-daireler{ display:flex; flex-wrap:wrap; gap:6px; }
+
+/* --- Tek bir görev dairesi --- */
+.ic-daire{
+    width:28px; height:28px; border-radius:50%;
+    border:2px solid transparent;
+    background:var(--ic-gri); color:#fff;
+    font-size:12px; font-weight:800;
+    display:flex; align-items:center; justify-content:center;
+    cursor:pointer; transition:transform .15s, box-shadow .15s;
+    position:relative; user-select:none;
+}
+.ic-daire:hover{ transform:scale(1.15); box-shadow:0 3px 10px rgba(15,23,42,.2); z-index:2; }
+
+.ic-daire.tamam     { background:var(--ic-yesil); }
+.ic-daire.aktif     { background:var(--ic-turuncu); box-shadow:0 0 0 4px rgba(245,158,11,.25); }
+.ic-daire.sifirlandi{ background:var(--ic-kirmizi); animation:icNabiz 1.6s ease-in-out infinite; }
+.ic-daire.bekliyor  { background:var(--ic-gri); color:#64748b; }
+.ic-daire.kilitli   { background:#e2e8f0; color:#94a3b8; cursor:not-allowed; }
+.ic-daire.kilitli:hover{ transform:none; box-shadow:none; }
+
+/* Şu an açık olan görevin halkası — durumu ne olursa olsun görünsün */
+.ic-daire.burada{ border-color:#1e293b; }
+
+@keyframes icNabiz{
+    0%,100%{ box-shadow:0 0 0 0 rgba(239,68,68,.55); }
+    50%    { box-shadow:0 0 0 6px rgba(239,68,68,0); }
+}
+
+/* Fare üstündeyken görev adı */
+.ic-daire[data-ad]:hover::after{
+    content:attr(data-ad);
+    position:absolute; bottom:130%; left:50%; transform:translateX(-50%);
+    background:#1e293b; color:#fff; font-size:11px; font-weight:600;
+    padding:5px 9px; border-radius:6px; white-space:nowrap; z-index:10;
+    pointer-events:none;
+}
+
+
+/* ==========================================================================
+   2. ÖĞRETMEN BİLDİRİMİ ("seni geri gönderdi")
+   ========================================================================== */
+.ceza-bildirimi{
+    background:#fff7ed; border:1px solid #fdba74; border-left:5px solid var(--ic-turuncu);
+    border-radius:10px; padding:13px 15px; margin-bottom:12px;
+    font-family:'Segoe UI',system-ui,sans-serif; font-size:13.5px; line-height:1.55;
+    color:#7c2d12;
+}
+.ceza-bildirimi .cb-baslik{ font-weight:800; margin-bottom:5px; font-size:14px; }
+.ceza-bildirimi .cb-sebep{
+    margin-top:8px; padding:8px 10px; background:#ffedd5;
+    border-radius:7px; font-style:italic;
+}
+.ceza-bildirimi .cb-tamam{
+    margin-top:10px; background:var(--ic-turuncu); color:#fff; border:none;
+    border-radius:7px; padding:8px 18px; font-weight:700; cursor:pointer;
+}
+.ceza-bildirimi .cb-tamam:hover{ background:#d97706; }
+
+
+/* ==========================================================================
+   3. KIRMIZI CEZA EFEKTİ
+   Öğretmen bir bölümü tekrar ettirdiğinde öğrencinin ekranı ve avatarı
+   kırmızıya çalar. Sıfırlanan görevler bitince class kalkar, efekt biter.
+   ========================================================================== */
+body.ceza-modu .sol-panel{
+    box-shadow: inset 0 0 0 3px rgba(239,68,68,.35);
+    border-radius:12px;
+}
+
+/* Avatar üstündeki kırmızı sis */
+.ceza-efekti{ position:relative; display:inline-block; }
+.ceza-efekti::after{
+    content:''; position:absolute; inset:0; border-radius:inherit;
+    background:radial-gradient(circle at 50% 40%, rgba(239,68,68,.55), rgba(185,28,28,.75));
+    mix-blend-mode:multiply;
+    animation:cezaSis 2.4s ease-in-out infinite;
+    pointer-events:none;
+}
+.ceza-efekti img{ filter:saturate(.55) contrast(1.05); }
+
+@keyframes cezaSis{
+    0%,100%{ opacity:.55; }
+    50%    { opacity:.85; }
+}
+
+/* Küçük kırmızı rozet (avatarın köşesine) */
+.ceza-rozet{
+    position:absolute; top:-6px; right:-6px; z-index:3;
+    background:var(--ic-kirmizi); color:#fff;
+    font-size:11px; font-weight:800;
+    min-width:20px; height:20px; padding:0 5px;
+    border-radius:99px; border:2px solid #fff;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 2px 6px rgba(239,68,68,.5);
+}
+
+
+/* ==========================================================================
+   4. KUTLAMA EKRANI (konfeti)
+   ========================================================================== */
+.kutlama-perde{
+    position:fixed; inset:0; z-index:9000;
+    background:rgba(15,23,42,.55);
+    display:none; align-items:center; justify-content:center;
+    padding:20px; backdrop-filter:blur(3px);
+}
+.kutlama-perde.acik{ display:flex; }
+
+.kutlama-kart{
+    background:#fff; border-radius:20px; padding:30px 28px 24px;
+    width:380px; max-width:100%; text-align:center;
+    box-shadow:0 20px 50px rgba(15,23,42,.35);
+    font-family:'Segoe UI',system-ui,sans-serif;
+    animation:kutlamaGir .45s cubic-bezier(.2,1.3,.5,1);
+    position:relative; z-index:2;
+}
+@keyframes kutlamaGir{
+    from{ transform:scale(.75) translateY(24px); opacity:0; }
+    to  { transform:scale(1)    translateY(0);   opacity:1; }
+}
+
+.kutlama-kart .ku-ikon{ font-size:56px; line-height:1; margin-bottom:8px;
+                        animation:kuZipla .8s ease-in-out 2; }
+@keyframes kuZipla{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-11px)} }
+
+.kutlama-kart h2{ margin:0 0 6px; font-size:23px; color:var(--ic-metin); }
+.kutlama-kart .ku-alt{ color:var(--ic-soluk); font-size:14px; margin-bottom:16px; line-height:1.5; }
+
+.kutlama-odul{
+    display:flex; justify-content:center; gap:10px; margin-bottom:18px; flex-wrap:wrap;
+}
+.kutlama-odul div{
+    background:#f0fdf4; border:1px solid #86efac; color:#15803d;
+    border-radius:10px; padding:9px 16px; font-weight:800; font-size:15px;
+}
+.kutlama-odul div.elmas{ background:#eff6ff; border-color:#93c5fd; color:#1d4ed8; }
+
+.kutlama-dugmeler{ display:flex; gap:9px; }
+.kutlama-dugmeler button{
+    flex:1; padding:12px; border:none; border-radius:11px;
+    font-weight:800; font-size:14.5px; cursor:pointer; transition:.15s;
+}
+.ku-devam{ background:var(--ic-yesil); color:#fff; }
+.ku-devam:hover{ background:#059669; }
+.ku-kal{ background:#e2e8f0; color:var(--ic-metin); }
+.ku-kal:hover{ background:#cbd5e1; }
+
+/* Bölüm sonu kutlaması daha görkemli */
+.kutlama-kart.bolum-sonu{ width:430px; }
+.kutlama-kart.bolum-sonu h2{ font-size:26px; color:var(--ic-mor); }
+.kutlama-kart.bolum-sonu .ku-ikon{ font-size:68px; }
+
+/* Konfeti tuvali */
+#konfetiTuval{
+    position:fixed; inset:0; z-index:9001; pointer-events:none; display:none;
+}
+#konfetiTuval.acik{ display:block; }
+
+
+/* ==========================================================================
+   5. DAR EKRAN
+   ========================================================================== */
+@media (max-width:640px){
+    .ilerleme-cubugu .ic-gorev{ display:none; }
+    .ilerleme-cubugu .ic-ayrac{ display:none; }
+    .ic-daire{ width:24px; height:24px; font-size:11px; }
+    .kutlama-kart{ padding:24px 20px 20px; }
+}

@@ -5,6 +5,7 @@
    içinde iframe olarak açıldığı için oturum zaten açıktır; Süper Admin
    önizlemesinde de çalışabilmesi için burada zorunlu kapı YOK. */
 require_once __DIR__ . '/../../bilesenler/guvenlik.php';
+require_once __DIR__ . '/../../bilesenler/ilerleme_yardimcilari.php';
 guvenliOturumBaslat();
 
 // Öğrenci Adı ve Puanlarını Çekme
@@ -52,11 +53,26 @@ if (isset($_SESSION['ogrenci_id'])) {
  * vardı; yani sayfa HER ZAMAN en son eklenen görevi açıyordu ve birden fazla
  * görevle çalışmak imkânsızdı (Bilinen Sorunlar #17).
  * Artık ?gorev_id=12 ile istenen görev açılır; parametre yoksa öğrencinin
- * bulunduğu bölümdeki ilk çözülmemiş görev seçilir.
+ * kaldığı yerden devam edilir.
+ *
+ * [2026-08 GÜNCELLEME — İLERLEME ÇUBUĞU]
+ * Görev seçimi artık bilesenler/ilerleme_yardimcilari.php üzerinden yapılır.
+ * Kazanımlar:
+ *   - Kilit kontrolü "bolum_id > mevcut_bolum" gibi kırılgan bir karşılaştırma
+ *     yerine gerçek erişim listesiyle yapılır (bölüm id'si ile sıra no'su
+ *     birbirinden farklı olabiliyor).
+ *   - Öğretmen tarafından sıfırlanan görevler tekrar "çözülmemiş" sayıldığı
+ *     için öğrenci doğal olarak oraya yönlendirilir.
+ *   - Öğrenci son açtığı görevden devam eder (aktif_v2_gorev_id).
+ *   - OTOMATİK GEÇİŞ YOK: görev bitince sıradakine kendisi tıklar.
  * ========================================================================== */
 $istenenGorevId = isset($_GET['gorev_id']) ? (int) $_GET['gorev_id'] : 0;
 $superAdminMi   = !empty($_SESSION['super_admin_id']);   // önizleme yetkisi
+$ogrenciId      = isset($_SESSION['ogrenci_id']) ? (int) $_SESSION['ogrenci_id'] : 0;
 $gorev          = null;
+
+/* Öğrencinin erişebildiği bölümler (admin önizlemesinde kontrol yok) */
+$acikBolumler = ($ogrenciId > 0) ? erisilebilirBolumler($pdo, $ogrenciId) : [];
 
 if ($istenenGorevId > 0) {
     $st = $pdo->prepare("SELECT * FROM v2_gorevler WHERE id = ?");
@@ -69,37 +85,40 @@ if ($istenenGorevId > 0) {
     }
 
     // Öğrenci ulaşmadığı bölümün görevini açamaz (anti-hile)
-    if ($gorev && !$superAdminMi && isset($_SESSION['ogrenci_id'])) {
-        $st = $pdo->prepare("SELECT mevcut_bolum FROM ogrenciler WHERE id = ?");
-        $st->execute([(int) $_SESSION['ogrenci_id']]);
-        $seviye = max(1, (int) ($st->fetchColumn() ?: 1));
+    if ($gorev && !$superAdminMi && $ogrenciId > 0
+        && !in_array((int) $gorev['bolum_id'], $acikBolumler, true)) {
+        $gorev = null;
+    }
+}
 
-        if ((int) $gorev['bolum_id'] > $seviye) {
-            $gorev = null;
+/* Parametre yoksa: öğrencinin en son açtığı görev (kaldığın yerden devam) */
+if (!$gorev && $ogrenciId > 0) {
+    $st = $pdo->prepare("SELECT aktif_v2_gorev_id FROM ogrenciler WHERE id = ?");
+    $st->execute([$ogrenciId]);
+    $sonAcilan = (int) ($st->fetchColumn() ?: 0);
+
+    if ($sonAcilan > 0) {
+        $st = $pdo->prepare("SELECT * FROM v2_gorevler WHERE id = ? AND yayinda = 1");
+        $st->execute([$sonAcilan]);
+        $aday = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+
+        if ($aday && in_array((int) $aday['bolum_id'], $acikBolumler, true)) {
+            $gorev = $aday;
         }
     }
 }
 
-// Parametre yoksa: öğrencinin bölümündeki ilk ÇÖZÜLMEMİŞ görev
-if (!$gorev && isset($_SESSION['ogrenci_id'])) {
-    $st = $pdo->prepare(
-        "SELECT g.*
-           FROM v2_gorevler g
-           JOIN ogrenciler o ON o.id = ?
-          WHERE g.bolum_id = o.mevcut_bolum
-            AND g.yayinda = 1
-            AND g.id NOT IN (
-                SELECT v2_gorev_id FROM v2_ogrenci_ilerleme
-                 WHERE ogrenci_id = ? AND kazanilan_puan > 0
-            )
-          ORDER BY g.sira_no ASC, g.id ASC
-          LIMIT 1"
-    );
-    $st->execute([(int) $_SESSION['ogrenci_id'], (int) $_SESSION['ogrenci_id']]);
-    $gorev = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+/* Hâlâ yoksa: sıradaki çözülmemiş görev (sıfırlananlar dahil) */
+if (!$gorev && $ogrenciId > 0) {
+    $sonraki = sonrakiGoreviBul($pdo, $ogrenciId);
+    if ($sonraki) {
+        $st = $pdo->prepare("SELECT * FROM v2_gorevler WHERE id = ?");
+        $st->execute([$sonraki]);
+        $gorev = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+    }
 }
 
-// Hâlâ yoksa: yayındaki ilk görev (admin önizlemesi / boş kurulum)
+// Hâlâ yoksa: yayındaki ilk görev (admin önizlemesi / boş kurulum / hepsi bitmiş)
 if (!$gorev) {
     $gorev = $pdo->query(
         "SELECT * FROM v2_gorevler WHERE yayinda = 1 ORDER BY bolum_id ASC, sira_no ASC LIMIT 1"
@@ -113,6 +132,29 @@ $gorevPaketi = $gorev
 $baslik      = $gorev ? $gorev['gorev_adi'] : 'Görev Bulunamadı';
 $aktifGorevId = $gorev ? (int) $gorev['id'] : 0;
 $gorevPuani   = $gorev ? (int) $gorev['puan'] : 0;
+
+/* Açılan görevi "kaldığın yer" olarak kaydet */
+if ($ogrenciId > 0 && $aktifGorevId > 0) {
+    $pdo->prepare("UPDATE ogrenciler SET aktif_v2_gorev_id = ? WHERE id = ?")
+        ->execute([$aktifGorevId, $ogrenciId]);
+}
+
+/* İlerleme çubuğu verisi + ceza durumu + öğretmen bildirimi */
+$ilerlemeVerisi = $ogrenciId > 0
+    ? ilerlemeHaritasi($pdo, $ogrenciId, $aktifGorevId > 0 ? $aktifGorevId : null)
+    : ['bolumler' => [], 'aktif_gorev_id' => $aktifGorevId, 'toplam_gorev' => 0,
+       'cozulen_gorev' => 0, 'genel_yuzde' => 0, 'bekleyen_ceza' => 0];
+
+$cezaDurumu    = $ogrenciId > 0 ? ogrencininCezasi($pdo, $ogrenciId) : ['cezali' => false, 'gorev_sayisi' => 0, 'bolumler' => '', 'sebep' => null];
+$cezaBildirimi = $ogrenciId > 0 ? okunmamisSifirlamaBildirimi($pdo, $ogrenciId) : null;
+
+/* Aktif görevin ait olduğu bölüm — çubuk başlığında gösterilir */
+$aktifBolumAdi = '';
+foreach ($ilerlemeVerisi['bolumler'] as $b) {
+    foreach ($b['gorevler'] as $g) {
+        if ($g['id'] === $aktifGorevId) { $aktifBolumAdi = $b['ad']; break 2; }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -122,13 +164,57 @@ $gorevPuani   = $gorev ? (int) $gorev['puan'] : 0;
     <title>Görev: <?= htmlspecialchars($baslik) ?></title>
     <link href="../assets/css/tasarlayici_style.css" rel="stylesheet">
     <link href="../assets/css/ogrenci_oynatici.css?v=<?= time() ?>" rel="stylesheet">
+    <link href="<?= varlik('v2_gorev_sistemi/assets/css/ilerleme_cubugu.css', '../../') ?>" rel="stylesheet">
 </head>
 
- <body>
+ <body<?= $cezaDurumu['cezali'] ? ' class="ceza-modu"' : '' ?>>
 
     <div class="sol-panel">
-        
-       
+
+        <!-- ================================================================
+             [2026-08] İLERLEME ÇUBUĞU
+             Bölüm adı + görev adı, altında renkli daireler.
+               yeşil  = tamamlandı        turuncu = şu an buradasın
+               gri    = sırası gelmedi    kırmızı = öğretmen tekrar istedi
+               kilit  = bölüme ulaşılmadı
+             Dairelere tıklayınca o göreve gidilir (eski görevler tekrar
+             oynanabilir, puan ikinci kez verilmez).
+             ================================================================ -->
+        <div id="ilerlemeCubugu" class="ilerleme-cubugu">
+            <div class="ic-ust">
+                <div class="ic-baslik">
+                    <span class="ic-bolum"><?= temizle($aktifBolumAdi ?: 'Bölüm') ?></span>
+                    <span class="ic-ayrac">›</span>
+                    <span class="ic-gorev"><?= temizle($baslik) ?></span>
+                </div>
+                <button class="ic-katla" id="icKatlaBtn" title="Haritayı aç / kapat">🗺️</button>
+            </div>
+
+            <div class="ic-genel">
+                <div class="ic-bar"><span style="width:<?= (int) $ilerlemeVerisi['genel_yuzde'] ?>%"></span></div>
+                <small><?= (int) $ilerlemeVerisi['cozulen_gorev'] ?>/<?= (int) $ilerlemeVerisi['toplam_gorev'] ?></small>
+            </div>
+
+            <div class="ic-govde" id="icGovde"><!-- JS doldurur --></div>
+        </div>
+
+        <?php if ($cezaBildirimi): ?>
+        <!-- Öğretmen geri gönderdi uyarısı — bir kez gösterilir -->
+        <div id="cezaBildirimi" class="ceza-bildirimi">
+            <div class="cb-baslik">📌 Öğretmenin bir mesajı var</div>
+            <div class="cb-metin">
+                Öğretmenin <b><?= (int) $cezaBildirimi['gorev_sayisi'] ?> görevi</b> tekrar yapmanı istedi.
+                <?php if ((int) $cezaBildirimi['elmas_cezasi'] > 0): ?>
+                    Bu görevlerden aldığın <b><?= (int) $cezaBildirimi['elmas_cezasi'] ?> 💎</b> geri alındı —
+                    tekrar çözdüğünde geri kazanacaksın.
+                <?php endif; ?>
+                <?php if (!empty($cezaBildirimi['sebep'])): ?>
+                    <div class="cb-sebep">“<?= temizle($cezaBildirimi['sebep']) ?>”</div>
+                <?php endif; ?>
+            </div>
+            <button class="cb-tamam" onclick="cezaBildiriminiKapat()">Anladım</button>
+        </div>
+        <?php endif; ?>
 
         <div id="hikayeAlani" class="hikaye-icerik">Yükleniyor...</div>
 
@@ -220,7 +306,8 @@ $gorevPuani   = $gorev ? (int) $gorev['puan'] : 0;
            <div style="display: flex; align-items: center; gap: 15px;">
                 <a href="../../profil.php" target="_parent" title="Profili Düzenle" style="display: flex; align-items: center; gap: 15px; text-decoration: none; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                     
-                    <div style="width: 70px; height: 70px; border-radius: 50%; border: 3.5px solid #fbbf24; background-color: #0f172a; display: flex; justify-content: center; align-items: center; overflow: hidden; position: relative; box-shadow: 0 0 15px rgba(251, 191, 36, 0.4); flex-shrink: 0;">
+                    <!-- [2026-08] class="profile-circle": kırmızı ceza efektinin bağlandığı kanca -->
+                    <div class="profile-circle<?= $cezaDurumu['cezali'] ? ' ceza-efekti' : '' ?>" style="width: 70px; height: 70px; border-radius: 50%; border: 3.5px solid <?= $cezaDurumu['cezali'] ? '#ef4444' : '#fbbf24' ?>; background-color: #0f172a; display: flex; justify-content: center; align-items: center; overflow: hidden; position: relative; box-shadow: 0 0 15px <?= $cezaDurumu['cezali'] ? 'rgba(239, 68, 68, 0.55)' : 'rgba(251, 191, 36, 0.4)' ?>; flex-shrink: 0;">
                         <?php if ($vesikalik && !empty($vesikalik['karakter_resim'])): ?>
                             <div style="position: absolute; width: 350px; height: 350px; left: 50%; top: 14%; transform: translate(-50%, -33%) scale(0.7); transform-origin: center center; pointer-events: none;">
                                 <img src="../../<?= htmlspecialchars(ltrim($vesikalik['karakter_resim'], '/')) ?>" style="position: absolute; top:0; left:0; width: 100%; height: 100%; object-fit: contain; z-index: 1;">
@@ -935,6 +1022,17 @@ $gorevPuani   = $gorev ? (int) $gorev['puan'] : 0;
     <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/kod_tercumani.js', '../../') ?>"></script>
     <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/oyun_sahnesi.js', '../../') ?>"></script>
     <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/hakem_motoru.js', '../../') ?>"></script>
+
+    <!-- [2026-08] İlerleme çubuğu + konfetili kutlama ekranı -->
+    <script>
+        /* Sunucudan gelen ilk harita — sayfa açılırken beklemeden çizilsin */
+        window.V2_ILERLEME     = <?= json_encode($ilerlemeVerisi, JSON_UNESCAPED_UNICODE) ?>;
+        window.V2_CEZA         = <?= json_encode($cezaDurumu, JSON_UNESCAPED_UNICODE) ?>;
+        window.V2_ILERLEME_API = '<?= varlik('v2_gorev_sistemi/api/ilerleme_haritasi.php', '../../') ?>';
+        window.V2_OYNATICI_URL = 'oynatici.php';
+    </script>
+    <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/kutlama.js', '../../') ?>"></script>
+    <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/ilerleme_cubugu.js', '../../') ?>"></script>
 
     <script>
         function sahneModuDegistir(mod) {

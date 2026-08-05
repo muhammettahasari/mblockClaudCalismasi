@@ -27,6 +27,7 @@
 
 require_once __DIR__ . '/../../bilesenler/guvenlik.php';
 require_once __DIR__ . '/../../bilesenler/api_yanit.php';
+require_once __DIR__ . '/../../bilesenler/ilerleme_yardimcilari.php';
 require_once __DIR__ . '/v2_hakem.php';
 
 $ogrenci_id = ogrenciZorunluApi();
@@ -60,12 +61,14 @@ try {
         apiHata('Bu görev şu anda yayında değil.', 403);
     }
 
-    /* ---- 2. Öğrenci bu bölüme ulaşmış mı? (anti-hile) ---- */
-    $st = $pdo->prepare("SELECT mevcut_bolum FROM ogrenciler WHERE id = ?");
-    $st->execute([$ogrenci_id]);
-    $seviye = max(1, (int) ($st->fetchColumn() ?: 1));
+    /* ---- 2. Öğrenci bu bölüme ulaşmış mı? (anti-hile) ----
+       [2026-08] Eskiden "bolum_id > mevcut_bolum" karşılaştırması yapılıyordu.
+       Bölümün id'si ile sıra numarası birbirinden farklı olabildiği için
+       (silinen bölümler id'lerde boşluk bırakıyor) bu karşılaştırma yanlış
+       sonuç veriyordu. Artık gerçek erişim listesine bakıyoruz. */
+    $acikBolumler = erisilebilirBolumler($pdo, $ogrenci_id);
 
-    if ((int) $gorev['bolum_id'] > $seviye) {
+    if (!in_array((int) $gorev['bolum_id'], $acikBolumler, true)) {
         apiHata('Bu bölüme henüz ulaşmadınız.', 403);
     }
 
@@ -80,7 +83,7 @@ try {
     $karar = cozumDogruMu($ogrenciXml, $blueprint);
 
     /* ---- 4. Denemeyi kaydet (doğru/yanlış fark etmez) ---- */
-    $st = $pdo->prepare("SELECT id, kazanilan_puan FROM v2_ogrenci_ilerleme WHERE ogrenci_id = ? AND v2_gorev_id = ?");
+    $st = $pdo->prepare("SELECT id, kazanilan_puan, sifirlanma_tarihi FROM v2_ogrenci_ilerleme WHERE ogrenci_id = ? AND v2_gorev_id = ?");
     $st->execute([$ogrenci_id, $gorev_id]);
     $oncekiKayit = $st->fetch(PDO::FETCH_ASSOC);
 
@@ -128,19 +131,41 @@ try {
         ]);
     }
 
-    /* ---- 6. Puanı ANINDA hesaba yaz ---- */
-    $kazanilan = max(1, (int) $gorev['puan']);
+    /* ========================================================================
+     * 6. ÖDÜLÜ ANINDA HESABA YAZ
+     *
+     * [2026-08 ÖNEMLİ KURAL — ÇİFT PUAN ÖNLEME]
+     * Öğretmen bir görevi sıfırladığında CEZA SADECE ELMASTAN kesilir;
+     * kalici_puan'a hiç dokunulmaz (puan lig sıralamasını, arena gücünü ve
+     * canavar hasarını besliyor, geri alınması zincirleme bozuyor).
+     *
+     * Bu yüzden sıfırlanmış bir görev TEKRAR çözüldüğünde puanı ikinci kez
+     * yazamayız — yoksa öğretmen her sıfırladığında öğrencinin puanı şişerdi
+     * ve "ceza" ödüle dönerdi. Sadece kesilen elmas geri verilir.
+     *
+     *   İlk çözüm            -> +puan  +elmas
+     *   Sıfırlama sonrası    -> +0     +elmas   (borcunu kapatıyor)
+     * ====================================================================== */
+    $kazanilan   = max(1, (int) $gorev['puan']);
+    $sifirlanmis = $oncekiKayit && !empty($oncekiKayit['sifirlanma_tarihi']);
+
+    $puanOdulu  = $sifirlanmis ? 0 : $kazanilan;   // puan sadece ilk seferde
+    $elmasOdulu = $kazanilan;                      // elmas her seferinde
 
     $pdo->beginTransaction();
 
-    // v1 ile aynı ekonomi: puan sıralama için, elmas harcama için
     $pdo->prepare(
         "UPDATE ogrenciler
             SET kalici_puan = kalici_puan + ?, elmas = elmas + ?
           WHERE id = ?"
-    )->execute([$kazanilan, $kazanilan, $ogrenci_id]);
+    )->execute([$puanOdulu, $elmasOdulu, $ogrenci_id]);
 
     if ($oncekiKayit) {
+        /* kazanilan_puan sıfırdan büyük olunca görev tekrar "çözüldü" sayılır
+           ve kırmızı ceza efekti bu görev için kalkar. sifirlanma_tarihi
+           geçmiş kaydı olarak DURUR (öğretmen "bunu bir kez sıfırlamıştım"
+           bilgisini kaybetmesin), ama artık cezalı sorguya takılmaz çünkü
+           o sorgu kazanilan_puan = 0 şartını da arıyor. */
         $pdo->prepare(
             "UPDATE v2_ogrenci_ilerleme
                 SET kazanilan_puan = ?, deneme_sayisi = deneme_sayisi + 1, tamamlanma_tarihi = NOW()
@@ -157,11 +182,21 @@ try {
     $pdo->prepare(
         "INSERT INTO ogrenci_ilerleme (ogrenci_id, bolum_id, kaynak, durum, bekleyen_puan)
          VALUES (?, ?, 'v2', 'onaylandi', ?)"
-    )->execute([$ogrenci_id, $gorev['bolum_id'], $kazanilan]);
+    )->execute([$ogrenci_id, $gorev['bolum_id'], $puanOdulu]);
 
     $pdo->commit();
 
-    /* ---- 7. Bölümün tamamı bitti mi? Bittiyse seviye atlat ---- */
+    ilerlemeOnbelleginiTemizle($ogrenci_id);
+
+    /* ========================================================================
+     * 7. BÖLÜM BİTTİ Mİ? SEVİYE NEREYE GİTMELİ?
+     *
+     * [2026-08] "mevcut_bolum + 1" mantığı KALDIRILDI.
+     * Öğretmen öğrenciyi 1. bölüme geri gönderebiliyor. Öğrenci 1'i tekrar
+     * bitirdiğinde 2-3-4 zaten çözülüyse doğrudan 5'e dönmeli, 2'ye değil.
+     * Bu yüzden seviye "tamamlanmamış ilk bölüm"den hesaplanır.
+     * mevcutBolumuTazele() sütunu ASLA geri çekmez, sadece ileri taşır.
+     * ====================================================================== */
     $st = $pdo->prepare(
         "SELECT
             (SELECT COUNT(*) FROM v2_gorevler WHERE bolum_id = ? AND yayinda = 1) AS toplam,
@@ -173,21 +208,27 @@ try {
     $st->execute([$gorev['bolum_id'], $gorev['bolum_id'], $ogrenci_id]);
     $ilerleme = $st->fetch(PDO::FETCH_ASSOC);
 
-    $bolumBitti = false;
-    if ($ilerleme && (int) $ilerleme['toplam'] > 0
-        && (int) $ilerleme['cozulen'] >= (int) $ilerleme['toplam']
-        && (int) $gorev['bolum_id'] >= $seviye) {
+    $bolumBitti = ($ilerleme && (int) $ilerleme['toplam'] > 0
+                   && (int) $ilerleme['cozulen'] >= (int) $ilerleme['toplam']);
 
-        $pdo->prepare(
-            "UPDATE ogrenciler SET mevcut_bolum = mevcut_bolum + 1, can = 100, enerji = 100 WHERE id = ?"
-        )->execute([$ogrenci_id]);
-        $bolumBitti = true;
+    if ($bolumBitti) {
+        mevcutBolumuTazele($pdo, $ogrenci_id);   // ileri taşır, geri çekmez
+        $pdo->prepare("UPDATE ogrenciler SET can = 100, enerji = 100 WHERE id = ?")
+            ->execute([$ogrenci_id]);
     }
+
+    /* ---- Ceza kapandı mı? (kırmızı efekt için) ---- */
+    $ceza = ogrencininCezasi($pdo, $ogrenci_id);
 
     // Güncel bakiye
     $st = $pdo->prepare("SELECT kalici_puan, elmas FROM ogrenciler WHERE id = ?");
     $st->execute([$ogrenci_id]);
     $bakiye = $st->fetch(PDO::FETCH_ASSOC) ?: ['kalici_puan' => 0, 'elmas' => 0];
+
+    $mesaj = $sifirlanmis
+        ? "🎉 Doğru! Öğretmenin tekrar istediği bu görevi çözdün, +{$elmasOdulu} 💎 geri kazandın."
+          . ($ceza['cezali'] ? " (Tekrar edilecek {$ceza['gorev_sayisi']} görev kaldı.)" : ' Cezan tamamen kalktı!')
+        : "🎉 Tebrikler! Görevi doğru çözdün. +{$puanOdulu} Puan ve +{$elmasOdulu} 💎 kazandın!";
 
     apiJson([
         'success'      => true,
@@ -196,12 +237,16 @@ try {
         'dogru'        => true,
         'puan_verildi' => true,
         'kazanilan'    => $kazanilan,
+        'puan_odulu'   => $puanOdulu,
+        'elmas_odulu'  => $elmasOdulu,
+        'tekrar_cozum' => $sifirlanmis,
         'kalici_puan'  => (int) $bakiye['kalici_puan'],
         'elmas'        => (int) $bakiye['elmas'],
         'bolum_bitti'  => $bolumBitti,
+        'ceza'         => $ceza,
         'eslesen'      => $karar['eslesen'],
-        'mesaj'        => "🎉 Tebrikler! Görevi doğru çözdün. +{$kazanilan} Puan ve +{$kazanilan} 💎 kazandın!",
-        'message'      => "🎉 Tebrikler! Görevi doğru çözdün. +{$kazanilan} Puan ve +{$kazanilan} 💎 kazandın!",
+        'mesaj'        => $mesaj,
+        'message'      => $mesaj,
     ]);
 
 } catch (Throwable $e) {

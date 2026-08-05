@@ -50,6 +50,7 @@ Bu dört dosya 2026-08 revizyonunda eklendi. **Yeni PHP dosyası yazarken
 | `bilesenler/api_yanit.php` | `apiBasari()`, `apiHata()`, `apiJson()`, `apiIstisna()` — üç eski format anahtarını (`success`/`status`/`durum`) birlikte döndürür, eski JS'ler bozulmaz |
 | `bilesenler/rpg_matris.php` | `RPG_MATRIS`, `AVATAR_YUVALARI`, `statlariHesapla()`, `ogrencininGucu()`, `sinifGucListesi()` (tek sorgu), `gucOnbelleginiTemizle()`, `orduGucuOzeti()` |
 | `bilesenler/canavar_ayar.php` | `CANAVAR_SAVAS_GUNU` (18), `CANAVAR_ZAFER_ESIGI` (%50), `canavaraKalanGun()`, `canavarBuyumeYuzdesi()` |
+| `bilesenler/ilerleme_yardimcilari.php` | `bolumleriGetir()`, `ogrencininIlerlemesi()`, `ilerlemeHaritasi()`, `erisilebilirBolumler()`, `sonrakiGoreviBul()`, `sonrakiBolumuHesapla()`, `mevcutBolumuTazele()`, `ogrencininCezasi()`, `ogretmeninOgrencisiMi()` — **"öğrenci nerede?" sorusunun tek cevap mercii** |
 
 **Standart API dosyası şablonu:**
 ```php
@@ -168,6 +169,25 @@ doğruysa **anında** `kalici_puan` + `elmas` yazılır. Bekleyen puan / öğret
 Bölümün tüm görevleri bitince `mevcut_bolum` otomatik artar.
 
 Ayrıca **Paper.js tabanlı Kostüm Atölyesi** (vektör çizim editörü) var.
+
+### I. İlerleme Çubuğu & Öğretmen Sıfırlaması ✅ (2026-08)
+Oynatıcının tepesinde **bölüm › görev** başlığı ve renkli görev daireleri var
+(`ilerleme_cubugu.js` + `ilerleme_cubugu.css`). Dairelere tıklanınca eski görevlere
+dönülebilir (puan ikinci kez verilmez). **Otomatik geçiş YOK** — görev bitince
+konfetili kutlama açılır (`kutlama.js`), öğrenci "Sıradaki Görev"e kendisi basar.
+
+Öğretmen `admin/ogrenci_ilerleme.php`'de sınıfının ilerlemesini görür; ✏️ ile bir
+öğrencinin bölümlerini işaretleyip **tekrar yaptırır** (`api/ogrenci_ilerleme_sifirla.php`).
+
+> ⚠️ **CEZA KURALI:** `kalici_puan`'a asla dokunma — lig/arena/canavar ona bağlı.
+> Ceza sadece **elmas**tan kesilir ve **eksiye düşebilir**. Sıfırlanan görev tekrar
+> çözülünce **sadece elmas** iade edilir (puan zaten alınmamıştı; yoksa ceza ödüle döner).
+> "Cezalı mı?" bayrağı sütunda tutulmaz, `kazanilan_puan=0 AND sifirlanma_tarihi IS NOT NULL`
+> sorgusundan türetilir → kırmızı avatar efekti görevler bitince kendiliğinden kalkar.
+
+> ⚠️ **`mevcut_bolum` artık sadece kilit tavanıdır.** `mevcut_bolum + 1` mantığı kaldırıldı;
+> sıradaki bölüm `sonrakiBolumuHesapla()` ile "tamamlanmamış ilk bölüm" olarak bulunur.
+> Böylece 1'e geri gönderilen öğrenci 1'i bitirince 2-3-4 tamamsa doğrudan 5'e döner.
 
 ---
 

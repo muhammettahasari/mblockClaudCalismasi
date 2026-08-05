@@ -151,6 +151,12 @@ if ($sure_doldu_mu) {
                         <span style="font-size: 16px;">Yönetimi</span>
                     </a>
 
+                    <!-- [2026-08] Öğrencinin hangi bölümde olduğunu görme + geri gönderme -->
+                    <a href="ogrenci_ilerleme.php" style="background: #7c3aed; color: white; text-decoration: none; padding: 10px 30px; border-radius: 8px; font-weight: bold; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 4px 6px rgba(124, 58, 237, 0.3); transition: 0.2s;" onmouseover="this.style.background='#5b21b6'" onmouseout="this.style.background='#7c3aed'">
+                        <span style="font-size: 16px; margin-bottom: 3px;">📊 İlerleme</span>
+                        <span style="font-size: 16px;">Takibi</span>
+                    </a>
+
                     <div style="display: flex; flex-direction: column; justify-content: space-between; gap: 6px; width: 150px;">
                         <a href="../api/logout.php" style="background: #ef4444; color: white; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; transition: 0.2s; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.4); display: flex; align-items: center; justify-content: center; width: 100%; box-sizing: border-box; flex: 1;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
                             🚪 Çıkış

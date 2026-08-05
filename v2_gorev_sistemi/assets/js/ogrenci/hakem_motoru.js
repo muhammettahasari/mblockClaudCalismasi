@@ -270,12 +270,15 @@ window.hakemiCagir = function () {
             try { skorboardSenkronizeEt(); } catch (e) { /* yoksay */ }
         }
 
-        if (data.bolum_bitti) {
-            setTimeout(function () {
-                alert('🏆 Bu bölümdeki tüm görevleri bitirdin! Yeni bölüme geçiyorsun.');
-                window.location.href = '../../ogrenci_paneli.php';
-            }, 1500);
-        }
+        /* ====================================================================
+         * [2026-08] KUTLAMA + İLERLEME ÇUBUĞU
+         *
+         * ÖNEMLİ: OTOMATİK YÖNLENDİRME KALDIRILDI.
+         * Eskiden bölüm bitince 1.5 saniye sonra öğrenci zorla
+         * ogrenci_paneli.php'ye atılıyordu. Artık konfetili kutlama açılır
+         * ve öğrenci "Sıradaki Görev" ya da "Burada Kal" diye kendisi seçer.
+         * ================================================================== */
+        kutlamaVeIlerleme(data);
     })
     .catch(err => {
         if (btn) { btn.disabled = false; }
@@ -283,6 +286,126 @@ window.hakemiCagir = function () {
         hakemSonucGoster('Sunucuya ulaşılamadı. İnternet bağlantını kontrol et.', 'yanlis');
     });
 };
+
+/* ============================================================================
+ * KUTLAMA VE İLERLEME TAZELEME
+ * [2026-08] İlerleme çubuğu özelliğiyle eklendi.
+ *
+ * Görev doğru çözüldükten sonra:
+ *   1. Üstteki ilerleme çubuğunu sunucudan tazeler (daire yeşile döner)
+ *   2. Sıradaki görevi bulur
+ *   3. Duruma göre kutlama penceresini açar:
+ *        - Tüm görevler bitti          -> 👑 taç
+ *        - Bölüm bitti                 -> 🏆 kupa
+ *        - İlk görev                   -> 🎉 "İlk görevini geçtin!"
+ *        - Normal görev                -> 🎉
+ *   4. OTOMATİK GEÇİŞ YOK — öğrenci düğmeye kendisi basar.
+ *
+ * Puanı daha önce alınmış bir görev tekrar çözüldüyse kutlama açılmaz,
+ * sadece çubuk tazelenir (öğrenci tekrar oynuyordur).
+ * ========================================================================== */
+function kutlamaVeIlerleme(data) {
+    var kutlamaVar = !!data.puan_verildi;
+
+    /* İlerleme çubuğu yüklü değilse (eski sayfa) sadece mesajla yetin */
+    if (typeof window.ilerlemeyiTazele !== 'function') {
+        if (kutlamaVar && typeof window.kutlamaGoster === 'function') {
+            window.kutlamaGoster({
+                tur: data.bolum_bitti ? 'bolum' : 'gorev',
+                baslik: data.bolum_bitti ? 'Bölümü Bitirdin!' : 'Tebrikler!',
+                altMetin: 'Görevi doğru çözdün.',
+                puan: (data.puan_odulu != null ? data.puan_odulu : data.kazanilan) || 0,
+                elmas: (data.elmas_odulu != null ? data.elmas_odulu : data.kazanilan) || 0
+            });
+        }
+        return;
+    }
+
+    window.ilerlemeyiTazele().then(function (v) {
+        if (!kutlamaVar || typeof window.kutlamaGoster !== 'function') return;
+
+        var harita = (v && v.harita) || null;
+
+        /* --- Sıradaki çözülmemiş görevi bul --- */
+        var sonrakiId = 0, sonrakiAd = '', cozulenToplam = 0, tumuBitti = false;
+
+        if (harita) {
+            cozulenToplam = harita.cozulen_gorev | 0;
+            tumuBitti = (harita.toplam_gorev > 0 && cozulenToplam >= harita.toplam_gorev);
+
+            (harita.bolumler || []).some(function (b) {
+                if (!b.acik) return false;
+                return (b.gorevler || []).some(function (g) {
+                    if (g.durum !== 'tamam' && g.id !== window.v2AktifGorevId) {
+                        sonrakiId = g.id;
+                        sonrakiAd = g.ad;
+                        return true;
+                    }
+                    return false;
+                });
+            });
+        }
+
+        /* --- Hangi kutlama? --- */
+        var ayar;
+
+        if (tumuBitti) {
+            ayar = {
+                tur: 'tumu',
+                baslik: 'Tüm Görevleri Bitirdin!',
+                altMetin: 'Bütün bölümleri tamamladın. Öğretmenin yeni görevler ekleyene kadar '
+                        + 'arenada ve markette keyfine bak!',
+                sonrakiId: 0
+            };
+        } else if (data.bolum_bitti) {
+            ayar = {
+                tur: 'bolum',
+                baslik: 'Bölümü Tamamladın!',
+                altMetin: 'Bu bölümdeki bütün görevleri çözdün. Yeni bölümün kilidi açıldı.',
+                sonrakiId: sonrakiId,
+                sonrakiAd: sonrakiAd
+            };
+        } else if (cozulenToplam === 1) {
+            ayar = {
+                tur: 'gorev',
+                baslik: 'İlk Görevini Geçtin!',
+                altMetin: 'Harika bir başlangıç. Böyle devam edersen bu işi çözersin.',
+                sonrakiId: sonrakiId,
+                sonrakiAd: sonrakiAd
+            };
+        } else if (data.tekrar_cozum) {
+            /* Öğretmenin geri gönderdiği bir görev tekrar çözüldü:
+               puan zaten hiç alınmamıştı, sadece elmas borcu kapanıyor. */
+            var cezaKaldi = data.ceza && data.ceza.cezali;
+            ayar = {
+                tur: 'gorev',
+                ikon: cezaKaldi ? '💪' : '🎊',
+                baslik: cezaKaldi ? 'Bir Görev Daha Kapandı!' : 'Cezan Kalktı!',
+                altMetin: cezaKaldi
+                    ? 'Öğretmenin tekrar istediği görevi çözdün. Kalan: '
+                      + (data.ceza.gorev_sayisi | 0) + ' görev.'
+                    : 'Tekrar etmen gereken bütün görevleri bitirdin. Kırmızı efekt kalktı!',
+                sonrakiId: sonrakiId,
+                sonrakiAd: sonrakiAd
+            };
+        } else {
+            ayar = {
+                tur: 'gorev',
+                baslik: 'Tebrikler!',
+                altMetin: 'Görevi doğru çözdün.',
+                sonrakiId: sonrakiId,
+                sonrakiAd: sonrakiAd
+            };
+        }
+
+        ayar.puan  = (data.puan_odulu  != null ? data.puan_odulu  : data.kazanilan) || 0;
+        ayar.elmas = (data.elmas_odulu != null ? data.elmas_odulu : data.kazanilan) || 0;
+
+        // Sonuç mesajı okunsun diye kısa bir nefes payı
+        setTimeout(function () { window.kutlamaGoster(ayar); }, 450);
+    });
+}
+
 
 /**
  * "💡 Bilgi Al" butonu — görev metnindeki ipucu bloklarını gösterir.

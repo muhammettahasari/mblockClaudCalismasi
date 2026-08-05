@@ -130,3 +130,31 @@ Tarayıcı sürekli şu endpoint'leri çağırıyor — düzenleme yaparken yük
 - `api/quiz_canli_tablo.php` → quiz kontrol merkezinde
 - `api/quiz_saldiri_dinle.php` → quiz arenasında
 - `api/arena_durum_kontrol.php` → skorboard'da
+
+---
+
+## 📊 İlerleme Çubuğu & Öğretmen Sıfırlaması (2026-08)
+
+| Dosya | Girdi | İşlev | Auth |
+|---|---|---|---|
+| `v2_gorev_sistemi/api/ilerleme_haritasi.php` | JSON `{islem:'harita'\|'gorev_ac'\|'bildirim_oku', gorev_id?}` | Öğrencinin bölüm/görev haritası, ceza durumu, öğretmen bildirimi. `gorev_ac` "kaldığın yer"i günceller. | ✅ öğrenci |
+| `api/ogrenci_ilerleme_sifirla.php` | JSON `{islem:'onizleme'\|'sifirla', ogrenci_id, bolum_idler[], sebep?}` | Seçilen bölümleri sıfırlar, elmas cezası uygular. `onizleme` hiçbir şey yazmaz. | ✅ öğretmen + **kendi öğrencisi** |
+
+**Görev durumu etiketleri** (`ilerlemeHaritasi()` çıktısı):
+
+| Etiket | Renk | Anlamı |
+|---|---|---|
+| `tamam` | 🟢 yeşil | Çözüldü, puanı alındı |
+| `aktif` | 🟠 turuncu | Şu an oynanıyor / sıradaki |
+| `sifirlandi` | 🔴 kırmızı | Öğretmen tekrar yapılmasını istedi |
+| `bekliyor` | ⚪ gri | Sırası gelmedi |
+| `kilitli` | 🔒 | Bölüme hiç ulaşılmadı, tıklanamaz |
+
+**Ceza modeli (önemli):**
+
+- `kalici_puan`'a **asla dokunulmaz** — lig sıralaması, arena gücü ve canavar hasarı ona bağlı.
+- Ceza sadece **elmas** üzerinden verilir ve **eksiye düşebilir**.
+- Sıfırlanan görev tekrar çözülünce **sadece elmas** iade edilir, puan ikinci kez yazılmaz
+  (`v2_gorev_tamamla.php` → `$sifirlanmis` kontrolü). Aksi halde ceza ödüle dönerdi.
+- "Cezalı mı?" bilgisi ayrı bir sütunda tutulmaz; `kazanilan_puan = 0 AND sifirlanma_tarihi IS NOT NULL`
+  sorgusundan türetilir → görevler bitince kırmızı efekt kendiliğinden kalkar.
