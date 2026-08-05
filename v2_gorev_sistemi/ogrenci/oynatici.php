@@ -1040,12 +1040,21 @@ $gorevPuani   = $gorev ? (int) $gorev['puan'] : 0;
             move: { scrollbars: true, drag: true, wheel: true }
         });
 
-        // Blockly bazı sürümlerde mainWorkspace'i ayrı tutar — ikisini eşitle
-        Blockly.mainWorkspace = window.ogrenciWorkspace;
+        /* [2026-08] Blockly bazı sürümlerde mainWorkspace'i salt-okunur tutar.
+           Atama hata fırlatırsa ALTTAKİ satırlar hiç çalışmıyordu; canlı
+           derleyici devreye girmiyor, yeşil bayrak tepki vermiyordu.
+           Artık try/catch içinde. */
+        try {
+            Blockly.mainWorkspace = window.ogrenciWorkspace;
+        } catch (e) {
+            console.warn('Blockly.mainWorkspace atanamadı (zararsız):', e);
+        }
 
         // Canlı derleyiciyi (hakem_motoru.js) devreye al
         if (typeof window.canliDerleyiciyiBaslat === 'function') {
             window.canliDerleyiciyiBaslat(window.ogrenciWorkspace);
+        } else {
+            console.error('canliDerleyiciyiBaslat bulunamadı — hakem_motoru.js yüklenmemiş olabilir.');
         }
 
         // Panel boyutu değişince Blockly'nin çizimi bozulmasın

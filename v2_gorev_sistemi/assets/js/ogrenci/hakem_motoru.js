@@ -93,20 +93,50 @@ window.arkaPlandaDerle = function(workspace) {
 window.yesilBayraklariTetikle = function() {
     // KESİN ÇÖZÜM 4: Yeşil bayrağa basınca da 800ms bombasını iptal et
     clearTimeout(window.derlemeZamanlayici);
-    
-    window.oyunuDurdur(); 
-    
-    // Son saniye eklenen bloklar varsa, oynamaya başlamadan önce acil derleme yap
-    if (window.ogrenciWorkspace) {
-        window.arkaPlandaDerle(window.ogrenciWorkspace);
+
+    if (typeof window.oyunuDurdur === 'function') {
+        window.oyunuDurdur();
     }
-    
-    window.oyunMotoruCalisiyor = true; 
+
+    // Bazı sürümlerde workspace mainWorkspace altında durur — ikisini de dene
+    const calismaAlani = window.ogrenciWorkspace
+        || (typeof Blockly !== 'undefined' ? Blockly.mainWorkspace : null);
+
+    if (!calismaAlani) {
+        console.error('Yeşil bayrak: çalışma alanı bulunamadı.');
+        return;
+    }
+
+    // Son saniye eklenen bloklar varsa, oynamaya başlamadan önce acil derleme yap
+    window.arkaPlandaDerle(calismaAlani);
+
+    window.oyunMotoruCalisiyor = true;
     console.log("🟢 Oyun Başladı!");
 
-    if(window.oyunTetikleyicileri && window.oyunTetikleyicileri.bayrak) {
-        window.oyunTetikleyicileri.bayrak.forEach(cb => cb());
+    const bayraklar = (window.oyunTetikleyicileri && window.oyunTetikleyicileri.bayrak) || [];
+
+    /* [2026-08] YEŞİL BAYRAK SESSİZ KALIYORDU:
+       Öğrenci blokları koyup bayrağa basıyor ama hiçbir şey olmuyordu.
+       Sebep: bloklar "🏳️ Yeşil bayrak tıklandığında" ŞAPKA bloğunun altına
+       takılı değilse kod üretilmiyor (başıboş bloklar çalıştırılmaz).
+       Artık sessizce hiçbir şey yapmak yerine öğrenciye ne yapması
+       gerektiğini söylüyoruz. */
+    if (bayraklar.length === 0) {
+        const blokSayisi = calismaAlani.getAllBlocks(false).length;
+        const mesaj = (blokSayisi === 0)
+            ? '👋 Henüz hiç blok eklemedin! Soldaki menüden blokları sürükleyip bırak.'
+            : '🏳️ Bloklarını "Yeşil bayrak tıklandığında" bloğunun ALTINA takmalısın.\n\n'
+            + 'Bu bloğu "Olaylar" kategorisinde bulabilirsin.';
+
+        if (typeof hakemSonucGoster === 'function') {
+            hakemSonucGoster(mesaj, 'bilgi');
+        } else {
+            alert(mesaj);
+        }
+        return;
     }
+
+    bayraklar.forEach(cb => cb());
 };
 
 /* ============================================================================

@@ -43,6 +43,17 @@ function blueprintSadelestir(?string $xml): ?array
         return null;
     }
 
+    /* [2026-08] KRİTİK HATA DÜZELTİLDİ — XML NAMESPACE:
+       Blockly ürettiği XML'i varsayılan namespace ile yazar:
+           <xml xmlns="https://developers.google.com/blockly/xml">...</xml>
+       SimpleXML'de $kok->children() varsayılan namespace'teki çocukları
+       DÖNDÜRMEZ; boş liste verir. Bu yüzden öğrenci ne kadar blok koyarsa
+       koysun sadeleştirme [] dönüyor ve hakem her seferinde
+       "Hiç blok eklememişsin." diyordu.
+       Çözüm: karşılaştırma için namespace bildirimini kaldırıyoruz —
+       blok tipi, alan değerleri ve sıralama zaten namespace'ten bağımsız. */
+    $xml = preg_replace('/\s+xmlns(:\w+)?=(["\'])[^"\']*\2/', '', $xml);
+
     $oncekiAyar = libxml_use_internal_errors(true);
     $kok = simplexml_load_string($xml);
     libxml_clear_errors();
