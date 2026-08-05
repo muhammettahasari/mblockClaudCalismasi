@@ -42,7 +42,7 @@
     </script>
 
     <!-- [2026-08] Radar önce yüklenmeli; skorboard_motoru ona abone oluyor (#11) -->
-    <script src="js/ogrenci_radar.js"></script>
-    <script src="js/skorboard_motoru.js?v=<?= time() ?>"></script>
+    <script src="<?= varlik('js/ogrenci_radar.js', '') ?>"></script>
+    <script src="<?= varlik('js/skorboard_motoru.js', '') ?>"></script>
 
 </aside>

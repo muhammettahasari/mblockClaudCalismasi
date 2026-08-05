@@ -54,8 +54,9 @@ if ($duzenlenen) {
     $onerilenSira = (int) $st->fetchColumn();
 }
 
-// Paylaşılan gövde bu sayfada v2 klasörüne şu yoldan ulaşır
-$V2_TABAN = '../v2_gorev_sistemi/';
+// Paylaşılan gövde için yollar (bu sayfa admin/ içinde)
+$V2_TABAN = '../v2_gorev_sistemi/';   // v2_gorev_sistemi/ klasörüne
+$KOK_ONEK = '../';                    // proje köküne (önbellek kırıcı için)
 ?>
 <!DOCTYPE html>
 <html lang="tr">

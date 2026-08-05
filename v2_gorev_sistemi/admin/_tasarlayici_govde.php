@@ -14,6 +14,8 @@
  * ÇAĞIRMADAN ÖNCE TANIMLANMASI GEREKENLER:
  *   $V2_TABAN      — v2_gorev_sistemi/ klasörüne giden yol
  *                    (tasarlayici.php'de '../', gorev_ekle.php'de '../v2_gorev_sistemi/')
+ *   $KOK_ONEK      — proje KÖKÜNE çıkan yol (önbellek kırıcı varlik() için)
+ *                    (tasarlayici.php'de '../../', gorev_ekle.php'de '../')
  *   $bolumler      — bolumler tablosundan satırlar
  *   $duzenlenen    — düzenleme modundaysa v2_gorevler satırı, yoksa null
  *   $duzenlenenId  — düzenlenen görevin id'si (yoksa 0)
@@ -25,6 +27,7 @@
  */
 
 $V2_TABAN     = $V2_TABAN     ?? '../';
+$KOK_ONEK     = $KOK_ONEK     ?? '../../';
 $bolumler     = $bolumler     ?? [];
 $duzenlenen   = $duzenlenen   ?? null;
 $duzenlenenId = $duzenlenenId ?? 0;
@@ -132,7 +135,11 @@ $onerilenSira = $onerilenSira ?? 1;
 <script src="https://unpkg.com/blockly/blocks_compressed.js"></script>
 <script src="https://unpkg.com/blockly/msg/tr.js"></script>
 
-<script src="<?= $V2_TABAN ?>assets/js/admin/mblock_bloklari.js"></script>
-<script src="<?= $V2_TABAN ?>assets/js/admin/metin_editoru.js"></script>
-<script src="<?= $V2_TABAN ?>assets/js/admin/blueprint_motoru.js"></script>
-<script src="<?= $V2_TABAN ?>assets/js/admin/api_yoneticisi.js"></script>
+<!-- [2026-08] Önbellek kırıcı (?v=dosya-zamanı) eklendi.
+     Bu olmadan tarayıcı ESKİ api_yoneticisi.js'i çalıştırıyor ve o sürüm
+     bolum_id göndermediği için "Lütfen görevin ekleneceği bölümü seçin"
+     hatası alınıyordu — bölüm seçili olsa bile. -->
+<script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/mblock_bloklari.js', $KOK_ONEK) ?>"></script>
+<script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/metin_editoru.js', $KOK_ONEK) ?>"></script>
+<script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/blueprint_motoru.js', $KOK_ONEK) ?>"></script>
+<script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/api_yoneticisi.js', $KOK_ONEK) ?>"></script>

@@ -1,8 +1,11 @@
- <?php
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-require_once '../../db.php';
+<?php
+/* [2026-08] Merkezi güvenlik çekirdeğine geçildi.
+   guvenlik.php hem db.php'yi yükler hem de varlik() önbellek kırıcısını
+   ve güvenli oturum başlatıcıyı sağlar. Bu sayfa ogrenci_paneli.php
+   içinde iframe olarak açıldığı için oturum zaten açıktır; Süper Admin
+   önizlemesinde de çalışabilmesi için burada zorunlu kapı YOK. */
+require_once __DIR__ . '/../../bilesenler/guvenlik.php';
+guvenliOturumBaslat();
 
 // Öğrenci Adı ve Puanlarını Çekme
 $ogrenci_adi =$_SESSION['ogrenci_ad'] ?? 'Öğrenci';
@@ -842,7 +845,7 @@ $gorevPuani   = $gorev ? (int) $gorev['puan'] : 0;
         window.MBLOCK_TABAN = '../../';
         window.MBLOCK_DUELLO_DINLE = false;
     </script>
-    <script src="../../js/duello_motoru.js"></script>
+    <script src="<?= varlik('js/duello_motoru.js', '../../') ?>"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.12.17/paper-full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://unpkg.com/blockly/blockly_compressed.js"></script>
@@ -850,10 +853,10 @@ $gorevPuani   = $gorev ? (int) $gorev['puan'] : 0;
     <script src="https://unpkg.com/blockly/javascript_compressed.js"></script>
     <script src="https://unpkg.com/blockly/msg/tr.js"></script>
 
-    <script src="../assets/js/admin/mblock_bloklari.js"></script>
-    <script src="../assets/js/ogrenci/kod_tercumani.js"></script>
-    <script src="../assets/js/ogrenci/oyun_sahnesi.js"></script>
-    <script src="../assets/js/ogrenci/hakem_motoru.js"></script>
+    <script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/mblock_bloklari.js', '../../') ?>"></script>
+    <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/kod_tercumani.js', '../../') ?>"></script>
+    <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/oyun_sahnesi.js', '../../') ?>"></script>
+    <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/hakem_motoru.js', '../../') ?>"></script>
 
     <script>
         function sahneModuDegistir(mod) {
@@ -912,7 +915,7 @@ $gorevPuani   = $gorev ? (int) $gorev['puan'] : 0;
             });
         });
     </script>
-    <script src="../assets/js/ogrenci/coklu_kukla_motoru.js?v=<?= time() ?>"></script>
+    <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/coklu_kukla_motoru.js', '../../') ?>"></script>
 
     <!-- ====================================================================
          BLOCKLY KOD ALANI KURULUMU
@@ -995,10 +998,10 @@ $gorevPuani   = $gorev ? (int) $gorev['puan'] : 0;
     })();
     </script>
 
-    <script src="/mblock_platform/v2_gorev_sistemi/assets/js/ogrenci/kostum_atolyesi/renk_ve_gradyan.js"></script>
-    <script src="/mblock_platform/v2_gorev_sistemi/assets/js/ogrenci/kostum_atolyesi/transform_ve_secim.js"></script>
-    <script src="/mblock_platform/v2_gorev_sistemi/assets/js/ogrenci/kostum_atolyesi/araclar_ve_yardimcilar.js"></script>
-    <script src="/mblock_platform/v2_gorev_sistemi/assets/js/ogrenci/kostum_atolyesi.js"></script>
+    <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/kostum_atolyesi/renk_ve_gradyan.js', '../../') ?>"></script>
+    <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/kostum_atolyesi/transform_ve_secim.js', '../../') ?>"></script>
+    <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/kostum_atolyesi/araclar_ve_yardimcilar.js', '../../') ?>"></script>
+    <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/kostum_atolyesi.js', '../../') ?>"></script>
 
 <!-- YENİ ADMİN İŞLEMLERİ PENCERESİ (IFRAME MODAL) -->
     <div class="kukla-modal-overlay" id="adminIslemModal" style="display: none; z-index: 99999;">

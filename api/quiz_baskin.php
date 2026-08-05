@@ -33,7 +33,7 @@
     }
 </style>
 
-<script src="js/ogrenci_radar.js"></script>
+<script src="<?= varlik('js/ogrenci_radar.js', '') ?>"></script>
 <script>
     (function () {
         let baskinBasladi = false;

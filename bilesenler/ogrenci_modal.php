@@ -14,7 +14,7 @@
     <p>Güvenlik ihlali tespit edildi. 3 kez hatalı veya yetkisiz şifre girişi denendiği için hesabınız güvenlik moduna alınmıştır.</p>
     <p>Lütfen öğretmeninizden kendi paneli üzerinden kilidi açmasını isteyin.</p>
 </div>
-<script src="js/ogrenci_radar.js"></script>
+<script src="<?= varlik('js/ogrenci_radar.js', '') ?>"></script>
 <script>
     (function () {
         let yonlendirildi = false;

@@ -279,3 +279,39 @@ function beyazListe($deger, array $izinliler, $varsayilan = null)
 {
     return in_array($deger, $izinliler, true) ? $deger : $varsayilan;
 }
+
+/**
+ * TARAYICI ÖNBELLEK KIRICI
+ * [2026-08] JS/CSS dosyalarının sonuna dosyanın son değişiklik zamanını ekler.
+ *
+ * NEDEN GEREKLİ:
+ * PHP sayfaları her istekte yeniden üretilir ama .js dosyaları tarayıcıda
+ * önbelleğe alınır. Bir JS dosyasını güncellediğimizde kullanıcının tarayıcısı
+ * ESKİ sürümü çalıştırmaya devam eder ve "kod düzeldi ama hâlâ hata veriyor"
+ * durumu oluşur. (Örn: api_yoneticisi.js güncellendi ama tarayıcı eski
+ * sürümü çalıştırdığı için bolum_id gönderilmiyordu.)
+ *
+ * Dosya değişmediği sürece adres aynı kalır — yani önbellek boşuna bozulmaz.
+ *
+ * KULLANIMI — yol HER ZAMAN proje kökünden yazılır, ön ek ise sayfanın
+ * köke göre konumudur:
+ *   Kökteki sayfa (profil.php):
+ *      <script src="<?= varlik('js/duello_motoru.js') ?>"></script>
+ *   admin/ içindeki sayfa:
+ *      <script src="<?= varlik('js/duello_motoru.js', '../') ?>"></script>
+ *   v2_gorev_sistemi/admin/ içindeki sayfa:
+ *      <script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/api_yoneticisi.js', '../../') ?>"></script>
+ *
+ * @param string $kokGoreliYol Proje KÖKÜNDEN itibaren dosya yolu
+ * @param string $kokOnEki     Sayfadan proje köküne çıkan yol ('', '../', '../../')
+ */
+function varlik(string $kokGoreliYol, string $kokOnEki = ''): string
+{
+    $kokGoreliYol = ltrim($kokGoreliYol, '/');
+
+    // Disk yolu: bu dosya bilesenler/ içinde olduğu için bir üst klasör proje köküdür
+    $diskYolu = dirname(__DIR__) . '/' . $kokGoreliYol;
+    $surum    = is_file($diskYolu) ? filemtime($diskYolu) : time();
+
+    return $kokOnEki . $kokGoreliYol . '?v=' . $surum;
+}

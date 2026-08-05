@@ -1,10 +1,19 @@
 <?php
-session_start();
-if (!isset($_SESSION['ogrenci_id'])) {
-    header("Location: index.php");
-    exit;
-}
-require_once 'db.php';
+/* ====================================================================
+ * MODÜL: Öğrenci Ana Paneli
+ * DOSYA: ogrenci_paneli.php
+ *
+ * NE İŞE YARAR (HALK DİLİNDE):
+ * Öğrencinin giriş yaptıktan sonra geldiği ana ekran. Solda görev/kod
+ * alanı (v2 oynatıcı iframe'i), sağda skorboard.
+ *
+ * YENİ EKLENEN ÖZELLİKLER:
+ *  - [2026-08] Merkezi güvenli oturum kapıcısına geçildi (guvenlik.php).
+ *    Ayrıca varlik() önbellek kırıcısı bu dosyadan geliyor.
+ * ==================================================================== */
+
+require_once __DIR__ . '/bilesenler/guvenlik.php';
+ogrenciZorunlu();
 
 $aktif_ogrenci_id = $_SESSION['ogrenci_id'];
 $aktif_ogrenci_ad = $_SESSION['ogrenci_ad'] ?? 'Öğrenci';
@@ -298,8 +307,8 @@ if ($toplam_gorev > 0) {
             const ilkGorevId = <?= $ilk_gorev_id ?>;
         </script>
         <!-- [2026-08] Birleşik radar: dört ayrı polling yerine tek kalp atışı (#11) -->
-        <script src="js/ogrenci_radar.js"></script>
-        <script src="js/progress_manager.js"></script>
+        <script src="<?= varlik('js/ogrenci_radar.js', '') ?>"></script>
+        <script src="<?= varlik('js/progress_manager.js', '') ?>"></script>
     <?php endif; ?>
     <?php include 'api/quiz_baskin.php'; ?>
     <?php include 'bilesenler/duello_radari.php'; ?>

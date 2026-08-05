@@ -741,8 +741,8 @@ gucuYenidenHesapla($pdo, $ogrenci_id);
         });
     </script>
 
-    <script src="js/ogrenci_radar.js"></script>
-    <script src="js/avatar_manager.js?v=<?= time() ?>"></script>
+    <script src="<?= varlik('js/ogrenci_radar.js', '') ?>"></script>
+    <script src="<?= varlik('js/avatar_manager.js', '') ?>"></script>
     <script>
         const profilMuzigi = new Audio('assets/sounds/profil_karakter_sound.mp3');
         profilMuzigi.loop = true;  // Müzik bitince başa sarar
