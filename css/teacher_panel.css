@@ -1,0 +1,84 @@
+/* ==========================================================
+   YENİ KODLARIN BAŞLANGICI
+   Dosya Yolu: css/teacher_panel.css
+   İşlev: Öğretmen masaüstü paneli tasarımı
+   ========================================================== */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8fafc;
+    margin: 0;
+    padding: 20px;
+}
+
+.teacher-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: #ffffff;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+.header-area {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 20px;
+    margin-bottom: 30px;
+}
+
+.header-area h1 {
+    color: #1e293b;
+    margin: 0;
+}
+
+/* Tablo Tasarımı */
+.student-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.student-table th, .student-table td {
+    padding: 15px;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.student-table th {
+    background-color: #f1f5f9;
+    color: #475569;
+    font-weight: bold;
+}
+
+.student-table tr:hover {
+    background-color: #f8fafc;
+}
+
+/* Durum ve Butonlar */
+.badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: bold;
+    color: white;
+}
+.bg-locked { background-color: #ef4444; }
+.bg-active { background-color: #10b981; }
+.bg-waiting { background-color: #f59e0b; }
+
+.btn-action {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    color: white;
+    transition: 0.2s;
+}
+.btn-unlock { background-color: #3b82f6; }
+.btn-unlock:hover { background-color: #2563eb; }
+
+/* ==========================================================
+   YENİ KODLARIN BİTİŞİ
+   ========================================================== */

@@ -1,0 +1,132 @@
+# API Referansı
+
+**Kolonlar:** Yol · Metot/Girdi · Ne yapar · Döndürdüğü · Auth
+**Girdi tipleri:** `JSON` = `json_decode(file_get_contents("php://input"))` · `POST` = form-data · `GET` = query string
+
+---
+
+## 🔐 Kimlik & Oturum
+
+| Dosya | Girdi | İşlev | Dönüş | Auth |
+|---|---|---|---|---|
+| `api/verify_pin.php` | JSON `{pin}` | PIN'den onaylı öğretmeni + sınıflarını bulur | `{success, ogretmen_id, ogretmen_ad, okul_adi, siniflar[]}` | yok (public) |
+| `api/student_login.php` | JSON `{sinif_id, kullanici_adi, sifre}` | Öğrenci girişi; `onay_durumu=0` ise reddeder; **7 gün geçtiyse can/enerji=100** | `{success, message}` | – |
+| `api/student_register.php` | JSON `{ad_soyad, kullanici_adi, sifre, ogretmen_id, sinif_id}` | Kayıt (`onay_durumu=0`, can/enerji=100) | `{success, message}` | – |
+| `api/teacher_login.php` | JSON `{kullanici_adi, sifre}` | Öğretmen girişi; `durum` ve `bitis_tarihi` kontrolü | `{success, reason:'pending'\|'expired', message}` | – |
+| `api/teacher_register.php` | JSON (10 alan) | Öğretmen başvurusu → `onay_bekliyor` | `{success, message}` | – |
+| `api/teacher_time_request.php` | JSON `{kullanici_adi, ay}` | Süre uzatma talebi → `durum='onay_bekliyor'` | `{success}` | – |
+| `api/password_reset.php` | JSON `{email}` | 32-byte token üretir, `mail()` ile link atar (1 saat) | `{success, message}` | – |
+| `api/logout.php` | – | `session_destroy()` + `index.php`'ye redirect | HTTP 302 | – |
+
+---
+
+## 👨‍🏫 Öğretmen
+
+| Dosya | Girdi | İşlev | Auth |
+|---|---|---|---|
+| `api/teacher_remote.php` | GET `islem=` | **Çok işlevli.** `liste` (sınıf filtreli öğrenci listesi + bekleyen onay bayrağı), `siniflari_getir`, `sinif_ekle`, `sinif_sil` (JSON body, öğrencileri de siler), `kayit_onayla`, `kilit_ac`, `onayla` (anlık→kalıcı puan), `reddet_ac`, `ogrenci_sil`, `ogrenci_duzenle` (JSON body) | ✅ `ogretmen_id` |
+| `api/teacher_add_student.php` | JSON | Tekli öğrenci ekleme; **isim/kullanıcı adı çakışırsa otomatik sonuna sayı ekler** | ✅ |
+| `api/teacher_bulk_add.php` | JSON `{sinif_id, ogrenciler[]}` | Excel'den toplu ekleme (`Ad Soyad`/`Kullanıcı Adı`/`Şifre` anahtarları), `onay_durumu=1` | ✅ |
+| `api/get_passwords.php` | GET `sinif_id` | PDF çıktısı için şifre listesi | ✅ |
+| `api/arena_durum_degistir.php` | POST `islem=ac\|kapat`, `sure` (dk veya `suresiz`) | PvP arenasını açar/kapatır (`ogretmenler.arena_bitis`) | ✅ |
+| `api/ogretmen_radar.php` | – | Arena + Düello durumunu döner, **süresi dolanı otomatik kapatır** | ✅ |
+| `api/duello/duello_kontrol.php` | POST `islem=ac\|kapat`, `sure` | Düello şalteri (`duello_ayarlari` id=1) | ✅ |
+
+---
+
+## 👑 Süper Admin
+
+| Dosya | Girdi | İşlev | Auth |
+|---|---|---|---|
+| `api/admin_teacher_action.php` | JSON `{islem, id, ay}` | `onayla` (**PIN üretir**, `bitis_tarihi = +ay+1 ay`), red/silme | ❌ **YOK** |
+| `api/bolum_ekle.php` | JSON `{bolum_adi}` | Yeni bölüm (sıra_no otomatik) | ❌ |
+| `api/task_save.php` | POST (form) | Yeni görev ekler → HTML sayfa döner | ❌ |
+| `api/task_update.php` | POST (form) | Görev günceller → HTML döner | ❌ |
+| `api/yonetim_api.php` | JSON `{islem, tur, id}` | `sil`, `bolum_duzenle`, `sira_degistir` (yukarı/aşağı) | ❌ |
+| `api/api_market_islem.php` | POST/GET `islem=` | `listele` (kategori/arama/sıralama), `ekle` (resim upload), `sil` (toplu; dosyayı da siler, envanteri temizler), `guncelle`, `hizli_guncelle`, `toplu_guncelle`, **`senkronize_et`** (klasörü tarar, dosya adından isim+fiyat türetir, DB'ye ekler) | ❌ |
+
+---
+
+## 🎓 Öğrenci — Görev & Puan
+
+| Dosya | Girdi | İşlev |
+|---|---|---|
+| `api/get_task.php` | GET `gorev_id` | Görevi + `sonraki_gorev_id` + `son_gorev_mi` döner |
+| `api/student_sync.php` | GET `islem=dinle` / POST JSON | `dinle` (durum polling) · `anlik_puan_guncelle` · `onay_bekliyor_yap` · `kilitle` |
+| `api/teacher_approval.php` | JSON `{sifre, ogrenci_id}` | ⚠️ **Şifre sabit `"123"`.** 3 hata → `durum='kilitli'`. Sayaç `$_SESSION['hata_sayaci']` |
+| `api/update_score.php` | JSON `{islem, ogrenci_id}` | `onayla` → `kalici_puan += anlik_puan`, `elmas += anlik_puan`, can/enerji=100 · `reddet_basa_sar` → anlık puanı sıfırla |
+| `api/bolum_bitir.php` | – (session) | `mevcut_bolum++`, puan aktar, `ogrenci_ilerleme`'ye log — ⚠️ **log INSERT'i hatalı** (bkz. BILINEN_SORUNLAR #3) |
+
+---
+
+## 🎒 Market & Avatar
+
+| Dosya | Girdi | İşlev |
+|---|---|---|
+| `api/satin_al.php` | JSON `{esya_id}` | Elmas kontrolü → **transaction** → elmas düş + envantere ekle. `saldiri_troll` tekrar alınabilir | `{success, kalan_elmas, tekrar_alinabilir}` |
+| `api/avatar_guncelle.php` | JSON veya POST `{kategori, esya_id, islem}` | `giy` / `cikart` — kategori **beyaz listeden** kontrol edilir |
+
+---
+
+## ⚔️ Savaş
+
+| Dosya | Girdi | İşlev |
+|---|---|---|
+| `api/arena_savas_motoru.php` | POST `hedef_id` | **Ana PvP motoru.** Dinamik güç hesabı → arena açık mı, 5 gün kuralı, 20 enerji, can>0, günlük 3 savunma kalkanı, ±5 sıra kuralı → zar at → puan/HP güncelle → logla → 30 gün temizliği |
+| `api/arena_durum_kontrol.php` | – | Öğrenci için arena açık mı → `{success, acik}` |
+| `api/canavara_saldir.php` | POST `islem=envanter_getir\|saldir`, `envanter_id` | Eşyayı **feda eder** (DELETE) + 33 enerji → `seviye×20` hasar → canavar canı düşer, log atılır |
+| `api/aylik_savas_motoru.php` | – (cron/manuel) | **Sadece ayın 18'inde çalışır.** Okul ortalamalarının toplamı = hasar. Canavar ölürse yumurta doğar (×1.15), ölmezse "dev" büyür. Video türü: can ≤ %50 → `zafer`, değilse `canavar_kazandi` |
+
+---
+
+## 🎯 Quiz Arena
+
+| Dosya | Girdi | İşlev |
+|---|---|---|
+| `api/quiz_durum_kontrol.php` | – | Global aktif oturum var mı → `{aktif, oturum_id}` (tüm panellerde polling) |
+| `api/quiz_arena_kontrol.php` | GET `oturum_id` | Oturum hâlâ aktif mi → `{durum}` |
+| `api/quiz_aktif_hedefler.php` | GET `oturum_id` | Kendisi hariç oyuncular (puana göre sıralı) |
+| `api/quiz_puan_guncelle.php` | POST `oturum_id, puan, cozulen_soru` | Puanı yazar → `"OK"` |
+| `api/quiz_canli_tablo.php` | GET `oturum_id` | Öğretmen radarı için canlı sıralama |
+| `api/quiz_guc_kullan.php` | POST `oturum_id, guc_turu, hedef_id` | Hakkı 0'lar. `kalkan` → kendini korur. `kilic` + hedefte kalkan varsa → **kalkan kırılır, hedef +20, saldıran -20**. Diğerleri `quiz_savas_log`'a `bekliyor` olarak yazılır |
+| `api/quiz_saldiri_dinle.php` | GET `oturum_id` | Gelen saldırıyı çeker ve `savunan_gordu_mu=1` işaretler |
+| `api/quiz_saldiri_sonuc.php` | POST `log_id, dogru_mu, normal_puan` | Yanlış → savunan -20 / saldıran +20. Doğru + kılıç/glitch → savunan normal puan. Doğru + saat → **geri teper**: savunan +2×, saldıran -2× |
+| `api/quiz_baskin.php` | *(include)* | ⚠️ PHP değil, **HTML overlay parçası** — `ogrenci_paneli.php`, `profil.php`, `market.php` içine include edilir ("SAVAŞ BAŞLADI" ekranı) |
+
+---
+
+## 🤺 Düello (`api/duello/`)
+
+| Dosya | Girdi | İşlev |
+|---|---|---|
+| `istek_at.php` | POST `hedef_id` | Arena açık mı + bekleyen düello var mı → yeni kayıt (`bekliyor`) |
+| `dinle.php` | – | **Polling merkezi.** Gelen istek var mı / kabul edildi mi (arenaya git) / arena aktif mi. Tekrar tetiklemeyi `$_SESSION['son_gidilen_saldiri']` ile engeller |
+| `yanitla.php` | POST `duello_id, yanit=kabul\|red` | Kabulde öğrencinin `mevcut_bolum` seviyesine uygun **rastgele soru** seçer → `kabul_edildi` |
+| `cevap.php` | POST `duello_id, cevap` | İlk doğru bilen kazanır. Okuyan kazanırsa **+5/-3**, okunan kazanırsa **+6/-6**. Yanlışta sadece yanlış bilen ceza yer, `kazanan_id=-1` |
+| `senkron.php` | GET `duello_id` | Maç bitti mi → `{oyun_bitti, kazandim_mi, berabere_mi, zaman_doldu}` |
+| `zaman_doldu.php` | POST `duello_id` | İkisine de ceza (okuyan -5, okunan -3), `kazanan_id=-2` |
+
+---
+
+## 🚧 v2 Görev Sistemi
+
+| Dosya | Girdi | İşlev | Auth |
+|---|---|---|---|
+| `v2_gorev_sistemi/api/gorev_api.php` | JSON `{islem:'yeni_gorev_kaydet', baslik, icerik}` | `v2_gorevler`'e kaydeder — ⚠️ **`bolum_id=1`, `sira_no=1`, `puan=20` sabit kodlanmış** | ❌ |
+| `v2_gorev_sistemi/api/kukla_api.php` | – | Tüm kuklaları JSON döner → `{durum, veri[]}` | ❌ |
+| `.../admin/kukla_kutuphanesi/kukla_islem.php` | POST multipart | Çoklu kostüm yükler (`jpg,jpeg,png,gif,svg`), `uniqid("kostum_")` ile adlandırır | ❌ |
+| `.../admin/kukla_kutuphanesi/kukla_sil.php` | | Kukla siler | ❌ |
+
+---
+
+## Polling Aralıkları (performans notu)
+
+Tarayıcı sürekli şu endpoint'leri çağırıyor — düzenleme yaparken yük artışına dikkat:
+
+- `api/duello/dinle.php` → her öğrenci sayfasında (`bilesenler/duello_radari.php`)
+- `api/quiz_durum_kontrol.php` → her öğrenci sayfasında
+- `api/student_sync.php?islem=dinle` → kilit ekranında
+- `api/ogretmen_radar.php` → öğretmen panelinde
+- `api/quiz_canli_tablo.php` → quiz kontrol merkezinde
+- `api/quiz_saldiri_dinle.php` → quiz arenasında
+- `api/arena_durum_kontrol.php` → skorboard'da

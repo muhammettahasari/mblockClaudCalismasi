@@ -1,0 +1,59 @@
+# ============================================================================
+#  mBlock Akademi — Git Yoksayma Listesi
+#  [2026-08] Oluşturuldu (Bilinen Sorunlar #19)
+# ============================================================================
+
+# --- KİŞİSEL VERİ / GİZLİ ---------------------------------------------------
+# Veritabanı dökümü GERÇEK öğrenci adlarını ve DÜZ METİN şifreleri içerir.
+# Bu dosya asla GitHub'a (private repo olsa bile) gönderilmemelidir.
+# Kurulum için kurulum/migration_2026_08_guvenlik.sql yeterlidir.
+mblock_egitim.sql
+*.sql
+!kurulum/*.sql
+
+# Yedekler
+yedek*.sql
+*_yedek.*
+*.bak
+
+# --- YÜKLENEN MEDYA ---------------------------------------------------------
+# Öğretmenlerin/adminlerin yüklediği görseller repoya girmesin (52 MB+)
+assets/videos/*.mp4
+assets/videos/*.webm
+assets/sounds/*.mp3
+assets/sounds/*.wav
+img/quiz/*
+v2_gorev_sistemi/assets/images/kuklalar/*
+v2_gorev_sistemi/admin/assets/images/kuklalar/*
+
+# Klasör yapısı korunsun diye:
+!img/quiz/.gitkeep
+!v2_gorev_sistemi/assets/images/kuklalar/.gitkeep
+
+# --- ARŞİV / GEÇİCİ ---------------------------------------------------------
+*.rar
+*.zip
+*.7z
+*.xlsx
+*.docx
+proje_analiz_raporu.xlsx
+
+# --- İŞLETİM SİSTEMİ / EDİTÖR ----------------------------------------------
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.swp
+*~
+.vscode/
+.idea/
+
+# --- LOG / ÖNBELLEK ---------------------------------------------------------
+*.log
+error_log
+php_errors.log
+/tmp/
+cache/
+
+# --- BAĞIMLILIK -------------------------------------------------------------
+node_modules/
+vendor/

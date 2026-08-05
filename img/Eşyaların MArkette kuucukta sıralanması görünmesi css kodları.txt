@@ -1,0 +1,10 @@
+        /* 3. KATEGORİLERE ÖZEL ODAKLANMA VE YAKINLAŞTIRMA (Zoom) */
+        .bg-kafa { background-position: 50% 25%; background-size: 400%; }
+        .bg-sac { background-position: 50% 10%; background-size: 600%; }
+        .bg-sag_el { background-position: 55% 90%; background-size: 300%; } /* Sol taraftaki kılıç */
+        .bg-sol_el { background-position: 60% 67%; background-size: 330%; } /* Sağ taraftaki kalkan */
+        .bg-ayakkabi { background-position: 50% 95%; background-size: 500%; }
+        .bg-binek { background-position: -20% 80%; background-size: 150%; } /* Sol alttaki binek */
+        .bg-evcil_hayvan { background-position: 90% 90%; background-size: 250%; } /* Sağ alttaki hayvan */
+        .bg-karakter { background-position: 50% 70%; background-size: 110%; }
+        .bg-saldiri_troll { background-position: center; background-size: contain; }
