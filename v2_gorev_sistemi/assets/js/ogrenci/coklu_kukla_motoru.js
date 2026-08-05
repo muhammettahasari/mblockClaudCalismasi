@@ -126,6 +126,9 @@ window.sahnedeKuklayiDegistir = function(kuklaDataStr) {
 };
 
 window.kuklaSec = function(hedefId) {
+    // [2026-08] Aynı kuklaya tekrar tıklamak kodu boşuna temizlemesin
+    if (window.aktifKuklaId === hedefId) return;
+
     if(window.ogrenciWorkspace && window.aktifKuklaId) {
         let eskiKukla = window.projeKuklalari.find(k => k.id === window.aktifKuklaId);
         if(eskiKukla) {
@@ -134,8 +137,28 @@ window.kuklaSec = function(hedefId) {
         }
     }
 
-    window.aktifKuklaId = hedefId;
     let seciliKukla = window.projeKuklalari.find(k => k.id === hedefId);
+
+    /* [2026-08] KOD KAYBI ÖNLENDİ:
+       Sayfa açılışında 800 ms sonra kuklaSec('kukla_varsayilan') çalışıyor ve
+       workspace'i temizliyordu. Öğrenci o ilk saniyede blok eklediyse kodu
+       siliniyordu. Ayrıca aktifKuklaId henüz null olduğu için kod hiçbir
+       kuklaya da kaydedilmiyordu — tamamen kayboluyordu.
+       Artık: hedef kuklanın kodu boşsa ve ekranda blok varsa, o bloklar
+       silinmek yerine hedef kuklaya devredilir. */
+    if (window.ogrenciWorkspace && seciliKukla && !window.aktifKuklaId) {
+        const ekrandakiBlok = window.ogrenciWorkspace.getAllBlocks(false).length;
+        const hedefKoduBos  = !seciliKukla.kodXml
+                              || seciliKukla.kodXml.indexOf('<block') === -1;
+
+        if (ekrandakiBlok > 0 && hedefKoduBos) {
+            seciliKukla.kodXml = Blockly.Xml.domToText(
+                Blockly.Xml.workspaceToDom(window.ogrenciWorkspace)
+            );
+        }
+    }
+
+    window.aktifKuklaId = hedefId;
 
     if(window.ogrenciWorkspace && seciliKukla) {
         window.ogrenciWorkspace.clear();
@@ -392,3 +415,59 @@ window.kuklaSilIstegi = function(id) {
 };
 
 window.kuklaSilMenu = function() { if(window.sagTikKuklaId) kuklaSilIstegi(window.sagTikKuklaId); };
+
+/* ============================================================================
+ * [2026-08] TÜM KUKLALARIN KODUNU TEK XML'DE TOPLA
+ *
+ * NEDEN GEREKLİ:
+ * Bu sistemde HER KUKLANIN kendi kodu var (kodXml). Blockly çalışma alanı
+ * yalnızca AKTİF kuklanın kodunu gösterir. Hakem motoru ise ham çalışma
+ * alanını okuyordu; öğrencinin kodu başka bir kuklada kaldıysa hakem onu
+ * göremiyor ve "Kod alanında hiç blok görünmüyor" diyordu.
+ *
+ * Bu fonksiyon:
+ *   1. Aktif kuklanın EKRANDAKİ güncel kodunu kendi kaydına yazar
+ *   2. Bütün kuklaların bloklarını tek bir <xml> içinde birleştirir
+ * Hakem üst seviye blokları sıralayarak karşılaştırdığı için birleştirme
+ * karşılaştırmayı bozmaz.
+ * ========================================================================== */
+window.tumKuklaKodlariniTopla = function () {
+    // 1. Ekrandaki canlı kodu aktif kuklaya kaydet (kaybolmasın)
+    if (window.ogrenciWorkspace && window.aktifKuklaId && Array.isArray(window.projeKuklalari)) {
+        const aktif = window.projeKuklalari.find(k => k.id === window.aktifKuklaId);
+        if (aktif) {
+            try {
+                aktif.kodXml = Blockly.Xml.domToText(
+                    Blockly.Xml.workspaceToDom(window.ogrenciWorkspace)
+                );
+            } catch (e) {
+                console.warn('Aktif kukla kodu kaydedilemedi:', e);
+            }
+        }
+    }
+
+    // 2. Bütün kuklaların <block> düğümlerini topla
+    let bloklar = '';
+
+    if (Array.isArray(window.projeKuklalari) && window.projeKuklalari.length > 0) {
+        window.projeKuklalari.forEach(function (k) {
+            const xml = k.kodXml || '';
+            if (xml.indexOf('<block') === -1) return;   // bu kuklada kod yok
+
+            // Kök <xml> etiketini soyup sadece içindeki blokları al
+            const ic = xml.replace(/^[\s\S]*?<xml[^>]*>/i, '').replace(/<\/xml>\s*$/i, '');
+            bloklar += ic;
+        });
+    }
+
+    // 3. Hiç kukla yoksa (veya hepsi boşsa) doğrudan çalışma alanını kullan
+    if (bloklar.trim() === '' && window.ogrenciWorkspace) {
+        try {
+            return Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(window.ogrenciWorkspace));
+        } catch (e) {
+            return '<xml></xml>';
+        }
+    }
+
+    return '<xml xmlns="https://developers.google.com/blockly/xml">' + bloklar + '</xml>';
+};

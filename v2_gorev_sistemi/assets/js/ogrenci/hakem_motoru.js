@@ -187,14 +187,34 @@ window.hakemiCagir = function () {
         return;
     }
 
-    // Blockly çalışma alanını XML metnine çevir
+    /* [2026-08] KODU TÜM KUKLALARDAN TOPLA
+       Bu sistemde her kuklanın kendi kodu var (kodXml) ve Blockly çalışma
+       alanı yalnızca AKTİF kuklanınkini gösterir. Eskiden hakem doğrudan
+       çalışma alanını okuyordu; öğrencinin kodu başka bir kuklada kaldıysa
+       (ya da kukla değiştirildiyse) hakem boş XML görüyor ve
+       "Kod alanında hiç blok görünmüyor" diyordu.
+       Artık aktif kuklanın canlı kodu önce kaydediliyor, sonra bütün
+       kuklaların blokları tek XML'de birleştirilip gönderiliyor. */
     let cozumXml = '';
     try {
-        const dom = Blockly.Xml.workspaceToDom(calismaAlani);
-        cozumXml = Blockly.Xml.domToText(dom);
+        if (typeof window.tumKuklaKodlariniTopla === 'function') {
+            cozumXml = window.tumKuklaKodlariniTopla();
+        } else {
+            cozumXml = Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(calismaAlani));
+        }
     } catch (e) {
         console.error('XML üretme hatası:', e);
         hakemSonucGoster('Kodun okunurken bir sorun oluştu.', 'yanlis');
+        return;
+    }
+
+    // Hiç blok yoksa sunucuya gitmeden uyar (gereksiz istek atmayalım)
+    if (cozumXml.indexOf('<block') === -1) {
+        hakemSonucGoster(
+            '👋 Kod alanında hiç blok yok!\n\n'
+            + 'Soldaki menüden blokları sürükleyip bırak, sonra tekrar dene.',
+            'bilgi'
+        );
         return;
     }
 
