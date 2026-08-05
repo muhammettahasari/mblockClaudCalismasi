@@ -353,7 +353,19 @@ for (let tus in window.oyunTetikleyicileri.tuslar) {
 
   // Blockly Yükleme
   if (typeof window.toolboxOlustur === "function") {
-    let izinVerilenler = SUNUCUDAN_GELEN_GOREV.izin_verilen_bloklar || [];
+    /* [2026-08] ARAÇ KUTUSU BOŞ GELİYORDU — GERÇEK SEBEP BURASIYDI:
+       toolboxOlustur(liste) yalnızca listedeki blokları gösterir; 'HEPSI'
+       yazılırsa hepsini gösterir. Burada boş dizi ([]) geçiliyordu ve
+       [].includes(blok) her zaman false döndüğü için araç kutusu TAMAMEN
+       BOŞ üretiliyordu.
+       Görevin izin_verilen_bloklar listesi yoksa artık 'HEPSI' geçiyoruz. */
+    const izinListesi = (SUNUCUDAN_GELEN_GOREV && SUNUCUDAN_GELEN_GOREV.izin_verilen_bloklar) || [];
+    const izinVerilenler = (Array.isArray(izinListesi) && izinListesi.length > 0) ? izinListesi : "HEPSI";
+
+    // Aynı sayfada iki araç kutusu kalmasın (tekrar yüklenme ihtimaline karşı)
+    const eski = document.getElementById("toolbox");
+    if (eski) eski.remove();
+
     document.body.insertAdjacentHTML("beforeend", window.toolboxOlustur(izinVerilenler));
   }
 

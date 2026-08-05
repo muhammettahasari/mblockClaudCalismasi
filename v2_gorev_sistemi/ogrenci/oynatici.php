@@ -1003,66 +1003,34 @@ $gorevPuani   = $gorev ? (int) $gorev['puan'] : 0;
          oluşmuyor, kod alanı boş görünüyor ve hakem çalışamıyordu.
          ==================================================================== -->
     <script>
-    (function () {
-        /* [2026-08] BLOKLARIN İÇİNDEKİ SAYILAR KAYBOLMUŞTU:
-           Burada elle kurulmuş bir araç kutusu vardı ve blokları
-           <block type="..."></block> şeklinde ekliyordu — yani içindeki
-           hazır sayı (shadow) blokları olmadan. Bu yüzden öğrenci
-           "10 adım git" yerine boş yuvalı "adım git" görüyordu.
-
-           mblock_bloklari.js zaten shadow blokları içeren hazır bir araç
-           kutusu üretiyor (window.toolboxOlustur) ve admin tasarlayıcısı
-           onu kullanıyordu. Artık öğrenci tarafı da AYNI kaynağı kullanıyor;
-           böylece iki taraf birbirinden ayrışamaz. */
-
-        // Görevde izin verilen bloklar tanımlıysa sadece onları göster
-        const izinliler = (SUNUCUDAN_GELEN_GOREV && SUNUCUDAN_GELEN_GOREV.izin_verilen_bloklar) || [];
-
-        let toolboxXml;
-        if (typeof window.toolboxOlustur === 'function') {
-            toolboxXml = window.toolboxOlustur(izinliler.length > 0 ? izinliler : 'HEPSI');
-        } else {
-            // Güvenlik ağı: mblock_bloklari.js yüklenmediyse en azından boş bir kutu
-            console.error('toolboxOlustur bulunamadı — mblock_bloklari.js yüklenmemiş olabilir.');
-            toolboxXml = '<xml id="toolbox" style="display:none"></xml>';
+    /* ====================================================================
+     * [2026-08] BURADA İKİNCİ BİR BLOCKLY ENJEKSİYONU VARDI — KALDIRILDI.
+     *
+     * NE OLMUŞTU:
+     * Öğrenci sayfasında araç kutusu boş göründüğü için "Blockly hiç
+     * enjekte edilmiyor" sanıp buraya ikinci bir Blockly.inject eklemiştim.
+     * Oysa oyun_sahnesi.js zaten her şeyi yapıyordu:
+     *     satır 357 -> araç kutusunu kurar (toolboxOlustur, shadow'lu)
+     *     satır 410 -> Blockly'yi #blocklyOgrenci içine enjekte eder
+     *     satır 428 -> canlı derleyiciyi bağlar
+     * Araç kutusunun boş görünmesinin gerçek sebebi bu değildi.
+     *
+     * SONUÇ: aynı div'e İKİ workspace enjekte oluyordu. Öğrenci üsttekine
+     * blok bırakıyor, window.ogrenciWorkspace ise diğerini gösteriyordu.
+     * Bu yüzden ekranda bloklar görünüyor ama hakem "hiç blok yok" diyordu.
+     *
+     * Artık tek enjeksiyon var: oyun_sahnesi.js.
+     * Burada sadece pencere yeniden boyutlanınca çizimi tazeliyoruz.
+     * ================================================================== */
+    window.addEventListener('load', function () {
+        function ciziminiTazele() {
+            if (window.ogrenciWorkspace && typeof Blockly !== 'undefined') {
+                Blockly.svgResize(window.ogrenciWorkspace);
+            }
         }
-
-        const hedef = document.getElementById('blocklyOgrenci');
-        if (!hedef) return;
-
-        window.ogrenciWorkspace = Blockly.inject(hedef, {
-            toolbox: toolboxXml,
-            renderer: 'zelos',                 // mBlock/Scratch görünümü
-            horizontalLayout: false,
-            trashcan: true,
-            zoom: { controls: true, wheel: true, startScale: 0.8, minScale: 0.4, maxScale: 2 },
-            grid: { spacing: 25, length: 3, colour: '#334155', snap: true },
-            move: { scrollbars: true, drag: true, wheel: true }
-        });
-
-        /* [2026-08] Blockly bazı sürümlerde mainWorkspace'i salt-okunur tutar.
-           Atama hata fırlatırsa ALTTAKİ satırlar hiç çalışmıyordu; canlı
-           derleyici devreye girmiyor, yeşil bayrak tepki vermiyordu.
-           Artık try/catch içinde. */
-        try {
-            Blockly.mainWorkspace = window.ogrenciWorkspace;
-        } catch (e) {
-            console.warn('Blockly.mainWorkspace atanamadı (zararsız):', e);
-        }
-
-        // Canlı derleyiciyi (hakem_motoru.js) devreye al
-        if (typeof window.canliDerleyiciyiBaslat === 'function') {
-            window.canliDerleyiciyiBaslat(window.ogrenciWorkspace);
-        } else {
-            console.error('canliDerleyiciyiBaslat bulunamadı — hakem_motoru.js yüklenmemiş olabilir.');
-        }
-
-        // Panel boyutu değişince Blockly'nin çizimi bozulmasın
-        window.addEventListener('resize', function () {
-            Blockly.svgResize(window.ogrenciWorkspace);
-        });
-        setTimeout(function () { Blockly.svgResize(window.ogrenciWorkspace); }, 300);
-    })();
+        window.addEventListener('resize', ciziminiTazele);
+        setTimeout(ciziminiTazele, 400);
+    });
     </script>
 
     <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/kostum_atolyesi/renk_ve_gradyan.js', '../../') ?>"></script>
