@@ -234,13 +234,27 @@ window.hakemiCagir = function () {
     .then(data => {
         if (btn) { btn.disabled = false; }
 
-        // [2026-08] Sorun ayıklama: sunucu kaç blok okudu? (sadece localhost'ta gelir)
+        // [2026-08] Sorun ayıklama: sunucu ne okudu? (sadece localhost'ta gelir)
         if (data.teshis) {
+            const t = data.teshis;
             console.group('🔍 Hakem teşhisi');
-            console.log('Gönderilen XML uzunluğu :', data.teshis.gelen_xml_uzunluk);
-            console.log('Öğrenci üst blok / toplam:', data.teshis.ogrenci_ust_blok, '/', data.teshis.ogrenci_toplam_blok);
-            console.log('Anahtar üst blok / toplam:', data.teshis.anahtar_ust_blok, '/', data.teshis.anahtar_toplam_blok);
-            console.log('XML önizleme:', data.teshis.gelen_xml_onizleme);
+            console.log('Öğrenci blok sayısı :', t.ogrenci_toplam_blok);
+            console.log('Anahtar blok sayısı :', t.anahtar_toplam_blok);
+
+            // Yan yana karşılaştırma — hangi blok eksik/fazla hemen görünür
+            const enUzun = Math.max(
+                (t.ogrenci_bloklar || []).length,
+                (t.anahtar_bloklar || []).length
+            );
+            const tablo = [];
+            for (let i = 0; i < enUzun; i++) {
+                const o = (t.ogrenci_bloklar || [])[i] || '—';
+                const a = (t.anahtar_bloklar || [])[i] || '—';
+                tablo.push({ '#': i + 1, 'SENİN KODUN': o, 'CEVAP ANAHTARI': a, 'aynı mı': (o === a ? '✓' : '✗') });
+            }
+            if (tablo.length) { console.table(tablo); }
+
+            console.log('XML önizleme:', t.gelen_xml_onizleme);
             console.groupEnd();
         }
 

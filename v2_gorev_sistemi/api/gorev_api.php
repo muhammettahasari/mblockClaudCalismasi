@@ -160,6 +160,49 @@ try {
             apiBasari(['gorevler' => $st->fetchAll(PDO::FETCH_ASSOC)]);
         }
 
+        /* ---------------- CEVAP ANAHTARI ÖZETİ ----------------
+         * [2026-08] Öğretmen "bu görevin cevap anahtarında ne var?" diye
+         * merak ettiğinde blok listesini okunabilir şekilde döndürür.
+         * Öğrencinin neden eşleşmediğini anlamak için kullanılır. */
+        case 'anahtar_ozeti': {
+            $gorev_id = (int) ($gelen['gorev_id'] ?? 0);
+
+            $st = $pdo->prepare("SELECT gorev_adi, icerik_json FROM v2_gorevler WHERE id = ?");
+            $st->execute([$gorev_id]);
+            $gorev = $st->fetch(PDO::FETCH_ASSOC);
+
+            if (!$gorev) {
+                apiHata('Görev bulunamadı.', 404);
+            }
+
+            require_once __DIR__ . '/v2_hakem.php';
+
+            $icerik    = json_decode($gorev['icerik_json'] ?? '{}', true) ?: [];
+            $blueprint = $icerik['blueprint'] ?? [];
+
+            $ana = blueprintSadelestir($blueprint['ana_cozum'] ?? '');
+
+            $alternatifler = [];
+            foreach ((array) ($blueprint['alternatif_cozumler'] ?? []) as $i => $altXml) {
+                $ham = is_array($altXml) ? ($altXml['xml'] ?? '') : $altXml;
+                $alt = blueprintSadelestir($ham);
+                if ($alt) {
+                    $alternatifler[] = [
+                        'no'      => $i + 1,
+                        'bloklar' => blokTipleriniListele($alt),
+                        'sayi'    => blokSay($alt),
+                    ];
+                }
+            }
+
+            apiBasari([
+                'gorev_adi'     => $gorev['gorev_adi'],
+                'ana_bloklar'   => $ana ? blokTipleriniListele($ana) : [],
+                'ana_sayi'      => $ana ? blokSay($ana) : 0,
+                'alternatifler' => $alternatifler,
+            ]);
+        }
+
         /* ---------------- GÖREV SİL ---------------- */
         case 'gorev_sil': {
             $gorev_id = (int) ($gelen['gorev_id'] ?? 0);

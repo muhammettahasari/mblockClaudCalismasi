@@ -180,6 +180,7 @@ $toplamV2 = count($v2_ham);
                     <button class="btn-icon" onclick="v2Sirala(<?= $g_id ?>, 'asagi')" title="Aşağı Taşı">⬇️</button>
                     <a href="../v2_gorev_sistemi/admin/tasarlayici.php?id=<?= $g_id ?>" class="btn-icon btn-edit">✏️ Düzenle</a>
                     <a href="../v2_gorev_sistemi/ogrenci/oynatici.php?gorev_id=<?= $g_id ?>" target="_blank" class="btn-icon">👁️</a>
+                    <button class="btn-icon" onclick="anahtarGoster(<?= $g_id ?>)" title="Cevap anahtarında hangi bloklar var?">🔑</button>
                     <button class="btn-icon <?= $yayinda ? 'btn-taslak' : 'btn-yayin' ?>"
                             onclick="v2Yayin(<?= $g_id ?>, <?= $yayinda ? 0 : 1 ?>)"
                             title="<?= $yayinda ? 'Taslağa çek' : 'Yayına al' ?>">
@@ -317,6 +318,40 @@ function v2Sirala(id, yon) {
 function v2Yayin(id, yayinda) {
     v2Api({ islem: 'yayin_degistir', gorev_id: id, yayinda: yayinda })
         .then(d => { if (d.success) location.reload(); else alert('❌ ' + (d.mesaj || 'İşlem başarısız')); });
+}
+
+/* [2026-08] CEVAP ANAHTARINI GÖSTER
+   Öğrenci doğru yaptığını düşünüp eşleşme alamadığında, anahtarın gerçekte
+   hangi blokları beklediğini görmek için. En sık sebep: tasarlarken
+   çalışma alanında unutulmuş fazladan bloklar. */
+function anahtarGoster(id) {
+    v2Api({ islem: 'anahtar_ozeti', gorev_id: id })
+        .then(d => {
+            if (!d.success) { alert('❌ ' + (d.mesaj || 'Anahtar okunamadı')); return; }
+
+            let metin = '🔑 "' + d.gorev_adi + '" cevap anahtarı\n';
+            metin += '━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+
+            if (!d.ana_bloklar || d.ana_bloklar.length === 0) {
+                metin += '⚠️ ANA ÇÖZÜM BOŞ!\n\n'
+                       + 'Öğrenci bu görevi asla tamamlayamaz.\n'
+                       + 'Düzenle butonuna basıp cevap anahtarını kurman gerekiyor.';
+            } else {
+                metin += 'Ana çözüm (' + d.ana_sayi + ' blok):\n';
+                metin += d.ana_bloklar.join('\n') + '\n';
+
+                (d.alternatifler || []).forEach(a => {
+                    metin += '\nAlternatif ' + a.no + ' (' + a.sayi + ' blok):\n';
+                    metin += a.bloklar.join('\n') + '\n';
+                });
+
+                metin += '\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'
+                       + 'Öğrencinin kodu BUNUNLA BİREBİR aynı olmalı.\n'
+                       + 'Fazladan blok varsa Düzenle > 2. Bölge\'den sil.';
+            }
+            alert(metin);
+        })
+        .catch(() => alert('❌ Sunucuya ulaşılamadı.'));
 }
 
 function v2Sil(id, ad) {

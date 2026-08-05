@@ -154,13 +154,16 @@ function cozumDogruMu(string $ogrenciXml, array $blueprint): array
     $ogrenci = blueprintSadelestir($ogrenciXml);
     $ana     = blueprintSadelestir($blueprint['ana_cozum'] ?? '');
 
-    // Sorun ayıklama için sayılar (yanlış cevapta arayüze gönderilir)
+    // Sorun ayıklama için sayılar + blok listeleri (yanlış cevapta arayüze gönderilir)
     $teshis = [
         'gelen_xml_uzunluk'   => strlen($ogrenciXml),
         'ogrenci_ust_blok'    => is_array($ogrenci) ? count($ogrenci) : -1,
         'ogrenci_toplam_blok' => is_array($ogrenci) ? blokSay($ogrenci) : -1,
         'anahtar_ust_blok'    => is_array($ana) ? count($ana) : -1,
         'anahtar_toplam_blok' => is_array($ana) ? blokSay($ana) : -1,
+        // [2026-08] Hangi blokların farklı olduğunu görebilmek için düz liste
+        'ogrenci_bloklar'     => is_array($ogrenci) ? blokTipleriniListele($ogrenci) : [],
+        'anahtar_bloklar'     => is_array($ana) ? blokTipleriniListele($ana) : [],
     ];
 
     if ($ogrenci === null) {
@@ -209,6 +212,60 @@ function cozumDogruMu(string $ogrenciXml, array $blueprint): array
     }
 
     return ['dogru' => false, 'eslesen' => null, 'sebep' => $sebep, 'teshis' => $teshis];
+}
+
+/**
+ * [2026-08] Sadeleşmiş yapıyı okunabilir düz listeye çevirir.
+ * Örn: ["mblock_olay_tus_basildiginda(TUS=SPACE)", "  mblock_hareket_git",
+ *       "    math_number(NUM=10)", ...]
+ * Öğretmenin "cevap anahtarında fazladan ne var?" sorusunu yanıtlar.
+ */
+function blokTipleriniListele($dugum, int $derinlik = 0): array
+{
+    $liste = [];
+
+    // Tek bir blok mu?
+    if (is_array($dugum) && isset($dugum['t'])) {
+        $etiket = str_repeat('  ', $derinlik) . $dugum['t'];
+
+        if (!empty($dugum['f'])) {
+            $alanlar = [];
+            foreach ($dugum['f'] as $ad => $deger) {
+                $alanlar[] = $ad . '=' . $deger;
+            }
+            $etiket .= '(' . implode(', ', $alanlar) . ')';
+        }
+        $liste[] = $etiket;
+
+        // İçindeki yuvalar (value / statement)
+        foreach ($dugum['g'] as $yuvaAdi => $grup) {
+            foreach ($grup as $ic) {
+                foreach (blokTipleriniListele($ic, $derinlik + 1) as $satir) {
+                    $liste[] = $satir;
+                }
+            }
+        }
+
+        // Alta bağlanan blok — aynı seviyede devam eder
+        if ($dugum['n']) {
+            foreach (blokTipleriniListele($dugum['n'], $derinlik) as $satir) {
+                $liste[] = $satir;
+            }
+        }
+
+        return $liste;
+    }
+
+    // Blok listesi
+    if (is_array($dugum)) {
+        foreach ($dugum as $eleman) {
+            foreach (blokTipleriniListele($eleman, $derinlik) as $satir) {
+                $liste[] = $satir;
+            }
+        }
+    }
+
+    return $liste;
 }
 
 /** Sadeleşmiş yapıdaki toplam blok sayısını verir (ipucu üretmek için). */
