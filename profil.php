@@ -600,7 +600,15 @@ gucuYenidenHesapla($pdo, $ogrenci_id);
             }
             ?>
             const esyaVeritabani = <?= json_encode($esya_js_dizisi) ?>;
-            const statMatrisi = <?= json_encode($matris) ?>;
+
+            /* [2026-08] AVATAR EKRANI SİYAH KALMA HATASI DÜZELTİLDİ:
+               Burada `json_encode($matris)` yazıyordu. Stat matrisi
+               bilesenler/rpg_matris.php'ye taşınınca $matris değişkeni
+               kalmadı; PHP 8 "Undefined variable" uyarısını doğrudan
+               <script> bloğunun içine basıyor, JavaScript sözdizimi
+               bozuluyor ve sürükle-bırak dahil TÜM script ölüyordu.
+               Artık matris paylaşılan sabitten geliyor. */
+            const statMatrisi = <?= json_encode(RPG_MATRIS, JSON_UNESCAPED_UNICODE) ?>;
 
             // YENİ: KUSURSUZ EŞLEŞTİRME İÇİN DOSYA ADI AYIKLAYICI
             function dosyaAdiBul(yol) {

@@ -156,7 +156,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['islem'] ?? '') === 'quiz_b
         $formHatasi = 'Lütfen kendi sınıflarınızdan birini seçin.';
     } elseif (empty($bolumler_secilen)) {
         $formHatasi = 'En az bir bölüm seçmelisiniz.';
+    } elseif (empty($_POST['zorluk_seviyeleri'])) {
+        $formHatasi = 'En az bir zorluk seviyesi seçmelisiniz.';
     } else {
+        /* [2026-08] BOŞ QUIZ FRENİ (Bilinen Sorunlar — quiz soruları gelmiyor):
+           Öğretmen quiz başlatıyor, öğrencilere davet gidiyor ama arenada
+           "Bu bölümde hiç canavar (soru) yok!" yazıyordu. Sebep: soru havuzu
+           seçilen bölüm+zorluk kombinasyonuyla eşleşmiyordu.
+           Artık oturum açılmadan ÖNCE kaç soru bulunduğu kontrol ediliyor. */
+        $zorlukListesi = array_map('strval', $_POST['zorluk_seviyeleri']);
+        $bIn = implode(',', array_fill(0, count($bolumler_secilen), '?'));
+        $zIn = implode(',', array_fill(0, count($zorlukListesi), '?'));
+
+        $sayimSorgu = $pdo->prepare(
+            "SELECT COUNT(*) FROM quiz_sorulari WHERE bolum_id IN ($bIn) AND zorluk_seviyesi IN ($zIn)"
+        );
+        $sayimSorgu->execute(array_merge($bolumler_secilen, $zorlukListesi));
+        $bulunanSoru = (int) $sayimSorgu->fetchColumn();
+
+        if ($bulunanSoru === 0) {
+            $formHatasi = 'Seçtiğiniz bölüm ve zorluk kombinasyonunda HİÇ SORU YOK. '
+                        . 'Quiz başlatılmadı. Aşağıdaki listede her seçeneğin yanındaki '
+                        . 'soru sayısına bakarak seçim yapın.';
+        }
+    }
+
+    if ($formHatasi === '' && $sahiplik) {
         // Aynı sınıfta zaten açık bir oturum varsa onu kapat (çift oturum olmasın)
         $pdo->prepare(
             "UPDATE quiz_oturum SET durum = 'bitti', bitis_zaman = NOW()
@@ -186,7 +211,38 @@ $st = $pdo->prepare(
 $st->execute([$ogretmen_id]);
 $aktif_oturum = $st->fetch(PDO::FETCH_ASSOC);
 
-$bolumler = $pdo->query("SELECT * FROM bolumler ORDER BY sira_no ASC")->fetchAll(PDO::FETCH_ASSOC);
+/* [2026-08] SORU HAVUZU GERÇEĞE GÖRE LİSTELENİYOR
+   Sorun: Zorluk seviyesi soru ekleme ekranında SERBEST METİN olarak
+   giriliyor ("Seç veya Yaz..."), ama burada Kolay/Orta/Zor/Boss diye
+   4 sabit seçenek vardı. Admin farklı bir şey yazdıysa (örn. "1. Seviye")
+   hiçbir soru eşleşmiyor, öğrenci arenaya girip boş ekran görüyordu.
+   Çözüm: seçenekler artık veritabanındaki GERÇEK değerlerden üretiliyor
+   ve her birinin yanında kaç soru olduğu yazıyor. */
+
+// Bölümler + içindeki soru sayısı
+$bolumler = $pdo->query(
+    "SELECT b.id, b.bolum_adi, b.sira_no,
+            (SELECT COUNT(*) FROM quiz_sorulari q WHERE q.bolum_id = b.id) AS soru_sayisi
+       FROM bolumler b
+      ORDER BY b.sira_no ASC"
+)->fetchAll(PDO::FETCH_ASSOC);
+
+// Veritabanında gerçekten kullanılan zorluk seviyeleri + adetleri
+$zorlukSeviyeleri = $pdo->query(
+    "SELECT zorluk_seviyesi, COUNT(*) AS adet
+       FROM quiz_sorulari
+      WHERE zorluk_seviyesi IS NOT NULL AND TRIM(zorluk_seviyesi) <> ''
+      GROUP BY zorluk_seviyesi
+      ORDER BY adet DESC, zorluk_seviyesi ASC"
+)->fetchAll(PDO::FETCH_ASSOC);
+
+$toplamSoru = (int) $pdo->query("SELECT COUNT(*) FROM quiz_sorulari")->fetchColumn();
+
+// Öğrencilerin hangi bölüme kadar geldiği — öğretmene ipucu olsun
+$enYuksekBolum = 0;
+$st = $pdo->prepare("SELECT COALESCE(MAX(mevcut_bolum), 1) FROM ogrenciler WHERE ogretmen_id = ?");
+$st->execute([$ogretmen_id]);
+$enYuksekBolum = (int) $st->fetchColumn();
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -266,13 +322,34 @@ $bolumler = $pdo->query("SELECT * FROM bolumler ORDER BY sira_no ASC")->fetchAll
                     </p>
                 </div>
 
+                <?php if ($toplamSoru === 0): ?>
+                    <div class="bos-uyari" style="margin-bottom:20px;">
+                        ⚠️ Soru havuzu tamamen boş. Quiz başlatmadan önce
+                        <a href="super_quiz_yonetimi.php" style="color:#fde68a">Quiz Yönetimi</a>
+                        sayfasından soru eklenmeli. (Bu sayfaya Süper Admin erişebilir.)
+                    </div>
+                <?php endif; ?>
+
                 <div class="form-group">
                     <label class="baslik">📌 Arenaya Dahil Edilecek Bölümler</label>
+                    <p style="color:#64748b; font-size:13px; margin:0 0 10px 0;">
+                        Parantez içindeki sayı o bölümdeki soru adedidir. Sıfır olanları seçmeyin.
+                        Öğrencileriniz şu an en fazla <b><?= (int) $enYuksekBolum ?>. bölümde</b>.
+                    </p>
                     <div class="checkbox-grid">
-                        <?php foreach ($bolumler as $b): ?>
-                            <label class="checkbox-label">
-                                <input type="checkbox" name="bolumler[]" value="<?= (int) $b['id'] ?>">
-                                <?= (int) $b['sira_no'] ?>. Bölüm
+                        <?php foreach ($bolumler as $b):
+                            $adet = (int) $b['soru_sayisi'];
+                            $bos  = ($adet === 0);
+                        ?>
+                            <label class="checkbox-label" style="<?= $bos ? 'opacity:0.45; cursor:not-allowed;' : '' ?>">
+                                <input type="checkbox" name="bolumler[]" value="<?= (int) $b['id'] ?>"
+                                       class="bolum-kutu" data-adet="<?= $adet ?>" <?= $bos ? 'disabled' : '' ?>>
+                                <span>
+                                    <?= (int) $b['sira_no'] ?>. <?= temizle($b['bolum_adi']) ?>
+                                    <span style="color:<?= $bos ? '#ef4444' : '#94a3b8' ?>; font-weight:normal; font-size:12px;">
+                                        (<?= $adet ?> soru)
+                                    </span>
+                                </span>
                             </label>
                         <?php endforeach; ?>
                     </div>
@@ -280,12 +357,37 @@ $bolumler = $pdo->query("SELECT * FROM bolumler ORDER BY sira_no ASC")->fetchAll
 
                 <div class="form-group" style="margin-top: 30px;">
                     <label class="baslik">🔥 Canavarların Zorluk Seviyesi</label>
-                    <div class="checkbox-grid">
-                        <label class="checkbox-label"><input type="checkbox" name="zorluk_seviyeleri[]" value="Kolay" checked> 🟢 Kolay</label>
-                        <label class="checkbox-label"><input type="checkbox" name="zorluk_seviyeleri[]" value="Orta" checked> 🟡 Orta</label>
-                        <label class="checkbox-label"><input type="checkbox" name="zorluk_seviyeleri[]" value="Zor"> 🔴 Zor</label>
-                        <label class="checkbox-label"><input type="checkbox" name="zorluk_seviyeleri[]" value="Boss"> 💀 Boss</label>
-                    </div>
+
+                    <?php if (empty($zorlukSeviyeleri)): ?>
+                        <div class="bos-uyari">
+                            Soru havuzunda hiç zorluk seviyesi tanımlı değil.
+                        </div>
+                    <?php else: ?>
+                        <p style="color:#64748b; font-size:13px; margin:0 0 10px 0;">
+                            Bu liste soru havuzundaki <b>gerçek</b> seviyelerden üretiliyor —
+                            soru eklerken hangi kelimeyi yazdıysanız burada o görünür.
+                        </p>
+                        <div class="checkbox-grid">
+                            <?php
+                            $ikonlar = ['kolay' => '🟢', 'orta' => '🟡', 'zor' => '🔴', 'boss' => '💀'];
+                            foreach ($zorlukSeviyeleri as $z):
+                                $ad   = (string) $z['zorluk_seviyesi'];
+                                $ikon = $ikonlar[mb_strtolower($ad, 'UTF-8')] ?? '⚔️';
+                            ?>
+                                <label class="checkbox-label">
+                                    <input type="checkbox" name="zorluk_seviyeleri[]"
+                                           value="<?= temizle($ad) ?>" class="zorluk-kutu"
+                                           data-adet="<?= (int) $z['adet'] ?>" checked>
+                                    <span>
+                                        <?= $ikon ?> <?= temizle($ad) ?>
+                                        <span style="color:#94a3b8; font-weight:normal; font-size:12px;">
+                                            (<?= (int) $z['adet'] ?>)
+                                        </span>
+                                    </span>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
                 </div>
 
                 <button type="submit" class="btn-start"

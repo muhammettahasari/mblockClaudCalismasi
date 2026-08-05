@@ -74,10 +74,53 @@ try {
         // Öğretmeni veritabanından tamamen kazıyoruz
         $sorgu = $pdo->prepare("DELETE FROM ogretmenler WHERE id = ?");
         $sorgu->execute([$ogretmen_id]);
-        
+
         echo json_encode(["success" => true, "message" => "Öğretmen kaydı sistemden kalıcı olarak silindi!"]);
     }
+
+    /* D) ÖĞRETMENİN GİRİŞ ŞİFRESİNİ DEĞİŞTİR
+     * [2026-08] Süper Adminin öğretmen yönetimi tablosundan şifreyi
+     * doğrudan düzenleyebilmesi için eklendi. Öğretmen şifresini unuttuğunda
+     * ya da yeni öğretmene şifre verirken kullanılır.
+     * Şifre alanı öğretmen girişinde düz karşılaştırıldığı için burada da
+     * düz metin yazılıyor (bkz. docs/BILINEN_SORUNLAR.md #2). */
+    elseif ($islem === 'sifre_degistir') {
+        $yeniSifre = trim((string) ($veri['sifre'] ?? ''));
+
+        if ($ogretmen_id <= 0) {
+            echo json_encode(["success" => false, "message" => "Öğretmen seçilmedi."]);
+            exit;
+        }
+        if ($yeniSifre === '') {
+            echo json_encode(["success" => false, "message" => "Şifre boş olamaz."]);
+            exit;
+        }
+        if (mb_strlen($yeniSifre) > 255) {
+            echo json_encode(["success" => false, "message" => "Şifre çok uzun."]);
+            exit;
+        }
+
+        $sorgu = $pdo->prepare("UPDATE ogretmenler SET sifre = ? WHERE id = ?");
+        $sorgu->execute([$yeniSifre, $ogretmen_id]);
+
+        if ($sorgu->rowCount() === 0) {
+            // Aynı değer yazıldıysa rowCount 0 döner; kaydın varlığını doğrula
+            $kontrol = $pdo->prepare("SELECT id FROM ogretmenler WHERE id = ?");
+            $kontrol->execute([$ogretmen_id]);
+            if (!$kontrol->fetch()) {
+                echo json_encode(["success" => false, "message" => "Öğretmen bulunamadı."]);
+                exit;
+            }
+        }
+
+        echo json_encode(["success" => true, "message" => "Şifre güncellendi."]);
+    }
+
+    else {
+        echo json_encode(["success" => false, "message" => "Tanımsız işlem."]);
+    }
 } catch (PDOException $e) {
+    error_log('[admin_teacher_action] ' . $e->getMessage());
     echo json_encode(["success" => false, "message" => "Veritabanı hatası!"]);
 }
 ?>

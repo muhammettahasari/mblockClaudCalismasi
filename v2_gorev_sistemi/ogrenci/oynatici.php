@@ -353,7 +353,16 @@ $gorevPuani   = $gorev ? (int) $gorev['puan'] : 0;
                 }
             });
 
-            // 3. SEKMELER VE BUTONLAR (Sınıf İçi, Okul, TR Geneli Tıklamaları)
+            // 3. SEKMELER VE BUTONLAR (Sınıf İçi, Okul, TR Geneli, Düello)
+            //
+            // [2026-08] "meydanOku is not defined" HATASI DÜZELTİLDİ:
+            // Eskiden buradaki kod onclick komutunu SADECE window.parent
+            // kapsamında çalıştırıyordu. Düello fonksiyonları yalnızca ana
+            // sayfada tanımlı olduğu için, ana sayfa o an o fonksiyonu
+            // yüklememişse "meydanOku is not defined" hatası düşüyordu.
+            // Artık düello motoru (js/duello_motoru.js) bu iframe'e de
+            // yükleniyor ve komut ÖNCE bu pencerede, olmazsa ana pencerede
+            // çalıştırılıyor.
             const tumElemanlar = container.querySelectorAll('*');
             tumElemanlar.forEach(el => {
                 let onclickAttr = el.getAttribute('onclick');
@@ -361,25 +370,35 @@ $gorevPuani   = $gorev ? (int) $gorev['puan'] : 0;
                     // Orijinal onclick'i DOM'dan kaldır ki çakışma yapmasın
                     el.removeAttribute('onclick');
 
-                    el.addEventListener('click', function(e) {
+                    el.addEventListener('click', function (e) {
                         e.preventDefault();
                         e.stopPropagation();
 
-                        try {
-                            // Komutu ana sayfada çalıştır (Arka planda sekmeyi değiştirir)
-                            let cleanCode = onclickAttr.replace(/return\s+false;?/g, '');
-                            let parentFunc = new Function('window', 'with(window) { ' + cleanCode + ' }');
-                            parentFunc.call(el, window.parent);
+                        const kod = onclickAttr.replace(/return\s+false;?/g, '');
 
-                            // BÜYÜK SİHİR: Ana sayfada sekme değiştiği an (50ms bekle), 
-                            // güncel HTML'i tekrar çekip ekrana basar. (Görsel Tepki)
-                            setTimeout(() => {
-                                skorboardSenkronizeEt();
-                            }, 50);
+                        // Denenecek kapsamlar: önce kendi penceremiz, sonra ana sayfa
+                        const kapsamlar = [window];
+                        try { if (window.parent && window.parent !== window) kapsamlar.push(window.parent); } catch (x) {}
 
-                        } catch (err) {
-                            console.warn("Buton çalıştırma hatası:", err);
+                        let calisti = false;
+                        let sonHata = null;
+
+                        for (const kapsam of kapsamlar) {
+                            try {
+                                new Function('window', 'with(window) { ' + kod + ' }').call(el, kapsam);
+                                calisti = true;
+                                break;
+                            } catch (err) {
+                                sonHata = err;   // Bu kapsamda yoktu, diğerini dene
+                            }
                         }
+
+                        if (!calisti) {
+                            console.warn('Buton çalıştırılamadı:', kod, sonHata);
+                        }
+
+                        // Ana sayfada sekme değiştiyse güncel HTML'i tekrar çek
+                        setTimeout(() => { skorboardSenkronizeEt(); }, 50);
                     });
                 }
             });
@@ -811,7 +830,19 @@ $gorevPuani   = $gorev ? (int) $gorev['puan'] : 0;
         const SUNUCUDAN_GELEN_GOREV = <?= $gorevPaketi ?>;
         // [2026-08] Hakem ve ipucu motorunun erişebilmesi için global kopya (#17)
         window.v2GorevPaketi = SUNUCUDAN_GELEN_GOREV;
+
+        /* [2026-08] DÜELLO MOTORU AYARI
+           Bu sayfa ogrenci_paneli.php içinde bir iframe olarak açılıyor ve
+           skorboardu oradan kopyalıyor. Kopyalanan "⚔️ Düello" butonları
+           meydanOku() fonksiyonunu arıyordu ama fonksiyon sadece ana sayfada
+           tanımlıydı -> "meydanOku is not defined".
+           Çözüm: motoru buraya da yüklüyoruz.
+             TABAN  : API yolları iki klasör yukarıda
+             DINLE  : false -> gelen istekleri ANA SAYFA dinlesin, çift modal çıkmasın */
+        window.MBLOCK_TABAN = '../../';
+        window.MBLOCK_DUELLO_DINLE = false;
     </script>
+    <script src="../../js/duello_motoru.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.12.17/paper-full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://unpkg.com/blockly/blockly_compressed.js"></script>

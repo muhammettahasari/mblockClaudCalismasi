@@ -84,9 +84,15 @@ document.getElementById('btnGoreviKaydet').addEventListener('click', function ()
             icerik:     superPaket
         };
 
-        fetch('../api/gorev_api.php', {
+        // [2026-08] API yolu sayfaya göre değişiyor:
+        //   v2_gorev_sistemi/admin/tasarlayici.php -> ../api/
+        //   admin/gorev_ekle.php                   -> ../v2_gorev_sistemi/api/
+        const apiTaban = window.V2_API_TABAN || '../api/';
+
+        fetch(apiTaban + 'gorev_api.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
+            credentials: 'same-origin',
             body: JSON.stringify(govde)
         })
         .then(cevap => cevap.json())
@@ -96,7 +102,8 @@ document.getElementById('btnGoreviKaydet').addEventListener('click', function ()
 
             if (data.success === true || data.status === 'success') {
                 alert("✅ MUHTEŞEM! " + (data.mesaj || data.message || "Görev kaydedildi."));
-                window.location.href = 'gorev_listesi.php?bolum=' + bolum_id;
+                const liste = window.V2_LISTE_YOLU || 'gorev_listesi.php';
+                window.location.href = liste + '?bolum=' + bolum_id;
             } else {
                 alert("❌ Hata: " + (data.mesaj || data.message || "Sunucudan hata detayı gelmedi."));
             }

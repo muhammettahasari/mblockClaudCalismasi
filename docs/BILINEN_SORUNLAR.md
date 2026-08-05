@@ -47,6 +47,30 @@ Aşağıdaki numaralar ilk analiz raporundaki numaralarla aynıdır.
 
 ---
 
+## 🐞 KULLANIM TESTİNDE ÇIKAN HATALAR (2026-08, ikinci tur)
+
+| # | Belirti | Kök neden | Çözüm |
+|---|---|---|---|
+| **A** | Öğrenci çıkış yapınca **404** | `ogrenci_paneli.php` `cikis.php`'ye link veriyordu ama **böyle bir dosya hiç yoktu** | `cikis.php` yazıldı. Oturum çerezi de siliniyor (eskiden `session_destroy()` çerezi bırakıyordu). `api/logout.php` de mutlak yola çevrildi. |
+| **B** | Düelloya tıklayınca tepki yok<br>`meydanOku is not defined` | Düello kodu `duello_radari.php` içine gömülüydü, sadece ana sayfada tanımlıydı. `oynatici.php` (iframe) skorboardu kopyalayınca **butonlar geliyor, fonksiyonlar gelmiyordu**; buton `with(window.parent)` ile fonksiyonu bulmaya çalışıp patlıyordu. | Kod `js/duello_motoru.js` adlı bağımsız, yol-duyarlı modüle taşındı. Hem ana sayfaya hem iframe'e yükleniyor. `oynatici.php` artık komutu **önce kendi penceresinde**, olmazsa ana pencerede çalıştırıyor. |
+| **C** | Quiz başlıyor, davet gidiyor ama **soru gelmiyor** | Soru eklerken zorluk **serbest metin** ("Seç veya Yaz…"), quiz başlatırken ise **4 sabit seçenek** (Kolay/Orta/Zor/Boss) vardı. Admin farklı bir kelime yazdıysa hiçbir soru eşleşmiyordu. | Quiz başlatma ekranı artık zorluk seçeneklerini **veritabanındaki gerçek değerlerden** üretiyor ve her seçeneğin yanında soru sayısını gösteriyor. Ayrıca 0 soru bulunursa quiz **başlatılmıyor**, öğretmene uyarı çıkıyor. |
+| **D** | Profilde avatar giydirme alanı **siyah/boş** | `profil.php` içinde `json_encode($matris)` kalmıştı. Stat matrisi ortak dosyaya taşınınca `$matris` yok oldu; PHP 8 "Undefined variable" uyarısını `<script>` bloğunun **içine** basıyor, JavaScript bozuluyor ve sürükle-bırak dahil tüm script ölüyordu. | `RPG_MATRIS` sabitinden besleniyor. Ayrıca tüm projede "tanımsız değişken" taraması yapıldı — başka örnek yok. |
+| **E** | — | `js/editor_manager.js` artık hiçbir sayfadan çağrılmıyordu ve çağrılsa `btnBolumEkle` null hatası verecekti | Silindi. |
+
+### Aynı turda yapılan geliştirmeler
+
+- **Öğretmen şifre yönetimi:** Süper Admin → Öğretmen Yönetimi tablosuna
+  kullanıcı adı + şifre sütunu eklendi. Şifre yıldızlı görünür, tıklayınca
+  açılır, değiştirip çıkınca **otomatik kaydedilir**.
+- **`admin/gorev_ekle.php` yeniden yazıldı:** Eski Quill/ekran-görüntülü v1
+  formu kaldırıldı; sayfa artık **bölüm yönetimi (ekle/adlandır/sırala/sil)**
+  + **gömülü v2 Blockly tasarlayıcı**. Tasarlayıcı gövdesi
+  `v2_gorev_sistemi/admin/_tasarlayici_govde.php` içinde tek kaynak olarak
+  duruyor, `tasarlayici.php` de aynı dosyayı kullanıyor.
+  Mevcut v1 görevleri çalışmaya devam ediyor (`admin/gorev_yonetimi.php`).
+
+---
+
 ## ⚠️ BİLİNÇLİ OLARAK BIRAKILANLAR
 
 ### #2 — Öğrenci/öğretmen şifreleri düz metin

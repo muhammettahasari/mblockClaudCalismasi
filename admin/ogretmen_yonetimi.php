@@ -163,6 +163,8 @@ $kayitlilar = $pdo->query("SELECT * FROM ogretmenler WHERE durum = 'onaylandi'")
             <tr>
                 <th>Ad Soyad</th>
                 <th>Okul Adı</th>
+                <th>Kullanıcı Adı</th>
+                <th>Şifre</th>
                 <th>Sınıf PIN Kodu</th>
                 <th>Bitiş Tarihi</th>
                 <th>Durum</th>
@@ -178,7 +180,26 @@ $kayitlilar = $pdo->query("SELECT * FROM ogretmenler WHERE durum = 'onaylandi'")
                 <tr>
                     <td><strong><?= htmlspecialchars($ogr['ad_soyad']) ?></strong></td>
                     <td><?= htmlspecialchars($ogr['okul_adi']) ?></td>
-                    <td><span style="font-family:monospace; font-size:18px; font-weight:bold; color:#4f46e5;"><?= $ogr['pin_kodu'] ?></span></td>
+                    <td><span style="font-family:monospace; color:#475569;"><?= htmlspecialchars($ogr['kullanici_adi'] ?? '') ?></span></td>
+
+                    <!-- [2026-08] ŞİFRE YÖNETİMİ EKLENDİ
+                         Yıldızlı görünür, tıklayınca açılır, değiştirip alandan
+                         çıkınca (veya Enter'a basınca) otomatik kaydedilir. -->
+                    <td>
+                        <input type="password"
+                               class="sifre-kutu"
+                               id="sifre_<?= (int) $ogr['id'] ?>"
+                               value="<?= htmlspecialchars($ogr['sifre'] ?? '') ?>"
+                               data-orijinal="<?= htmlspecialchars($ogr['sifre'] ?? '') ?>"
+                               data-id="<?= (int) $ogr['id'] ?>"
+                               onfocus="this.type='text'; this.select();"
+                               onblur="this.type='password'; sifreKaydet(this);"
+                               onkeydown="if(event.key==='Enter'){event.preventDefault(); this.blur();}"
+                               title="Tıklayın, değiştirin, dışarı çıkınca otomatik kaydedilir">
+                        <span class="sifre-durum" id="sifre_durum_<?= (int) $ogr['id'] ?>"></span>
+                    </td>
+
+                    <td><span style="font-family:monospace; font-size:18px; font-weight:bold; color:#4f46e5;"><?= htmlspecialchars($ogr['pin_kodu'] ?? '') ?></span></td>
                     <td><?= date('d.m.Y H:i', $bitis_zamani) ?></td>
                     <td>
                         <?php if ($bloke_mi): ?>
@@ -194,11 +215,80 @@ $kayitlilar = $pdo->query("SELECT * FROM ogretmenler WHERE durum = 'onaylandi'")
                     </td>
                 </tr>
             <?php endforeach;
-            if (count($kayitlilar) == 0) echo "<tr><td colspan='6'>Kayıtlı öğretmen bulunmuyor.</td></tr>"; ?>
+            if (count($kayitlilar) == 0) echo "<tr><td colspan='8'>Kayıtlı öğretmen bulunmuyor.</td></tr>"; ?>
         </table>
     </div>
 
+    <style>
+        /* [2026-08] Şifre sütunu stilleri */
+        .sifre-kutu {
+            width: 130px; padding: 7px 9px; border: 2px solid #cbd5e1; border-radius: 6px;
+            font-family: monospace; font-size: 14px; outline: none; transition: 0.2s; background: #fff;
+        }
+        .sifre-kutu:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79,70,229,0.12); }
+        .sifre-kutu.kaydedildi { border-color: #10b981; background: #ecfdf5; }
+        .sifre-kutu.hata { border-color: #ef4444; background: #fef2f2; }
+        .sifre-durum { font-size: 11px; font-weight: bold; margin-left: 6px; white-space: nowrap; }
+    </style>
+
     <script>
+        /* ================================================================
+         * [2026-08] ŞİFRE OTOMATİK KAYDETME
+         * Kutuya tıklanınca şifre görünür, alandan çıkınca gizlenir.
+         * Değer değiştiyse otomatik kaydedilir — ayrı bir "Kaydet" yok.
+         * ============================================================== */
+        function sifreKaydet(kutu) {
+            const id       = kutu.dataset.id;
+            const yeni     = kutu.value.trim();
+            const orijinal = kutu.dataset.orijinal;
+            const durum    = document.getElementById('sifre_durum_' + id);
+
+            kutu.classList.remove('kaydedildi', 'hata');
+
+            // Değişmediyse hiçbir şey yapma
+            if (yeni === orijinal) { durum.textContent = ''; return; }
+
+            if (yeni === '') {
+                kutu.value = orijinal;
+                kutu.classList.add('hata');
+                durum.style.color = '#ef4444';
+                durum.textContent = 'boş olamaz';
+                setTimeout(() => { kutu.classList.remove('hata'); durum.textContent = ''; }, 2500);
+                return;
+            }
+
+            durum.style.color = '#64748b';
+            durum.textContent = 'kaydediliyor...';
+
+            fetch('../api/admin_teacher_action.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ islem: 'sifre_degistir', id: id, sifre: yeni })
+            })
+                .then(r => r.json())
+                .then(d => {
+                    if (d.success) {
+                        kutu.dataset.orijinal = yeni;
+                        kutu.classList.add('kaydedildi');
+                        durum.style.color = '#10b981';
+                        durum.textContent = '✓ kaydedildi';
+                        setTimeout(() => { kutu.classList.remove('kaydedildi'); durum.textContent = ''; }, 2500);
+                    } else {
+                        kutu.value = orijinal;
+                        kutu.classList.add('hata');
+                        durum.style.color = '#ef4444';
+                        durum.textContent = d.message || d.mesaj || 'hata';
+                    }
+                })
+                .catch(() => {
+                    kutu.value = orijinal;
+                    kutu.classList.add('hata');
+                    durum.style.color = '#ef4444';
+                    durum.textContent = 'bağlantı hatası';
+                });
+        }
+
         // API'ye komut gönderen JS Fonksiyonu
         function islemYap(islemTuru, id) {
             // Hangi kutudan ay bilgisini alacağımızı belirliyoruz
