@@ -110,6 +110,16 @@ try {
     }
 
     /* ---- 6. GÜNLÜK SAVUNMA KALKANI ---- */
+    /* [2026-08] Avatar satırı olmayan öğrenciler için güvenlik ağı:
+       ogrenci_avatar_durum satırı eskiden yalnızca öğrenci profil sayfasını
+       açtığında oluşuyordu. Hiç profiline girmemiş bir öğrenciye saldırıldığında
+       günlük savunma sayacı yazılamıyor ve "günde en fazla 3 savunma" kuralı
+       sessizce devre dışı kalıyordu. Satır artık kayıt anında açılıyor
+       (bkz. api/student_register.php) ama eski kayıtlar için burada da garanti. */
+    $avatarSatiriAc = $pdo->prepare("INSERT IGNORE INTO ogrenci_avatar_durum (ogrenci_id) VALUES (?)");
+    $avatarSatiriAc->execute([$saldiran_id]);
+    $avatarSatiriAc->execute([$savunan_id]);
+
     $st = $pdo->prepare(
         "SELECT gunluk_savunma_sayisi, son_savunma_tarihi
            FROM ogrenci_avatar_durum WHERE ogrenci_id = ?"

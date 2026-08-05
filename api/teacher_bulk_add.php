@@ -23,6 +23,10 @@ $sorgu = $pdo->prepare("INSERT INTO ogrenciler (ad_soyad, kullanici_adi, sifre, 
 $isim_kontrol = $pdo->prepare("SELECT id FROM ogrenciler WHERE ad_soyad = ? AND sinif_id = ?");
 $kadi_kontrol = $pdo->prepare("SELECT id FROM ogrenciler WHERE kullanici_adi = ? AND ogretmen_id = ?");
 
+/* [2026-08] Avatar satırı sorgusu döngü DIŞINDA hazırlanır —
+   yüzlerce öğrenci eklenirken her tur yeniden prepare edilmesin. */
+$avatarAc = $pdo->prepare("INSERT IGNORE INTO ogrenci_avatar_durum (ogrenci_id) VALUES (?)");
+
 foreach ($ogrenciler as $ogr) {
     $orj_ad = trim($ogr['Ad Soyad'] ?? '');
     $orj_kadi = trim($ogr['Kullanıcı Adı'] ?? '');
@@ -54,6 +58,10 @@ foreach ($ogrenciler as $ogr) {
         }
 
         $sorgu->execute([$ad, $kadi, $sifre, $ogretmen_id, $sinif_id]);
+
+        /* [2026-08] Avatar satırını kayıt anında aç (bkz. teacher_add_student.php) */
+        $avatarAc->execute([(int) $pdo->lastInsertId()]);
+
         $eklenen++;
         if ($modifiye_edildi) $degistirilen++;
     }

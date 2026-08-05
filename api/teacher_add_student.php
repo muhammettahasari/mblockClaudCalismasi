@@ -47,7 +47,13 @@ try {
     // YENİ: Öğretmen eklediği için onay_durumu direkt 1 (Onaylı) olarak kaydediliyor.
     $sorgu = $pdo->prepare("INSERT INTO ogrenciler (ad_soyad, kullanici_adi, sifre, ogretmen_id, sinif_id, durum, onay_durumu) VALUES (?, ?, ?, ?, ?, 'aktif', 1)");
     $sorgu->execute([$ad, $kadi, $sifre, $ogretmen_id, $sinif_id]);
-    
+
+    /* [2026-08] Avatar satırını KAYIT ANINDA aç.
+       Eskiden bu satır sadece öğrenci profil sayfasını açtığında oluşuyordu;
+       hiç profiline girmemiş öğrencide arena günlük savunma kalkanı çalışmıyordu. */
+    $pdo->prepare("INSERT IGNORE INTO ogrenci_avatar_durum (ogrenci_id) VALUES (?)")
+        ->execute([(int) $pdo->lastInsertId()]);
+
     $mesaj = "Öğrenci başarıyla eklendi ve otomatik onaylandı!";
     if($modifiye_edildi) $mesaj .= " (İsim veya kullanıcı adı çakıştığı için sonuna rakam eklendi).";
     
