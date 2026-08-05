@@ -17,14 +17,34 @@ try {
     // 1. SİLME İŞLEMİ
     if ($islem === 'sil' && $id > 0) {
         if ($tur === 'bolum') {
-            // Veritabanında ON DELETE CASCADE olduğu için bölüm silinince içindeki görevler de otomatik silinir
-            $stmt = $pdo->prepare("DELETE FROM bolumler WHERE id = ?");
+            /* [2026-08] v2 GÖREVLERİ DE SİL:
+               bolumler -> gorevler ve bolumler -> quiz_sorulari arasında
+               ON DELETE CASCADE foreign key'i var, o yüzden v1 görevler ve
+               quiz soruları otomatik siliniyor.
+               AMA v2_gorevler.bolum_id için foreign key YOK — bölüm silinince
+               o bölümün v2 görevleri yetim kalıyor, hiçbir ekranda görünmüyor
+               ama veritabanında duruyordu. Artık elle temizleniyor. */
+            $pdo->beginTransaction();
+
+            // Önce v2 görev ilerlemelerini, sonra görevleri temizle
+            $pdo->prepare(
+                "DELETE i FROM v2_ogrenci_ilerleme i
+                   JOIN v2_gorevler v ON v.id = i.v2_gorev_id
+                  WHERE v.bolum_id = ?"
+            )->execute([$id]);
+
+            $pdo->prepare("DELETE FROM v2_gorevler WHERE bolum_id = ?")->execute([$id]);
+
+            // Bölümü sil (v1 görevler + quiz soruları CASCADE ile gider)
+            $pdo->prepare("DELETE FROM bolumler WHERE id = ?")->execute([$id]);
+
+            $pdo->commit();
         } else {
-            $stmt = $pdo->prepare("DELETE FROM gorevler WHERE id = ?");
+            $pdo->prepare("DELETE FROM gorevler WHERE id = ?")->execute([$id]);
         }
-        $stmt->execute([$id]);
+
         echo json_encode(['success' => true]);
-    } 
+    }
     
     // 2. BÖLÜM ADI GÜNCELLEME İŞLEMİ
     elseif ($islem === 'bolum_duzenle' && $id > 0) {
@@ -73,7 +93,12 @@ try {
         echo json_encode(['success' => false, 'message' => 'Geçersiz işlem.']);
     }
 
-} catch (PDOException $e) {
+} catch (Throwable $e) {
+    /* [2026-08] Bölüm silme artık transaction içinde yapılıyor.
+       Hata çıkarsa yarım kalmış silme bırakmamak için geri sarılır. */
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log('[yonetim_api] ' . $e->getMessage());
     echo json_encode(['success' => false, 'message' => 'Veritabanı hatası.']);
 }
-?>
