@@ -48,17 +48,19 @@ if (isset($_GET['islem']) && $_GET['islem'] === 'quiz_bitir') {
         exit;
     }
 
-    // İlk 3'ü çek
+    /* [2026-08] TÜM sıralama çekiliyor, sadece ilk 3 değil.
+       Öğrenciler de aynı tabloyu görüyor (api/quiz_skor_tablosu.php);
+       öğretmende eksik liste durması kafa karıştırıcıydı. */
     $st = $pdo->prepare(
-        "SELECT o.ad_soyad, qo.puan
+        "SELECT o.ad_soyad, qo.puan, qo.cozulen_soru_sayisi
            FROM quiz_ogrenci qo
            JOIN ogrenciler o ON qo.ogrenci_id = o.id
           WHERE qo.oturum_id = ?
-          ORDER BY qo.puan DESC, qo.cozulen_soru_sayisi DESC
-          LIMIT 3"
+          ORDER BY qo.puan DESC, qo.cozulen_soru_sayisi DESC, o.ad_soyad ASC"
     );
     $st->execute([$oturum['id']]);
-    $kazananlar = $st->fetchAll(PDO::FETCH_ASSOC);
+    $tumSiralama = $st->fetchAll(PDO::FETCH_ASSOC);
+    $kazananlar  = array_slice($tumSiralama, 0, 3);   // podyum için ilk üç
 
     // Kazanılan/kaybedilen puanları kalıcı hesaba aktar (0'ın altına inmez)
     $pdo->prepare(
@@ -77,9 +79,12 @@ if (isset($_GET['islem']) && $_GET['islem'] === 'quiz_bitir') {
     <head>
         <meta charset="UTF-8">
         <title>Savaşın Sonucu | Şampiyonlar</title>
-        <meta http-equiv="refresh" content="7;url=ogretmen_paneli.php">
+        <!-- [2026-08] OTOMATİK YÖNLENDİRME KALDIRILDI.
+             Eskiden 7 saniye sonra zorla ogretmen_paneli.php'ye atıyordu.
+             Öğretmen tabloyu tahtaya yansıtıp sınıfla konuşmak istiyor;
+             ekran elinden alınıyordu. Artık dönüş düğmeye bağlı. -->
         <style>
-            body { background: #020617; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; overflow: hidden; text-align: center; }
+            body { background: #020617; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; min-height: 100vh; margin: 0; padding: 30px 20px 50px; text-align: center; }
             h1 { font-size: 60px; color: #facc15; text-transform: uppercase; letter-spacing: 5px; text-shadow: 0 0 30px rgba(250, 204, 21, 0.5); margin-bottom: 50px; animation: kupaSallan 2s infinite ease-in-out; }
             .podium-container { display: flex; align-items: flex-end; justify-content: center; gap: 20px; height: 300px; }
             .podium-box { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; width: 150px; border-radius: 15px 15px 0 0; box-shadow: 0 -10px 30px rgba(0,0,0,0.5); position: relative; animation: yuksel 1.5s ease-out; }
@@ -123,7 +128,47 @@ if (isset($_GET['islem']) && $_GET['islem'] === 'quiz_bitir') {
                 </div>
             <?php endif; ?>
         </div>
-        <div class="redirect-text">Savaş meydanı temizleniyor, ana merkeze yönlendiriliyorsunuz... (7sn)</div>
+        <!-- [2026-08] TAM SIRALAMA — öğrencilerin gördüğü tablonun aynısı -->
+        <div style="width:100%; max-width:640px; margin-top:44px;">
+            <h2 style="color:#94a3b8; font-size:15px; letter-spacing:2px; text-transform:uppercase; margin-bottom:14px;">
+                Tam Sıralama · <?= temizle($oturum['sinif_adi'] ?? '') ?> · <?= count($tumSiralama) ?> savaşçı
+            </h2>
+
+            <div style="background:#0f172a; border:1px solid #334155; border-radius:12px; overflow:hidden; max-height:44vh; overflow-y:auto;">
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead>
+                        <tr style="position:sticky; top:0; background:#1e293b;">
+                            <th style="padding:11px 8px; color:#94a3b8; font-size:11px; text-align:center; width:60px;">SIRA</th>
+                            <th style="padding:11px 8px; color:#94a3b8; font-size:11px; text-align:left;">SAVAŞÇI</th>
+                            <th style="padding:11px 8px; color:#94a3b8; font-size:11px; text-align:center;">SORU</th>
+                            <th style="padding:11px 8px; color:#94a3b8; font-size:11px; text-align:right;">PUAN</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php if (empty($tumSiralama)): ?>
+                        <tr><td colspan="4" style="padding:28px; color:#94a3b8;">Bu savaşta kimse puan toplayamadı.</td></tr>
+                    <?php else: ?>
+                        <?php foreach ($tumSiralama as $i => $r):
+                            $madalya = [1 => '🥇', 2 => '🥈', 3 => '🥉'][$i + 1] ?? (($i + 1) . '.'); ?>
+                        <tr style="border-top:1px solid #1e293b;">
+                            <td style="padding:11px 8px; text-align:center; font-size:18px;"><?= $madalya ?></td>
+                            <td style="padding:11px 8px; text-align:left; font-weight:600; color:#e2e8f0;"><?= temizle($r['ad_soyad']) ?></td>
+                            <td style="padding:11px 8px; text-align:center; color:#94a3b8; font-size:13px;"><?= (int) $r['cozulen_soru_sayisi'] ?></td>
+                            <td style="padding:11px 8px; text-align:right; font-weight:900; color:#10b981; font-size:17px;"><?= (int) $r['puan'] ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+
+            <a href="ogretmen_paneli.php"
+               style="display:inline-block; margin-top:26px; background:linear-gradient(135deg,#3b82f6,#2563eb);
+                      color:#fff; text-decoration:none; padding:15px 36px; border-radius:11px;
+                      font-weight:bold; font-size:16px; box-shadow:0 6px 18px rgba(59,130,246,.4);">
+                🏫 Yönetim Paneline Dön
+            </a>
+        </div>
     </body>
     </html>
     <?php

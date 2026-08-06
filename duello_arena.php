@@ -180,6 +180,11 @@ if ((int) $arena['meydan_okuyan_id'] !== $ogrenci_id && (int) $arena['meydan_oku
             <div id="zamanCubugu" style="width: 100%; height: 100%; background: linear-gradient(90deg, #10b981, #3b82f6); transition: width 1s linear, background-color 0.5s;"></div>
         </div>
     </div>
+    <!-- [2026-08] Rakip cevapladıysa uyarı — ama şıkkını göstermiyoruz -->
+    <div id="rakipUyarisi" style="display:none; background:rgba(245,158,11,.15); border:1px solid #f59e0b; color:#fcd34d; padding:9px 14px; border-radius:9px; font-weight:bold; font-size:14px; margin-bottom:12px; text-align:center;">
+        ⚡ Rakibin cevabını verdi! Sen de acele et — ama doğru bilmen şart.
+    </div>
+
     <div class="secenekler">
         <button class="secenek-btn" onclick="cevapGonder('A')"><b>A)</b> <?= $arena['secenek_a'] ?></button>
         <button class="secenek-btn" onclick="cevapGonder('B')"><b>B)</b> <?= $arena['secenek_b'] ?></button>
@@ -191,6 +196,25 @@ if ((int) $arena['meydan_okuyan_id'] !== $ogrenci_id && (int) $arena['meydan_oku
         let duello_id = <?= $duello_id ?>;
         // DİKKAT: islemYapiliyor TRUE ile başlar, yani şıklar başlangıçta KİLİTLİDİR!
         let islemYapiliyor = true;
+
+        /* ⚖️ [2026-08] ADALET KRONOMETRESİ
+           Soru bu oyuncunun ekranında görünüp TIKLANABİLİR olduğu an sıfırlanır.
+           Kazananı belirleyen ölçü budur — "sunucuya kim önce ulaştı" değil.
+
+           Neden? İki oyuncunun ekranı aynı anda hazır olmuyor: biri sayfayı
+           1 sn geç açar, birinin interneti yavaştır (isteği 300 ms geç varır),
+           telefon/tarayıcı farkı geri sayımı kaydırır. Eski sistemde daha GEÇ
+           tıklayan biri, sırf ağı hızlı diye kazanabiliyordu.
+
+           performance.now() kullanılıyor; Date.now()'un aksine sistem saati
+           değişse bile geriye gitmez. */
+        let soruBaslangicMs = null;
+
+        /** Soru göründüğünden beri kaç ms geçti? */
+        function gecenMs() {
+            if (soruBaslangicMs === null) return 0;
+            return Math.round(performance.now() - soruBaslangicMs);
+        }
         // --- 🎵 SES MOTORU (AUDIO ENGINE) 🎵 ---
         const sayacSesi = new Audio('assets/sounds/ucsaniyegerisayim.mp3');
         const duelloSesi = new Audio('assets/sounds/duellomuzik.mp3');
@@ -221,6 +245,10 @@ if ((int) $arena['meydan_okuyan_id'] !== $ogrenci_id && (int) $arena['meydan_oku
                     kalkan.style.display = 'none';
                     // SÜRE BİTTİ, KİLİT AÇILDI! ARTIK TIKLAYABİLİRLER!
                     islemYapiliyor = false;
+
+                    // ⚖️ Kronometre TAM BURADA başlar — soru artık ekranda ve tıklanabilir
+                    soruBaslangicMs = performance.now();
+
                     duelloSesi.play().catch(e => console.log("Tarayıcı sesi engelledi."));
 
                     // --- SADECE KAYAN ÇUBUK MOTORU ---
@@ -230,11 +258,18 @@ if ((int) $arena['meydan_okuyan_id'] !== $ogrenci_id && (int) $arena['meydan_oku
                     let kalanSoruSuresi = toplamSure;
                     let zamanCubugu = document.getElementById('zamanCubugu');
 
+                    /* [2026-08 HATA DÜZELTMESİ]
+                       Bu sayaç eskiden "islemYapiliyor" true olur olmaz duruyordu,
+                       yani BEN cevap verince kendi zamanlayıcım kapanıyordu.
+                       Cevaplar artık rakip beklenerek değerlendirildiği için bu
+                       tehlikeli: rakip tarayıcısını kapatırsa kimse zaman aşımı
+                       bildirmez ve ben bekleme perdesinde sonsuza kadar kalırdım.
+                       Artık sayaç yalnızca MAÇ BİTİNCE duruyor. */
                     let bomba = setInterval(() => {
-                        if (islemYapiliyor) {
+                        if (oyunBitti) {
                             clearInterval(bomba);
                             return;
-                        } // Biri tıklarsa durdur
+                        }
 
                         kalanSoruSuresi--;
 
@@ -259,15 +294,17 @@ if ((int) $arena['meydan_okuyan_id'] !== $ogrenci_id && (int) $arena['meydan_oku
                             let formData = new FormData();
                             formData.append('duello_id', duello_id);
 
+                            /* [2026-08] Süre dolduğunda artık körü körüne
+                               "ikiniz de kaybettiniz" demiyoruz. Sunucu o ana
+                               kadar gelen cevaplara bakıyor: biri doğru bildiyse
+                               rakibi hiç basmasa bile KAZANIR. */
                             fetch('api/duello/zaman_doldu.php', {
                                     method: 'POST',
                                     body: formData
                                 })
                                 .then(res => res.json())
-                                .then(data => {
-                                    alert("⏳ SÜRE DOLDU! İkiniz de yavaş kaldınız!\n\n💥 HASAR RAPORU:\nSaldıran: -5 Puan\nSavunan: -3 Puan ceza yedi!");
-                                    window.location.href = 'ogrenci_paneli.php';
-                                }).catch(e => {
+                                .then(data => sonucGosterVeCik(data))
+                                .catch(() => {
                                     window.location.href = 'ogrenci_paneli.php';
                                 });
                         }
@@ -279,52 +316,132 @@ if ((int) $arena['meydan_okuyan_id'] !== $ogrenci_id && (int) $arena['meydan_oku
         }, 1000);
         // --- GERİ SAYIM BİTİŞ ---
 
+        /* ====================================================================
+           CEVAP GÖNDER
+
+           [2026-08] Cevap artık maçı ANINDA bitirmiyor. Kendi süremizi
+           gönderiyoruz, sunucu rakibi de bekliyor ve en hızlı doğru cevabı
+           kazanan sayıyor. Bu yüzden burada üç sonuç olabilir:
+             bitti      -> iki cevap da geldi, sonuç belli
+             bekleniyor -> rakip henüz basmadı, bekleme perdesi açılır
+             bitmis     -> maç zaten kapanmış (zaman aşımı vb.)
+           ================================================================== */
+        let cevabimGitti = false;
+        let oyunBitti    = false;   // maç gerçekten kapandı mı (sayaçlar buna bakar)
+
         function cevapGonder(secilen) {
             if (islemYapiliyor) return;
             islemYapiliyor = true;
-            duelloSesi.pause(); // 🎵 CEVAP VERİLDİ, MÜZİĞİ SUSTUR!
+            cevabimGitti   = true;
+
+            const benimMs = gecenMs();          // ⚖️ ekran açıldığından beri geçen süre
+            duelloSesi.pause();                 // 🎵 cevap verildi, müziği sustur
+
             let formData = new FormData();
             formData.append('duello_id', duello_id);
             formData.append('cevap', secilen);
+            formData.append('sure_ms', benimMs);
 
-            fetch('api/duello/cevap.php', {
-                    method: 'POST',
-                    body: formData
-                })
+            fetch('api/duello/cevap.php', { method: 'POST', body: formData })
                 .then(res => res.json())
                 .then(data => {
-                    if (data.status === 'gec_kaldin') {
-                        alert("Çok yavaşsın! Rakibin senden önce cevap verdi.");
-                    } else if (data.berabere_mi) {
-                        alert("💀 YANLIŞ CEVAP! Çok acele ettin ve yanlış bildiğin için ceza puanını yedin!");
-                    } else if (data.kazandim_mi) {
-                        alert("🎉 DOĞRU! MUHTEŞEM BİR ZAFER KAZANDIN!\nPuanlar hesabına eklendi.");
+                    if (data.status === 'bekleniyor') {
+                        beklemePerdesiAc(benimMs);
+                        return;                  // senkron döngüsü sonucu getirecek
                     }
-                    window.location.href = 'ogrenci_paneli.php';
-                });
+                    if (data.status === 'gecersiz') {
+                        alert('Geçersiz cevap.');
+                        window.location.href = 'ogrenci_paneli.php';
+                        return;
+                    }
+                    if (data.status === 'bitti') {
+                        sonucGosterVeCik(data);
+                        return;
+                    }
+                    // 'bitmis' — sonucu senkron.php'den öğrenelim
+                    beklemePerdesiAc(benimMs);
+                })
+                .catch(() => beklemePerdesiAc(benimMs));
         }
 
+        /** Rakip beklenirken gösterilen perde */
+        function beklemePerdesiAc(benimMs) {
+            let perde = document.getElementById('beklemePerdesi');
+            if (!perde) {
+                perde = document.createElement('div');
+                perde.id = 'beklemePerdesi';
+                perde.style.cssText =
+                    'position:fixed;inset:0;background:rgba(2,6,23,.92);z-index:99999;' +
+                    'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+                    'text-align:center;font-family:Segoe UI,sans-serif;color:#f8fafc;padding:20px;';
+                document.body.appendChild(perde);
+            }
+
+            perde.innerHTML =
+                '<div style="font-size:56px;">⏱️</div>' +
+                '<h2 style="color:#facc15;margin:10px 0 6px;font-size:26px;">Cevabın kaydedildi!</h2>' +
+                '<p style="color:#cbd5e1;font-size:17px;margin:0 0 14px;">Süren: <b>' +
+                    (benimMs / 1000).toFixed(2) + ' saniye</b></p>' +
+                '<p style="color:#94a3b8;font-size:15px;max-width:420px;line-height:1.6;">' +
+                    'Rakibin cevabı bekleniyor… Kazananı <b>ekran açıldıktan sonraki</b> ' +
+                    'süreniz belirleyecek, kimin isteği önce ulaştığı değil.</p>';
+        }
+
+        /** Sonucu göster ve köye dön */
+        function sonucGosterVeCik(data) {
+            if (oyunBitti) return;      // iki kaynak aynı anda çağırabilir
+            oyunBitti      = true;
+            islemYapiliyor = true;
+            try { duelloSesi.pause(); } catch (e) {}
+
+            const perde = document.getElementById('beklemePerdesi');
+            if (perde) perde.remove();
+
+            let sureBilgi = '';
+            if (data.benim_ms > 0 && data.rakip_ms > 0) {
+                sureBilgi = '\n\n⏱️ Senin süren: ' + (data.benim_ms / 1000).toFixed(2) + ' sn'
+                          + '\n⏱️ Rakibinin süresi: ' + (data.rakip_ms / 1000).toFixed(2) + ' sn';
+            }
+
+            if (data.zaman_doldu) {
+                alert('⏳ SÜRE DOLDU! İkiniz de basamadınız.\n\n💥 Saldıran -5, Savunan -3 puan.');
+            } else if (data.berabere_mi) {
+                alert('😐 İKİNİZ DE BİLEMEDİNİZ!\nİkiniz de ceza puanı yediniz.' + sureBilgi);
+            } else if (data.kazandim_mi) {
+                alert('🎉 KAZANDIN! Daha hızlı düşündün.' + sureBilgi);
+            } else {
+                alert('💀 KAYBETTİN! Rakibin daha hızlı doğru cevap verdi.' + sureBilgi);
+            }
+
+            window.location.href = 'ogrenci_paneli.php';
+        }
+
+        /* ====================================================================
+           SENKRON DÖNGÜSÜ
+           Cevabımı gönderdikten SONRA da çalışmaya devam etmeli — rakibin
+           cevabını beklerken sonucu buradan öğreniyoruz. (Eskiden
+           islemYapiliyor true olunca duruyordu ve bekleyen oyuncu ekranda
+           kilitli kalıyordu.)
+           ================================================================== */
         setInterval(() => {
-            if (islemYapiliyor) return;
+            if (oyunBitti) return;
+            if (islemYapiliyor && !cevabimGitti) return;   // geri sayım sürüyor
+
             fetch('api/duello/senkron.php?duello_id=' + duello_id)
                 .then(res => res.json())
                 .then(data => {
                     if (data.oyun_bitti) {
-                        islemYapiliyor = true;
-                        duelloSesi.pause();
-
-                        if (data.zaman_doldu) {
-                            alert("⏳ SÜRE DOLDU! İkiniz de uyudunuz!\n\n💥 HASAR RAPORU:\nSaldıran: -5 Puan\nSavunan: -3 Puan ceza yedi!");
-                        } else if (data.berabere_mi) {
-                            alert("😲 RAKİBİN YANLIŞ BİLDİ VE CEZAYI YEDİ!\nSen kıl payı kurtuldun, puan kaybetmedin.");
-                        } else if (!data.kazandim_mi) {
-                            alert("💀 RAKİBİN SENDEN HIZLI DAVRANDI VE DOĞRU BİLDİ!\nSavaşı kaybettin.");
-                        } else {
-                            alert("🎉 DOĞRU! MUHTEŞEM BİR ZAFER KAZANDIN!\nPuanlar hesabına eklendi.");
-                        }
-                        window.location.href = 'ogrenci_paneli.php';
+                        sonucGosterVeCik(data);
+                        return;
                     }
-                });
+
+                    // Henüz cevap vermediysem ve rakip bastıysa uyar
+                    if (!cevabimGitti && data.rakip_cevapladi) {
+                        const uyari = document.getElementById('rakipUyarisi');
+                        if (uyari) uyari.style.display = 'block';
+                    }
+                })
+                .catch(() => { /* ağ kesintisi — bir sonraki turda dener */ });
         }, 1000);
     </script>
 </body>

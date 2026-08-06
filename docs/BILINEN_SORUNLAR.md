@@ -291,3 +291,62 @@ Silindi; durmaya devam etseydi biri ikinci bir yoklayıcı eklemeye kalkışabil
 > kısıtlar. Sorular yalnızca üst bölümlere eklenirse yeni öğrenciler düello
 > kabul ettiğinde *"Havuzda seviyenize uygun soru bulunamadı"* alır ve düello
 > iptal olur. Bu yüzden **her zaman en alt bölümde de soru bulunsun.**
+
+---
+
+## ✅ 2026-08 — Düello adaleti ve savaş sonu skor tablosu
+
+### ⚖️ Düello: "ilk POST kazanır" haksızlığı kaldırıldı
+
+**Sorun:** `api/duello/cevap.php`'ye **ilk ulaşan** kazanıyordu. Ama iki
+oyuncunun ekranı aynı anda hazır olmuyor:
+
+- Biri sayfayı 1 saniye geç açar
+- Birinin interneti yavaştır, isteği 300 ms geç varır
+- Telefon/tarayıcı farkı geri sayımı kaydırır
+
+Sonuç: **daha geç tıklayan biri, sırf ağı hızlı diye kazanabiliyordu.**
+
+**Çözüm — kronometre istemcide, soru göründüğü an başlar:**
+
+1. Geri sayım perdesi kalkıp şıklar tıklanabilir olduğu an
+   `soruBaslangicMs = performance.now()` (her oyuncu kendi ekranına göre)
+2. Cevapla birlikte `sure_ms` gönderilir
+3. Sunucu maçı **anında bitirmez**, cevabı kaydedip rakibi bekler
+   (`status: 'bekleniyor'` → bekleme perdesi)
+4. İki cevap gelince: **en küçük süreli doğru cevap** kazanır
+
+`Date.now()` değil `performance.now()` kullanıldı — sistem saati değişse bile
+geriye gitmez.
+
+**Hile freni:** `sure_ms` istemciden geliyor, bu yüzden sunucuda
+`max(150, min(gelen, soru_suresi + 2sn))` ile kırpılıyor. 150 ms insan
+refleksinin altı; taban iki oyuncu için de aynı olduğundan belirleyici olamıyor.
+
+**Yan etkiler ve çözümleri:**
+
+| Risk | Çözüm |
+|---|---|
+| Cevap verdim, rakip tarayıcısını kapattı → sonsuza kadar beklerim | Süre sayacı artık cevap verince DURMUYOR, sadece maç bitince duruyor |
+| Süre doldu ama biri doğru bilmişti | `zaman_doldu.php` artık gelen cevaplara bakıyor — bilen KAZANIR (eskiden ikisi de ceza yiyordu) |
+| İki istemci aynı anda maçı bitirmeye çalışır | `WHERE durum = 'kabul_edildi'` + `rowCount()` yarış koruması |
+| Rakip cevapladı bilgisi kopyaya yol açar mı | `senkron.php` sadece "bastı" der, **hangi şıkkı** söylemez |
+
+> ⚠️ Gerekli migration: `kurulum/migration_2026_08_duello_sure.sql`
+> (`okuyan_cevap`, `okuyan_sure_ms`, `okunan_cevap`, `okunan_sure_ms`)
+
+### 🏆 Savaş sonu skor tablosu — öğrenci ve öğretmen aynı tabloyu görür
+
+**Öğrenci** (`quiz_arena.php`, ayrı sayfa YOK):
+"SAVAŞ SONA ERDİ" → 3 saniye → sıralama tablosu + kendi sırası → **🏘️ Köye Dön**
+
+**Öğretmen** (`admin/quiz_kontrol_merkezi.php`):
+Podyum (ilk 3) + **tam sıralama** + **🏫 Yönetim Paneline Dön**
+
+> ⚠️ Öğretmen ekranındaki **7 saniyelik otomatik yönlendirme kaldırıldı.**
+> Öğretmen tabloyu tahtaya yansıtıp sınıfla konuşmak isterken ekran elinden
+> alınıyordu. Dönüş artık düğmeye bağlı.
+
+Tek uç nokta: `api/quiz_skor_tablosu.php` — öğretmen kendi oturumunu, öğrenci
+kendi sınıfının oturumunu görebilir. İki ayrı dosya yazılsaydı sıralama mantığı
+iki yerde durur, biri değişince taraflar farklı tablo görürdü.

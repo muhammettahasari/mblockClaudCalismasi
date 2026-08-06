@@ -27,7 +27,8 @@ if ($duello_id <= 0) {
 
 try {
     $st = $pdo->prepare(
-        "SELECT durum, kazanan_id, meydan_okuyan_id, meydan_okunan_id
+        "SELECT durum, kazanan_id, meydan_okuyan_id, meydan_okunan_id,
+                okuyan_cevap, okuyan_sure_ms, okunan_cevap, okunan_sure_ms
            FROM quiz_duellolar WHERE id = ?"
     );
     $st->execute([$duello_id]);
@@ -40,8 +41,18 @@ try {
         apiJson(['oyun_bitti' => false]);
     }
 
+    $benOkuyanMiyim = ((int) $duello['meydan_okuyan_id'] === $ogrenci_id);
+    $rakipSutun     = $benOkuyanMiyim ? 'okunan' : 'okuyan';
+
     if ($duello['durum'] !== 'bitti') {
-        apiJson(['oyun_bitti' => false]);
+        /* [2026-08] Maç bitmedi ama rakip cevabını göndermiş olabilir.
+           İstemci bunu bilirse "rakip cevapladı, sen de acele et" uyarısı
+           gösterebiliyor. Hangi ŞIKKI işaretlediğini söylemiyoruz — sadece
+           bastığı bilgisini veriyoruz, yoksa kopya çekilir. */
+        apiJson([
+            'oyun_bitti'     => false,
+            'rakip_cevapladi'=> !empty($duello[$rakipSutun . '_cevap']),
+        ]);
     }
 
     $kazanan = (int) $duello['kazanan_id'];
@@ -51,6 +62,9 @@ try {
         'kazandim_mi' => ($kazanan === $ogrenci_id),
         'berabere_mi' => ($kazanan === -1),
         'zaman_doldu' => ($kazanan === -2),
+        // Sonuç ekranında "sen 1.2 sn, rakibin 1.8 sn" diye göstermek için
+        'benim_ms'    => (int) ($benOkuyanMiyim ? $duello['okuyan_sure_ms'] : $duello['okunan_sure_ms']),
+        'rakip_ms'    => (int) ($benOkuyanMiyim ? $duello['okunan_sure_ms'] : $duello['okuyan_sure_ms']),
     ]);
 
 } catch (Throwable $e) {

@@ -832,27 +832,139 @@ $sorular = $soru_stmt->fetchAll(PDO::FETCH_ASSOC);
             document.querySelector('.timer-container').style.display = 'none';
         }
 
+        /* ====================================================================
+           [2026-08] SAVAŞ SONU AKIŞI
+
+           Öğretmen quiz'i bitirdiğinde:
+             1. "SAVAŞ SONA ERDİ" yazısı görünür (3 saniye)
+             2. Öğretmenin gördüğü SIRALAMA TABLOSUNUN AYNISI yüklenir
+             3. "Köye Dön" düğmesiyle öğrenci paneline döner
+
+           Ayrı bir sonuç sayfası AÇILMADI — öğrenci zaten arenada, sayfa
+           değiştirmek hem gereksiz bir yükleme hem de "geri" tuşuyla arenaya
+           dönüp kafa karışıklığı demek olurdu. Aynı ekranda dönüşüyoruz.
+           ================================================================== */
+        let savasBittiIsaretlendi = false;
+
+        function savasiBitir() {
+            if (savasBittiIsaretlendi) return;
+            savasBittiIsaretlendi = true;
+
+            document.querySelector('.bottom-area').style.display = 'none';
+            document.querySelector('.timer-container').style.display = 'none';
+
+            // 1. ADIM — büyük duyuru
+            document.querySelector('.question-area').innerHTML = `
+                <h1 style="color:#ef4444; font-size:46px; text-shadow:0 0 20px #ef4444; animation:none;">🛑 SAVAŞ SONA ERDİ!</h1>
+                <div style="background:#1e293b; padding:20px; border-radius:10px; margin:22px 0; border:2px solid #facc15;">
+                    <h2 style="margin:0; color:#facc15;">Meydanda Topladığın Puan: ${anlikPuan}</h2>
+                </div>
+                <p style="color:#94a3b8; font-size:17px;">⏳ Şampiyonlar tablosu hazırlanıyor…</p>
+            `;
+
+            // 2. ADIM — 3 saniye sonra sıralama tablosu
+            setTimeout(skorTablosunuGetir, 3000);
+        }
+
+        function skorTablosunuGetir() {
+            fetch('api/quiz_skor_tablosu.php?oturum_id=<?= $oturum_id ?>', { credentials: 'same-origin' })
+                .then(r => r.json())
+                .then(s => {
+                    if (!s.success) { skorTablosuCiz(null, s.mesaj || 'Tablo alınamadı.'); return; }
+                    skorTablosuCiz(s, null);
+                })
+                .catch(() => skorTablosuCiz(null, 'Sunucuya ulaşılamadı.'));
+        }
+
+        function kacirMetin(x) {
+            const d = document.createElement('div');
+            d.textContent = x == null ? '' : String(x);
+            return d.innerHTML;
+        }
+
+        function skorTablosuCiz(s, hata) {
+            const donButonu = `<a href="ogrenci_paneli.php"
+                    style="background:linear-gradient(135deg,#3b82f6,#2563eb); padding:15px 34px; color:white;
+                           text-decoration:none; border-radius:11px; font-weight:bold; font-size:16px;
+                           margin-top:22px; display:inline-block; box-shadow:0 6px 18px rgba(59,130,246,.4);">
+                    🏘️ Köye Dön</a>`;
+
+            if (hata) {
+                document.querySelector('.question-area').innerHTML = `
+                    <h1 style="color:#ef4444; font-size:40px;">🛑 SAVAŞ SONA ERDİ!</h1>
+                    <p style="color:#94a3b8; font-size:16px; margin:18px 0;">${kacirMetin(hata)}</p>
+                    <div style="background:#1e293b; padding:18px; border-radius:10px; border:2px solid #facc15;">
+                        <h2 style="margin:0; color:#facc15;">Topladığın Puan: ${anlikPuan}</h2>
+                    </div>
+                    ${donButonu}`;
+                return;
+            }
+
+            const madalya = ['🥇', '🥈', '🥉'];
+
+            let satirlar = (s.tablo || []).map(r => {
+                const benim = r.ben;
+                const isaret = r.sira <= 3 ? madalya[r.sira - 1] : r.sira + '.';
+                return `<tr style="${benim ? 'background:rgba(250,204,21,.14);' : ''}">
+                    <td style="padding:11px 8px; font-size:19px; width:56px; text-align:center;">${isaret}</td>
+                    <td style="padding:11px 8px; font-weight:${benim ? '900' : '600'}; color:${benim ? '#facc15' : '#e2e8f0'};">
+                        ${kacirMetin(r.ad)}${benim ? ' <span style="font-size:12px;color:#facc15;">(SEN)</span>' : ''}
+                    </td>
+                    <td style="padding:11px 8px; text-align:center; color:#94a3b8; font-size:13px;">${r.cozulen}</td>
+                    <td style="padding:11px 8px; text-align:right; font-weight:900; color:#10b981; font-size:17px;">${r.puan}</td>
+                </tr>`;
+            }).join('');
+
+            if (!satirlar) {
+                satirlar = `<tr><td colspan="4" style="padding:26px; text-align:center; color:#94a3b8;">
+                    Bu savaşta kimse puan toplayamadı.</td></tr>`;
+            }
+
+            const siraOzeti = s.benim_sira > 0
+                ? `<div style="background:#1e293b; border:2px solid #facc15; border-radius:11px; padding:15px; margin-bottom:18px;">
+                       <span style="color:#94a3b8; font-size:13px;">SIRALAMAN</span><br>
+                       <span style="color:#facc15; font-size:30px; font-weight:900;">${s.benim_sira}. sıra</span>
+                       <span style="color:#94a3b8; font-size:14px;"> / ${s.katilimci} savaşçı</span>
+                   </div>`
+                : '';
+
+            document.querySelector('.question-area').innerHTML = `
+                <h1 style="color:#facc15; font-size:38px; text-shadow:0 0 20px rgba(250,204,21,.5); margin-bottom:6px;">
+                    🏆 ŞAMPİYONLAR TABLOSU
+                </h1>
+                <p style="color:#94a3b8; font-size:14px; margin:0 0 18px;">${kacirMetin(s.sinif_adi || '')}</p>
+
+                ${siraOzeti}
+
+                <div style="max-height:46vh; overflow-y:auto; background:#0f172a; border:1px solid #334155; border-radius:11px;">
+                    <table style="width:100%; border-collapse:collapse;">
+                        <thead>
+                            <tr style="position:sticky; top:0; background:#1e293b;">
+                                <th style="padding:10px 8px; color:#94a3b8; font-size:11px; text-align:center;">SIRA</th>
+                                <th style="padding:10px 8px; color:#94a3b8; font-size:11px; text-align:left;">SAVAŞÇI</th>
+                                <th style="padding:10px 8px; color:#94a3b8; font-size:11px; text-align:center;">SORU</th>
+                                <th style="padding:10px 8px; color:#94a3b8; font-size:11px; text-align:right;">PUAN</th>
+                            </tr>
+                        </thead>
+                        <tbody>${satirlar}</tbody>
+                    </table>
+                </div>
+
+                ${donButonu}`;
+        }
+
         let ogretmenRadari = setInterval(() => {
             fetch('api/quiz_arena_kontrol.php?oturum_id=<?= $oturum_id ?>')
             .then(res => res.json())
             .then(data => {
                 if (data.durum === 'bitti') {
-                    clearInterval(ogretmenRadari); 
-                    clearInterval(zamanlayici); 
+                    clearInterval(ogretmenRadari);
+                    clearInterval(zamanlayici);
                     clearInterval(saldiriDinleyici);
                     let ses = document.getElementById('saatSesi');
                     if(ses) ses.pause();
-                    
-                    document.querySelector('.question-area').innerHTML = `
-                        <h1 style="color:#ef4444; font-size:45px; text-shadow: 0 0 20px #ef4444;">🛑 SAVAŞ SONA ERDİ!</h1>
-                        <div style="background:#1e293b; padding:20px; border-radius:10px; margin:20px 0; border:2px solid #facc15;">
-                            <h2 style="margin:0; color:#facc15;">Meydanda Topladığın Puan: ${anlikPuan}</h2>
-                        </div>
-                        <p style="color:#94a3b8; font-size:18px;">Şampiyonları öğretmenin yansıttığı ana ekrandan takip et!</p>
-                        <a href="ogrenci_paneli.php" style="background:#3b82f6; padding:15px 30px; color:white; text-decoration:none; border-radius:10px; font-weight:bold; margin-top:20px; display:inline-block;">⚔️ Köye Geri Dön</a>
-                    `;
-                    document.querySelector('.bottom-area').style.display = 'none';
-                    document.querySelector('.timer-container').style.display = 'none';
+
+                    savasiBitir();
                 }
             }).catch(e => console.log("Radar kesintisi..."));
         }, 2000); 
