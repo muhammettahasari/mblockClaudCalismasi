@@ -143,6 +143,8 @@ $toplamV1 = count($v1_ham);
     </style>
 </head>
 <body>
+<?php require __DIR__ . '/../../bilesenler/super_gezinme.php'; ?>
+
 <div class="sarmal">
 
     <div class="ust">

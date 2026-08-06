@@ -177,6 +177,11 @@ Bölümün tüm görevleri bitince `mevcut_bolum` otomatik artar.
 
 Ayrıca **Paper.js tabanlı Kostüm Atölyesi** (vektör çizim editörü) var.
 
+> 🏠 **[2026-08] SÜPER ADMİN GEZİNME.** Yeni bir Süper Admin sayfası yazarken
+> `<body>`den hemen sonra tek satır ekle — sol alta 🏠 Ana Panel + 🚪 Çıkış gelir:
+> `<?php require __DIR__ . '/../bilesenler/super_gezinme.php'; ?>`
+> (kök yolu otomatik hesaplanır, `super_panel.php`'de kendini gizler)
+
 > ⚠️ **[2026-08] KUKLA YETKİ AYRIMI.**
 > **Süper Admin** → `v2_gorev_sistemi/admin/kukla_kutuphanesi/index.php` (tek ekran:
 > ekle, adlandır, kostüm ekle/sil, kukla sil). Yazma işlemleri `kukla_islem.php`.

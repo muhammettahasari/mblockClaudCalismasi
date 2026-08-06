@@ -212,7 +212,8 @@ if (isset($_POST['islem']) && $_POST['islem'] === 'kostum_ekle') {
 $gelen = istekVerisi();
 $islem = beyazListe(
     $gelen['islem'] ?? '',
-    ['kukla_guncelle', 'kostum_adlandir', 'kostum_sil', 'kukla_sil'],
+    ['kukla_guncelle', 'kostum_adlandir', 'kostum_sil', 'kukla_sil',
+     'kostum_sirala', 'kostum_cizim_kaydet'],
     ''
 );
 
@@ -304,6 +305,114 @@ try {
             kostumleriYaz($pdo, $kuklaId, $kalan);
 
             apiBasari(['kalan' => count($kalan)], 'Kostüm silindi.');
+        }
+
+        /* ------------------------------------------------------------------
+         * KOSTÜM SIRASINI DEĞİŞTİR (sürükle-bırak)
+         * Gelen: kostum_idler = ['k_1','k_3','k_2'] — yeni sıra
+         * Sadece SIRALAMA değişir; hiçbir kostüm eklenip silinmez.
+         * ---------------------------------------------------------------- */
+        case 'kostum_sirala': {
+            $yeniSira  = array_map('strval', (array) ($gelen['kostum_idler'] ?? []));
+            $kostumler = kostumleriOku($pdo, $kuklaId);
+
+            if ($kostumler === null) {
+                apiHata('Kukla bulunamadı.', 404);
+            }
+
+            // id -> kostüm eşlemesi
+            $harita = [];
+            foreach ($kostumler as $k) {
+                $harita[(string) ($k['id'] ?? '')] = $k;
+            }
+
+            $sirali = [];
+            foreach ($yeniSira as $id) {
+                if (isset($harita[$id])) {
+                    $sirali[] = $harita[$id];
+                    unset($harita[$id]);
+                }
+            }
+            // Listede olmayanlar (beklenmedik durum) sona eklenir — veri kaybolmasın
+            foreach ($harita as $kalan) {
+                $sirali[] = $kalan;
+            }
+
+            if (count($sirali) !== count($kostumler)) {
+                apiHata('Sıralama listesi eksik geldi, işlem iptal edildi.');
+            }
+
+            kostumleriYaz($pdo, $kuklaId, $sirali);
+            apiBasari(['sira' => array_column($sirali, 'id')], 'Kostüm sırası güncellendi.');
+        }
+
+        /* ------------------------------------------------------------------
+         * ATÖLYEDEN GELEN ÇİZİMİ KAYDET
+         *
+         * Kostüm Atölyesi (Paper.js) iki şey üretir:
+         *   cizimData  — vektör JSON (tekrar düzenlenebilmesi için)
+         *   resim      — "data:image/png;base64,..." (sahnede gösterilecek)
+         *
+         * Öğrencide bunlar sadece tarayıcıda kalır. Süper Admin'de ise PNG'yi
+         * gerçek bir dosyaya çevirip kütüphaneye KALICI yazıyoruz.
+         * ---------------------------------------------------------------- */
+        case 'kostum_cizim_kaydet': {
+            $kostumId  = (string) ($gelen['kostum_id'] ?? '');
+            $cizimData = $gelen['cizim_data'] ?? null;
+            $resim     = (string) ($gelen['resim'] ?? '');
+
+            $kostumler = kostumleriOku($pdo, $kuklaId);
+            if ($kostumler === null) {
+                apiHata('Kukla bulunamadı.', 404);
+            }
+
+            // data:image/png;base64,XXXX biçimini çöz
+            if (!preg_match('#^data:image/(png|jpeg|jpg);base64,(.+)$#', $resim, $esles)) {
+                apiHata('Çizim görseli okunamadı.');
+            }
+
+            $ikili = base64_decode($esles[2], true);
+            if ($ikili === false || strlen($ikili) < 32) {
+                apiHata('Çizim görseli bozuk.');
+            }
+            if (strlen($ikili) > 4 * 1024 * 1024) {
+                apiHata('Çizim çok büyük (en fazla 4 MB).');
+            }
+
+            if (!is_dir(KUKLA_KLASORU)) {
+                mkdir(KUKLA_KLASORU, 0777, true);
+            }
+
+            $yeniAd = uniqid('kostum_') . '.png';
+            if (file_put_contents(KUKLA_KLASORU . $yeniAd, $ikili) === false) {
+                apiHata('Dosya yazılamadı.', 500);
+            }
+            $yeniYol = KUKLA_DB_ONEK . $yeniAd;
+
+            $bulundu = false;
+            foreach ($kostumler as &$k) {
+                if ((string) ($k['id'] ?? '') !== $kostumId) {
+                    continue;
+                }
+
+                // Eski görseli sil (yeni dosya yazıldıktan SONRA, güvenli)
+                kostumDosyasiSil($k['yol'] ?? ($k['resimYolu'] ?? null));
+
+                $k['yol']       = $yeniYol;
+                $k['resimYolu'] = $yeniYol;
+                $k['cizimData'] = $cizimData;   // vektör hâli — tekrar düzenlenebilsin
+                $bulundu = true;
+                break;
+            }
+            unset($k);
+
+            if (!$bulundu) {
+                @unlink(KUKLA_KLASORU . $yeniAd);   // boşuna dosya bırakma
+                apiHata('Kostüm bulunamadı.', 404);
+            }
+
+            kostumleriYaz($pdo, $kuklaId, $kostumler);
+            apiBasari(['yol' => $yeniYol], 'Çizim kütüphaneye kaydedildi.');
         }
 
         /* ---- KUKLA SİL (kostüm dosyalarıyla birlikte) ---- */

@@ -173,3 +173,62 @@ sadece `SELECT` yapar, yazma yolu yoktur.
 
 **Tasarım:** Kütüphane `admin/super_panel.php` paletine geçirildi
 (#0f172a zemin, #1e293b kart, #334155 kenarlık) — panelden geçişte göz yormuyor.
+
+---
+
+## ✅ 2026-08 — Süper Admin gezinme ve kukla kütüphanesi ikinci tur
+
+### Gezinme: her sayfada "Ana Panel"
+
+Süper Admin sayfalarının bir kısmında panele dönüş bağlantısı **hiç yoktu**
+(`admin_market.php`, `ogretmen_yonetimi.php`, `super_quiz_yonetimi.php`,
+`gorev_duzenle.php`). Kullanıcı o sayfalara girince tarayıcının geri tuşuna
+ya da adres çubuğuna mahkûmdu.
+
+**Çözüm:** `bilesenler/super_gezinme.php` — sol alta sabitlenen
+🏠 Ana Panel + 🚪 Çıkış düğmeleri. Sayfanın `<body>` etiketinden sonra tek satır:
+
+```php
+<?php require __DIR__ . '/../bilesenler/super_gezinme.php'; ?>
+```
+
+Kök yolu otomatik hesaplanır (`$SUPER_KOK` ile elle de verilebilir).
+`super_panel.php`'de kendini gizler.
+
+> Neden sabit (fixed) düğme? Süper Admin sayfalarının her birinin kendi üst bar
+> tasarımı var — kimi koyu kimi açık. Her başlığa ayrı ayrı bağlantı eklemek
+> yerine layout'tan bağımsız tek bir düğme kullanıldı. Sol altta durur, sayfaların
+> sağ üstteki düğme kümeleriyle çakışmaz.
+
+### Kostüm Atölyesi artık Süper Admin'de de var
+
+Atölye arayüzü (386 satır) `oynatici.php` içine gömülüydü, başka sayfada
+kullanmak imkânsızdı. `v2_gorev_sistemi/bilesenler/kostum_atolyesi_modal.php`
+ortak parçasına alındı.
+
+| | Öğrenci | Süper Admin |
+|---|---|---|
+| Editör | aynı Paper.js motoru | aynı Paper.js motoru |
+| Kayıt | `window.projeKuklalari` (tarayıcı) | `kostum_cizim_kaydet` → PNG dosyası + `cizimData` |
+| Kalıcı mı | ❌ çıkışta kaybolur | ✅ kütüphaneye yazılır |
+
+Admin tarafı atölyeyi `window.projeKuklalari` / `window.aktifKuklaId` yapısını
+taklit ederek açar; böylece editörün **tek satırı bile** değişmedi.
+Üst bara sadece admin sayfasında "💾 Kütüphaneye Kaydet" düğmesi eklenir.
+
+> ⚠️ `index.php` `ogrenci_oynatici.css`'i yükler (atölye stilleri orada).
+> O dosya gövdeye `display:flex; height:100vh; overflow:hidden` verir —
+> oynatıcının iki panelli düzeni için. Kütüphane sayfası normal akan bir sayfa
+> olduğundan bu üç kural kendi `<style>` bloğunda `!important` ile geri alınır.
+
+### Kostüm sıralama ve grup önerisi
+
+- **Sürükle-bırak sıralama:** Kostüm kartları fareyle taşınabilir; 1. sıradaki
+  kostüm sahnede varsayılan görünendir. Yeni sıra `kostum_sirala` ile anında
+  yazılır. Sunucu tarafı sıralama listesindeki eksik id'leri sona ekler ve
+  sayı tutmuyorsa işlemi reddeder — kostüm kaybolmaz.
+- **Grup adı:** `<datalist>` yerine kendi öneri listesi yazıldı (datalist'in
+  görünümü tarayıcıdan tarayıcıya değişiyor ve koyu temada okunmuyordu).
+  Yazdıkça **önce başlayanlar, sonra içerenler** listelenir; tam eşleşme yoksa
+  "➕ Yeni grup" satırı çıkar. Altta mevcut gruplar tek tıkla seçilebilen çip
+  olarak durur. Türkçe karakterler için `toLocaleLowerCase('tr')` kullanılır.

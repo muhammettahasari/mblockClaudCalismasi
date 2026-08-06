@@ -57,14 +57,25 @@ $acilacak = isset($_GET['ac']) ? (int) $_GET['ac'] : 0;
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex, nofollow">
     <title>Kukla Kütüphanesi | Süper Admin</title>
+    <!-- Kostüm Atölyesi (Paper.js çizim editörü) stilleri -->
+    <link href="<?= varlik('v2_gorev_sistemi/assets/css/ogrenci_oynatici.css', '../../../') ?>" rel="stylesheet">
     <style>
         /* ====================================================================
            super_panel.php ile aynı palet — panelden buraya geçiş göz yormasın
            ================================================================== */
         * { box-sizing: border-box; }
+
+        /* ⚠️ ÖNEMLİ: Yukarıda ogrenci_oynatici.css yüklendi (Kostüm Atölyesi
+           stilleri orada). O dosya gövdeye "display:flex; height:100vh;
+           overflow:hidden" veriyor — öğrenci oynatıcısının iki panelli
+           düzeni için. Bu sayfa normal akan bir sayfa olduğundan o üç kuralı
+           BURADA geri alıyoruz; yoksa liste ekrana sığmaz ve kaydırılamaz. */
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #0f172a; color: #f8fafc; margin: 0; padding: 25px 20px 60px;
+            display: block !important;
+            height: auto !important;
+            overflow: auto !important;
         }
         .sarmal { max-width: 1150px; margin: 0 auto; }
 
@@ -132,13 +143,39 @@ $acilacak = isset($_GET['ac']) ? (int) $_GET['ac'] : 0;
         .panel h2 { margin: 0 0 4px; font-size: 19px; }
         .panel .alt { color: #94a3b8; font-size: 13px; margin-bottom: 18px; }
 
-        .kostum-izgara { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 11px; margin-top: 10px; }
-        .kostum { background: #0f172a; border: 1px solid #334155; border-radius: 9px; padding: 9px; text-align: center; }
+        .kostum-izgara { display: grid; grid-template-columns: repeat(auto-fill, minmax(122px, 1fr)); gap: 11px; margin-top: 10px; }
+        .kostum { background: #0f172a; border: 1px solid #334155; border-radius: 9px; padding: 9px; text-align: center; position: relative; cursor: grab; }
+        .kostum:active { cursor: grabbing; }
         .kostum .kutu { height: 78px; display: flex; align-items: center; justify-content: center; background: #1e293b; border-radius: 6px; margin-bottom: 7px; }
-        .kostum .kutu img { max-width: 100%; max-height: 100%; object-fit: contain; }
-        .kostum input { font-size: 11.5px; padding: 5px 6px; text-align: center; border-width: 1px; }
-        .kostum button { margin-top: 6px; width: 100%; background: #1e293b; border: 1px solid #475569; color: #fca5a5; border-radius: 6px; padding: 4px; cursor: pointer; font-size: 11px; }
-        .kostum button:hover { background: #7f1d1d; }
+        .kostum .kutu img { max-width: 100%; max-height: 100%; object-fit: contain; pointer-events: none; }
+        .kostum input { font-size: 11.5px; padding: 5px 6px; text-align: center; border-width: 1px; cursor: text; }
+        .kostum .k-dugmeler { display: flex; gap: 5px; margin-top: 6px; }
+        .kostum .k-dugmeler button { flex: 1; background: #1e293b; border: 1px solid #475569; color: #cbd5e1; border-radius: 6px; padding: 5px 2px; cursor: pointer; font-size: 12px; }
+        .kostum .k-dugmeler button:hover { background: #334155; }
+        .kostum .k-dugmeler button.sil { color: #fca5a5; }
+        .kostum .k-dugmeler button.sil:hover { background: #7f1d1d; }
+        .kostum .sira-no { position: absolute; top: 5px; left: 6px; background: #3b82f6; color: #fff; font-size: 10px; font-weight: bold; width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+
+        /* Sürükle-bırak geri bildirimi */
+        .kostum.suruklenen { opacity: .4; border-style: dashed; }
+        .kostum.hedef { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.35); }
+
+        .ipucu { font-size: 12px; color: #64748b; margin-top: 8px; }
+
+        /* Grup önerisi listesi */
+        .grup-sarmal { position: relative; }
+        .grup-oneriler {
+            position: absolute; top: 100%; left: 0; right: 0; z-index: 40;
+            background: #0f172a; border: 2px solid #3b82f6; border-top: none;
+            border-radius: 0 0 8px 8px; max-height: 190px; overflow-y: auto; display: none;
+        }
+        .grup-oneriler.acik { display: block; }
+        .grup-oneriler div { padding: 9px 12px; cursor: pointer; font-size: 13.5px; }
+        .grup-oneriler div:hover, .grup-oneriler div.secili { background: #1e293b; }
+        .grup-oneriler .yeni { color: #6ee7b7; font-weight: bold; }
+        .grup-cipler { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+        .grup-cip { background: #1e293b; border: 1px solid #334155; color: #cbd5e1; font-size: 11.5px; padding: 4px 11px; border-radius: 20px; cursor: pointer; }
+        .grup-cip:hover { border-color: #3b82f6; color: #fff; }
 
         .ayirac { border: none; border-top: 1px solid #334155; margin: 20px 0; }
         .dugmeler { display: flex; gap: 10px; margin-top: 20px; }
@@ -146,6 +183,8 @@ $acilacak = isset($_GET['ac']) ? (int) $_GET['ac'] : 0;
     </style>
 </head>
 <body>
+<?php require __DIR__ . '/../../../bilesenler/super_gezinme.php'; ?>
+
 <div class="sarmal">
 
     <div class="ust">
@@ -199,12 +238,21 @@ $acilacak = isset($_GET['ac']) ? (int) $_GET['ac'] : 0;
                 </div>
                 <div>
                     <label>Grup (kategori)</label>
-                    <input type="text" name="grup_adi" list="grupListesi" placeholder="Örn: Hayvanlar" maxlength="100">
-                    <datalist id="grupListesi">
+                    <!-- [2026-08] Yazdıkça filtreleyen kendi öneri listemiz.
+                         Tarayıcının <datalist> öğesi kullanılmadı çünkü görünümü
+                         tarayıcıdan tarayıcıya değişiyor ve koyu temada okunmuyor.
+                         Yazarsan yeni grup açılır, listeden seçersen mevcut gruba
+                         eklenir — ikisi de aynı kutudan. -->
+                    <div class="grup-sarmal">
+                        <input type="text" name="grup_adi" id="yeniGrupAdi" autocomplete="off"
+                               placeholder="Yazmaya başla veya aşağıdan seç" maxlength="100">
+                        <div class="grup-oneriler" id="yeniGrupOneriler"></div>
+                    </div>
+                    <div class="grup-cipler">
                         <?php foreach ($gruplar as $g): ?>
-                            <option value="<?= temizle($g) ?>"></option>
+                            <span class="grup-cip" onclick="grupSec('yeniGrupAdi', <?= htmlspecialchars(json_encode($g), ENT_QUOTES) ?>)"><?= temizle($g) ?></span>
                         <?php endforeach; ?>
-                    </datalist>
+                    </div>
                 </div>
             </div>
 
@@ -280,19 +328,31 @@ $acilacak = isset($_GET['ac']) ? (int) $_GET['ac'] : 0;
             </div>
             <div>
                 <label>Grup</label>
-                <input type="text" id="duzGrupAdi" list="grupListesi" maxlength="100">
+                <div class="grup-sarmal">
+                    <input type="text" id="duzGrupAdi" autocomplete="off" maxlength="100"
+                           placeholder="Yazmaya başla veya aşağıdan seç">
+                    <div class="grup-oneriler" id="duzGrupOneriler"></div>
+                </div>
+                <div class="grup-cipler">
+                    <?php foreach ($gruplar as $g): ?>
+                        <span class="grup-cip" onclick="grupSec('duzGrupAdi', <?= htmlspecialchars(json_encode($g), ENT_QUOTES) ?>)"><?= temizle($g) ?></span>
+                    <?php endforeach; ?>
+                </div>
             </div>
         </div>
-        <button class="btn btn-mavi" style="width:100%;" onclick="bilgiKaydet()">💾 Ad ve Grubu Kaydet</button>
+        <button class="btn btn-mavi" style="width:100%; margin-top:12px;" onclick="bilgiKaydet()">💾 Ad ve Grubu Kaydet</button>
 
         <hr class="ayirac">
 
         <label>Kostümler</label>
         <p class="aciklama" style="margin-bottom:6px;">
-            Kostüm adına tıklayıp değiştirebilirsin; alandan çıkınca kaydedilir.
+            Kostüm adına tıklayıp değiştirebilirsin; alandan çıkınca kaydedilir.<br>
+            🎨 <b>fırça</b> ile Kostüm Atölyesi'nde çizip kalıcı kaydedebilirsin.<br>
+            Kartları <b>fareyle sürükleyerek</b> sırasını değiştirebilirsin — 1. kostüm sahnede varsayılan görünendir.<br>
             <b>Son kostüm silinemez</b> — kuklanın en az bir görseli olmalı.
         </p>
         <div class="kostum-izgara" id="kostumIzgara"></div>
+        <div class="ipucu" id="siraDurumu"></div>
 
         <hr class="ayirac">
 
@@ -313,9 +373,79 @@ $acilacak = isset($_GET['ac']) ? (int) $_GET['ac'] : 0;
 
 <script>
 const KUKLALAR = <?= json_encode(array_column($kuklalar, null, 'id'), JSON_UNESCAPED_UNICODE) ?: '{}' ?>;
+const GRUPLAR  = <?= json_encode(array_values($gruplar), JSON_UNESCAPED_UNICODE) ?: '[]' ?>;
 let aktifKukla = 0;
 
 function kacir(s){ const d=document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+
+
+/* ============================================================================
+   GRUP ADI — YAZDIKÇA ÖNERİ
+   "h" yazınca h ile başlayan gruplar listelenir; listeden seçilir ya da yeni
+   bir ad yazılıp doğrudan yeni grup açılır. Tek kutu, iki iş.
+   Tarayıcının <datalist> öğesi kullanılmadı: görünümü tarayıcıdan tarayıcıya
+   değişiyor ve koyu temada okunmuyor.
+   ========================================================================= */
+function grupSec(kutuId, deger) {
+    const kutu = document.getElementById(kutuId);
+    if (!kutu) return;
+    kutu.value = deger;
+    onerileriKapat(kutuId);
+    kutu.focus();
+}
+
+function onerileriKapat(kutuId) {
+    const liste = document.getElementById(kutuId === 'duzGrupAdi' ? 'duzGrupOneriler' : 'yeniGrupOneriler');
+    if (liste) liste.classList.remove('acik');
+}
+
+function grupKutusuBagla(kutuId, listeId) {
+    const kutu  = document.getElementById(kutuId);
+    const liste = document.getElementById(listeId);
+    if (!kutu || !liste) return;
+
+    function ciz() {
+        const yazilan = kutu.value.trim().toLocaleLowerCase('tr');
+        liste.innerHTML = '';
+
+        // Yazılanla BAŞLAYANLAR önce, İÇEREN'ler sonra
+        const baslayan = [];
+        const iceren   = [];
+        GRUPLAR.forEach(g => {
+            const kucuk = g.toLocaleLowerCase('tr');
+            if (yazilan === '' || kucuk.startsWith(yazilan)) baslayan.push(g);
+            else if (kucuk.includes(yazilan)) iceren.push(g);
+        });
+
+        const bulunanlar = baslayan.concat(iceren);
+        bulunanlar.forEach(g => {
+            const o = document.createElement('div');
+            o.textContent = g;
+            o.addEventListener('mousedown', e => { e.preventDefault(); grupSec(kutuId, g); });
+            liste.appendChild(o);
+        });
+
+        // Tam eşleşme yoksa "yeni grup" seçeneği göster
+        const tamEslesme = GRUPLAR.some(g => g.toLocaleLowerCase('tr') === yazilan);
+        if (yazilan !== '' && !tamEslesme) {
+            const y = document.createElement('div');
+            y.className = 'yeni';
+            y.textContent = '➕ Yeni grup: "' + kutu.value.trim() + '"';
+            y.addEventListener('mousedown', e => { e.preventDefault(); onerileriKapat(kutuId); });
+            liste.appendChild(y);
+        }
+
+        liste.classList.toggle('acik', liste.children.length > 0);
+    }
+
+    kutu.addEventListener('focus', ciz);
+    kutu.addEventListener('input', ciz);
+    kutu.addEventListener('blur', () => setTimeout(() => liste.classList.remove('acik'), 120));
+    kutu.addEventListener('keydown', e => { if (e.key === 'Escape') liste.classList.remove('acik'); });
+}
+
+grupKutusuBagla('yeniGrupAdi', 'yeniGrupOneriler');
+grupKutusuBagla('duzGrupAdi',  'duzGrupOneriler');
 
 function api(govde) {
     return fetch('kukla_islem.php', {
@@ -344,25 +474,120 @@ function duzenle(id) {
     document.getElementById('duzGrupAdi').value  = k.grup_adi;
     document.getElementById('kostumKuklaId').value = id;
 
+    kostumleriCiz(k.kostumler || []);
+    document.getElementById('perde').classList.add('acik');
+}
+
+/** Kostüm kartlarını çizer (sürüklenebilir) */
+function kostumleriCiz(kostumler) {
     const kutu = document.getElementById('kostumIzgara');
     kutu.innerHTML = '';
+    document.getElementById('siraDurumu').textContent = '';
 
-    (k.kostumler || []).forEach(kostum => {
+    kostumler.forEach((kostum, sira) => {
         const yol = '../../' + (kostum.yol || kostum.resimYolu || '');
+        const kid = String(kostum.id || '');
+
         const oge = document.createElement('div');
         oge.className = 'kostum';
+        oge.draggable = true;
+        oge.dataset.id = kid;
         oge.innerHTML = `
-            <div class="kutu"><img src="${kacir(yol)}" alt=""
-                 onerror="this.style.display='none'"></div>
+            <span class="sira-no">${sira + 1}</span>
+            <div class="kutu"><img src="${kacir(yol)}" alt="" onerror="this.style.display='none'"></div>
             <input type="text" value="${kacir(kostum.adi || '')}"
-                   data-id="${kacir(kostum.id || '')}" maxlength="60"
+                   data-id="${kacir(kid)}" maxlength="60"
                    onblur="kostumAdlandir(this)"
                    onkeydown="if(event.key==='Enter'){event.preventDefault(); this.blur();}">
-            <button onclick="kostumSil('${kacir(kostum.id || '')}')">🗑️ Sil</button>`;
+            <div class="k-dugmeler">
+                <button title="Kostüm Atölyesi'nde düzenle" onclick="atolyeAc('${kacir(kid)}')">🎨</button>
+                <button class="sil" title="Kostümü sil" onclick="kostumSil('${kacir(kid)}')">🗑️</button>
+            </div>`;
+
+        surukleBagla(oge);
         kutu.appendChild(oge);
     });
+}
 
-    document.getElementById('perde').classList.add('acik');
+
+/* ============================================================================
+   KOSTÜM SIRALAMA — SÜRÜKLE BIRAK
+   1. sıradaki kostüm sahnede varsayılan görünen kostümdür; bu yüzden sıranın
+   değiştirilebilmesi gerekiyor. Bırakılan kart, üstüne bırakıldığı kartın
+   yerine geçer; sıra hemen sunucuya yazılır.
+   ========================================================================= */
+let suruklenenOge = null;
+
+function surukleBagla(oge) {
+    oge.addEventListener('dragstart', e => {
+        // Ad kutusuna yazarken sürükleme başlamasın
+        if (e.target.tagName === 'INPUT') { e.preventDefault(); return; }
+        suruklenenOge = oge;
+        oge.classList.add('suruklenen');
+        e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', oge.dataset.id); } catch (x) {}
+    });
+
+    oge.addEventListener('dragend', () => {
+        oge.classList.remove('suruklenen');
+        document.querySelectorAll('.kostum.hedef').forEach(o => o.classList.remove('hedef'));
+        suruklenenOge = null;
+    });
+
+    oge.addEventListener('dragover', e => {
+        e.preventDefault();
+        if (suruklenenOge && suruklenenOge !== oge) oge.classList.add('hedef');
+    });
+
+    oge.addEventListener('dragleave', () => oge.classList.remove('hedef'));
+
+    oge.addEventListener('drop', e => {
+        e.preventDefault();
+        oge.classList.remove('hedef');
+        if (!suruklenenOge || suruklenenOge === oge) return;
+
+        const kutu = document.getElementById('kostumIzgara');
+        const hepsi = [...kutu.children];
+        const kaynakIndex = hepsi.indexOf(suruklenenOge);
+        const hedefIndex  = hepsi.indexOf(oge);
+
+        if (kaynakIndex < hedefIndex) oge.after(suruklenenOge);
+        else oge.before(suruklenenOge);
+
+        numaralariTazele();
+        siralamayiKaydet();
+    });
+}
+
+function numaralariTazele() {
+    [...document.getElementById('kostumIzgara').children].forEach((o, i) => {
+        const n = o.querySelector('.sira-no');
+        if (n) n.textContent = i + 1;
+    });
+}
+
+function siralamayiKaydet() {
+    const idler = [...document.getElementById('kostumIzgara').children].map(o => o.dataset.id);
+    const durum = document.getElementById('siraDurumu');
+    durum.textContent = 'Sıra kaydediliyor…';
+
+    api({ islem: 'kostum_sirala', kukla_id: aktifKukla, kostum_idler: idler })
+        .then(d => {
+            if (d.success) {
+                durum.textContent = '✅ Sıra kaydedildi.';
+                if (KUKLALAR[aktifKukla]) {
+                    // Yerel kopyayı da güncelle ki pencere kapanıp açılınca doğru görünsün
+                    const eski = KUKLALAR[aktifKukla].kostumler || [];
+                    KUKLALAR[aktifKukla].kostumler = idler
+                        .map(id => eski.find(k => String(k.id) === id))
+                        .filter(Boolean);
+                }
+                setTimeout(() => { durum.textContent = ''; }, 2200);
+            } else {
+                durum.textContent = '❌ ' + (d.mesaj || 'Sıra kaydedilemedi.');
+            }
+        })
+        .catch(() => { durum.textContent = '❌ Sunucuya ulaşılamadı.'; });
 }
 
 function paneliKapat() {
@@ -440,5 +665,137 @@ function kapatVeDon() {
 window.addEventListener('DOMContentLoaded', function () { duzenle(<?= $acilacak ?>); });
 <?php endif; ?>
 </script>
+
+
+<!-- ============================================================================
+     KOSTÜM ATÖLYESİ — [2026-08] Süper Admin sürümü
+
+     Aynı Paper.js editörü öğrenci tarafında da kullanılıyor; arayüz ortak
+     parçadan geliyor (v2_gorev_sistemi/bilesenler/kostum_atolyesi_modal.php).
+
+     TEK FARK KAYIT: Öğrencide çizim sadece tarayıcıda kalır. Burada ise
+     "Kütüphaneye Kaydet" düğmesi çizimi PNG'ye çevirip sunucuya yazar ve
+     vektör hâlini (cizimData) de saklar — böylece sonra tekrar düzenlenebilir.
+     ============================================================================ -->
+<?php require __DIR__ . '/../../bilesenler/kostum_atolyesi_modal.php'; ?>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.12.17/paper-full.min.js"></script>
+<script>
+/* ============================================================================
+   ATÖLYE KÖPRÜSÜ
+   Atölye motoru window.projeKuklalari / window.aktifKuklaId üzerinden çalışır
+   (öğrenci tarafının veri yapısı). Admin tarafında da aynı yapıyı kuruyoruz ki
+   editörün tek bir satırı bile değişmesin.
+   ========================================================================= */
+window.projeKuklalari = [];
+window.aktifKuklaId   = null;
+
+/** Fırça düğmesi: seçili kostümü atölyede aç */
+window.atolyeAc = function (kostumId) {
+    const k = KUKLALAR[aktifKukla];
+    if (!k) return;
+
+    // Atölyenin beklediği yapıya çevir. Yollar bu sayfaya göre ../../ ile başlar.
+    const kostumler = (k.kostumler || []).map(x => ({
+        id:        String(x.id || ''),
+        adi:       x.adi || 'costume',
+        resimYolu: '../../' + (x.yol || x.resimYolu || ''),
+        cizimData: x.cizimData || null
+    }));
+
+    window.projeKuklalari = [{
+        id: 'admin_' + k.id,
+        adi: k.kukla_adi,
+        x: 0, y: 0, boyut: 100, yon: 0, goster: true,
+        resimYolu: kostumler[0] ? kostumler[0].resimYolu : '',
+        kostumler: kostumler,
+        kodXml: ''
+    }];
+    window.aktifKuklaId = 'admin_' + k.id;
+
+    const baslik = document.getElementById('atolyeKuklaAdiBaslik');
+    if (baslik) baslik.textContent = '🎨 ' + k.kukla_adi + ' — Kostüm Atölyesi';
+
+    if (typeof window.kostumAtolyesiniAc !== 'function') {
+        alert('Atölye motoru yüklenemedi. Sayfayı yenileyip tekrar dene.');
+        return;
+    }
+
+    window.kostumAtolyesiniAc();
+
+    // İstenen kostümü seç (varsayılan ilkini açıyor)
+    if (kostumId && typeof window.kostumSec === 'function') {
+        setTimeout(() => { try { window.kostumSec(kostumId); } catch (e) {} }, 220);
+    }
+};
+
+/**
+ * Atölyedeki AKTİF kostümü kütüphaneye kalıcı yazar.
+ * Paper.js katmanını hem vektör JSON hem PNG olarak dışa aktarır.
+ */
+window.atolyeKutuphaneyeKaydet = function () {
+    const kukla = window.projeKuklalari[0];
+    if (!kukla || !aktifKukla) { alert('Kaydedilecek kostüm bulunamadı.'); return; }
+
+    const kostum = kukla.kostumler.find(x => x.id === window.aktifKostumId) || kukla.kostumler[0];
+    if (!kostum) { alert('Kaydedilecek kostüm bulunamadı.'); return; }
+
+    let cizimData = null, resim = '';
+    try {
+        cizimData = window.cizimKatmani.exportJSON();
+        const raster = window.cizimKatmani.rasterize(72, false, new paper.Rectangle(0, 0, 480, 360));
+        resim = raster.toDataURL();
+        raster.remove();
+    } catch (e) {
+        alert('Çizim okunamadı: ' + e.message);
+        return;
+    }
+
+    const dugme = document.getElementById('btnAtolyeKaydet');
+    if (dugme) { dugme.disabled = true; dugme.textContent = '⏳ Kaydediliyor…'; }
+
+    api({
+        islem: 'kostum_cizim_kaydet',
+        kukla_id: aktifKukla,
+        kostum_id: kostum.id,
+        cizim_data: cizimData,
+        resim: resim
+    })
+    .then(d => {
+        if (d.success) {
+            alert('✅ Çizim kütüphaneye kaydedildi.');
+            location.href = 'index.php?ac=' + aktifKukla;
+        } else {
+            alert('❌ ' + (d.mesaj || 'Kaydedilemedi.'));
+            if (dugme) { dugme.disabled = false; dugme.textContent = '💾 Kütüphaneye Kaydet'; }
+        }
+    })
+    .catch(() => {
+        alert('❌ Sunucuya ulaşılamadı.');
+        if (dugme) { dugme.disabled = false; dugme.textContent = '💾 Kütüphaneye Kaydet'; }
+    });
+};
+
+/* Atölye üst barına "Kütüphaneye Kaydet" düğmesini ekle.
+   Ortak parçada bu düğme yok çünkü öğrenci tarafında sunucuya kayıt olmaz. */
+window.addEventListener('DOMContentLoaded', function () {
+    const bar = document.querySelector('#kostumAtolyesiModal .atolye-butonlar');
+    if (!bar) return;
+
+    const btn = document.createElement('button');
+    btn.id = 'btnAtolyeKaydet';
+    btn.type = 'button';
+    btn.textContent = '💾 Kütüphaneye Kaydet';
+    btn.style.cssText = 'background:#10b981; color:#fff; border:none; padding:9px 16px;' +
+                        'border-radius:8px; font-weight:bold; cursor:pointer; font-size:14px;';
+    btn.addEventListener('click', window.atolyeKutuphaneyeKaydet);
+    bar.prepend(btn);
+});
+</script>
+
+<script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/kostum_atolyesi/renk_ve_gradyan.js', '../../../') ?>"></script>
+<script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/kostum_atolyesi/transform_ve_secim.js', '../../../') ?>"></script>
+<script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/kostum_atolyesi/araclar_ve_yardimcilar.js', '../../../') ?>"></script>
+<script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/kostum_atolyesi.js', '../../../') ?>"></script>
 </body>
 </html>

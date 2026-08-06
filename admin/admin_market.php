@@ -221,6 +221,8 @@ superAdminZorunlu();
 </head>
 
 <body>
+<?php require __DIR__ . '/../bilesenler/super_gezinme.php'; ?>
+
 
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h2>🛒 Market Envanter Yönetimi</h2>

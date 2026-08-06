@@ -71,6 +71,8 @@ $KOK_ONEK = '../../';   // proje köküne (önbellek kırıcı için)
     <link href="../assets/css/tasarlayici_style.css" rel="stylesheet">
 </head>
 <body>
+<?php require __DIR__ . '/../../bilesenler/super_gezinme.php'; ?>
+
 
 <div class="v2-container">
     <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">

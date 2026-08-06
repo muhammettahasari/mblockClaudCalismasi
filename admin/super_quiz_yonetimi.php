@@ -258,6 +258,8 @@ foreach ($tum_sorular as $soru) {
 </head>
 
 <body>
+<?php require __DIR__ . '/../bilesenler/super_gezinme.php'; ?>
+
 
     <div class="header-area">
         <h1 style="margin: 0; color: #1e293b;">📚 Quiz Soru Havuzu Yönetimi</h1>

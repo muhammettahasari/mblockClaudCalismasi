@@ -204,6 +204,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </style>
 </head>
 <body>
+<?php require __DIR__ . '/../bilesenler/super_gezinme.php'; ?>
+
 <div class="sarmal">
 
     <div class="ust">

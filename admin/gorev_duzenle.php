@@ -35,6 +35,8 @@ $bolumler = $pdo->query("SELECT * FROM bolumler ORDER BY sira_no ASC")->fetchAll
     <link href="../css/admin_style.css" rel="stylesheet">
 </head>
 <body>
+<?php require __DIR__ . '/../bilesenler/super_gezinme.php'; ?>
+
 
 <div class="admin-container">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">

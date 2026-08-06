@@ -121,6 +121,8 @@ $kayitlilar = $pdo->query("SELECT * FROM ogretmenler WHERE durum = 'onaylandi'")
 </head>
 
 <body>
+<?php require __DIR__ . '/../bilesenler/super_gezinme.php'; ?>
+
 
     <div class="container">
         <div style="display: flex; justify-content: flex-end; gap: 15px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0;">
