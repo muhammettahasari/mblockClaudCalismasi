@@ -397,3 +397,48 @@ Abonelik kapatılan öğretmen `+ Ay` ile kaldığı yerden geri döner.
 
 **Arayüz:** "⏹ Aboneliği Bitir" turuncu, "Sil" kırmızı — karıştırılmasın diye
 farklı renk ve tablonun üstünde ikisinin farkını anlatan bir bilgi kutusu var.
+
+---
+
+## ✅ 2026-08 — "Call to undefined function" ve doğrulama boşluğu
+
+### Hata
+
+Ders kilidi eklendikten sonra öğrenci sayfası açılmıyordu:
+
+```
+Fatal error: Call to undefined function ogrencininKilidi()
+in bilesenler/ogrenci_kilit_perdesi.php:45
+```
+
+**Sebep:** Perde `guvenlik.php`'yi require ediyordu ama `ogrencininKilidi()`
+`ilerleme_yardimcilari.php` içinde tanımlı. Doğru dosya yüklenmemişti.
+
+### Asıl mesele: doğrulama yöntemi eksikti
+
+Söz dizimi denetimi (parantez/tırnak dengesi) bu hata sınıfını **yakalayamaz** —
+dosya sözdizimsel olarak kusursuz, sorun çalışma anında ortaya çıkıyor.
+
+**Eklenen denetim:** her dosyanın çağırdığı proje fonksiyonlarının, o dosyadan
+ulaşılabilen `require` zinciri içinde tanımlı olup olmadığını kontrol eder.
+Geçişli zinciri çözer (A → B → C), partial'ları ayrı raporlar.
+
+Bu denetim çalıştırıldığında **ikinci bir sorun** daha çıktı:
+
+### Bonus: kök dizinde bozuk yetim dosya
+
+`superveritabapani.php` — `admin/super_veritabani.php`'nin kopyası, kök dizinde,
+adı yanlış yazılmış. İki sorunu vardı:
+
+1. `<?php` etiketinden **önce** çöp metin (`per veritabani · PHP`) — editörden
+   kopyalanırken sekme başlığı da yapışmış. Bu metin tarayıcıya basılıyordu.
+2. Hiçbir require yok → `superAdminZorunlu()` tanımsız → **Fatal error**, ve
+   hata mesajı sunucu klasör yolunu sızdırıyordu.
+
+Hiçbir yerden çağrılmıyordu ama web kökündeydi; adresi tahmin eden herkes
+açabilirdi. **Silindi.**
+
+> ⚠️ **KURAL:** Yeni bir partial yazarken, kullandığı fonksiyonların tanımlı
+> olduğu dosyayı KENDİSİ require etmeli — "beni include eden sayfa zaten
+> yüklüyordur" varsayımı kırılgan. Partial başka bir sayfaya taşındığı anda
+> patlar.

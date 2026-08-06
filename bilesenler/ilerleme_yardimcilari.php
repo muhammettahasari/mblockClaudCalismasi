@@ -541,12 +541,14 @@ function kilitliyseReddet(PDO $pdo, int $ogrenciId): void
         return;
     }
 
-    if (function_exists('apiHata')) {
-        apiHata('🔒 Öğretmenin ekranını kilitledi. Kilit açılana kadar işlem yapamazsın.', 423);
-    }
+    /* apiHata() bilesenler/api_yanit.php içinde. Bu dosya (ilerleme
+       yardımcıları) HTML sayfalarına da include ediliyor; oraya JSON
+       başlıkları taşımamak için api_yanit.php'yi tepede DEĞİL, tam
+       ihtiyaç anında yüklüyoruz. api_yanit.php sadece fonksiyon tanımlar,
+       çıktı üretmez — bu yüzden burada yüklemek güvenli. */
+    require_once __DIR__ . '/api_yanit.php';
 
-    http_response_code(423);   // 423 Locked
-    exit;
+    apiHata('🔒 Öğretmenin ekranını kilitledi. Kilit açılana kadar işlem yapamazsın.', 423);
 }
 
 

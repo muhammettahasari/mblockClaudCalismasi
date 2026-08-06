@@ -32,7 +32,9 @@
  * ============================================================================
  */
 
-require_once __DIR__ . '/guvenlik.php';
+/* ogrencininKilidi() bu dosyada tanımlı — guvenlik.php yeterli DEĞİL.
+   (guvenlik.php zaten ilerleme_yardimcilari.php tarafından yükleniyor.) */
+require_once __DIR__ . '/ilerleme_yardimcilari.php';
 guvenliOturumBaslat();
 
 $KILIT_KOK = $KILIT_KOK ?? '';
