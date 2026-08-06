@@ -155,7 +155,7 @@ if ($ogrenciler) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Öğrenci İlerleme Takibi</title>
-<link rel="stylesheet" href="<?= varlik('css/teacher_panel.css', '../') ?>">
+<link rel="stylesheet" href="<?= varlik('css/ogretmen_tema.css', '../') ?>">
 <style>
     :root{
         --mor:#7c3aed; --mor-koyu:#5b21b6;
@@ -249,14 +249,9 @@ if ($ogrenciler) {
     }
 </style>
 </head>
-<body>
+<body class="ot">
 
-<div class="ust">
-    <h1>📊 Öğrenci İlerleme Takibi</h1>
-    <div>
-        <a href="<?= varlik('admin/ogretmen_paneli.php', '../') ?>">← Panele Dön</a>
-    </div>
-</div>
+<?php $OT_AKTIF = 'ilerleme'; require __DIR__ . '/../bilesenler/ogretmen_ust_bar.php'; ?>
 
 <div class="kap">
 

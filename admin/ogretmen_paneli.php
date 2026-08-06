@@ -63,144 +63,169 @@ if ($sure_doldu_mu) {
 
 <head>
     <meta charset="UTF-8">
-    <title>Canlı Görev Takip Paneli</title>
-    <link rel="stylesheet" href="../css/teacher_panel.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canlı Takip | mBlock Akademi</title>
+    <link rel="stylesheet" href="../css/ogretmen_tema.css">
     <style>
-        .pulse {
-            animation: pulse-animation 1.5s infinite;
+        /* Sayfaya özel — sınıf kontrol anahtarları */
+        .salter-izgara { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+        .salter {
+            border: 2px solid var(--ot-cizgi); border-radius: var(--ot-radius);
+            padding: 16px; transition: .18s; background: #fff;
         }
+        .salter.acik { border-color: var(--ot-yesil); background: #f0fdf4; }
+        .salter .ust { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+        .salter .ad { font-weight: 800; font-size: 14.5px; }
+        .salter .aciklama { color: var(--ot-soluk); font-size: 12.5px; line-height: 1.5; margin-bottom: 12px; min-height: 34px; }
+        .salter .ot-btn { width: 100%; }
 
-        @keyframes pulse-animation {
-            0% {
-                transform: scale(1);
-            }
-
-            50% {
-                transform: scale(1.05);
-            }
-
-            100% {
-                transform: scale(1);
-            }
-        }
-
+        /* Tablo satırlarındaki uzaktan işlem düğmeleri — JS ile üretiliyor,
+           bu yüzden sınıf adı (.btn-action) korundu. */
         .btn-action {
-            padding: 8px 12px;
-            border: none;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-            color: white;
-            transition: 0.2s;
+            padding: 6px 12px; border: none; border-radius: 7px;
+            font-weight: 700; font-size: 12.5px; cursor: pointer;
+            color: #fff; transition: .15s; margin-left: 4px;
         }
+        .btn-action:hover { filter: brightness(1.1); }
 
-        .btn-action:hover {
-            opacity: 0.8;
+        .pulse { animation: pulse-animation 1.5s infinite; }
+        @keyframes pulse-animation {
+            0%   { transform: scale(1); }
+            50%  { transform: scale(1.04); }
+            100% { transform: scale(1); }
         }
     </style>
 </head>
 
-<body>
+<body class="ot">
+<?php $OT_AKTIF = 'panel'; require __DIR__ . '/../bilesenler/ogretmen_ust_bar.php'; ?>
 
-    <div class="teacher-container" style="max-width: 1200px;">
-        <div class="header-area">
-            <div>
-                <h1 style="margin-bottom: 5px;">📡 Canlı Görev Takibi <span style="font-size: 16px; color: #64748b; font-weight: normal;">(<?= htmlspecialchars($okul_adi) ?>)</span></h1>
-                <p style="margin: 0; font-size: 18px; color: #4f46e5; font-weight: bold;">SINIF PIN KODUNUZ: <span style="background: #e0e7ff; padding: 5px 10px; border-radius: 6px; letter-spacing: 2px;"><?= htmlspecialchars($ogretmen_pin) ?></span></p>
+<div class="ot-sarmal">
+
+    <?php
+    /* [2026-08] Bilinen Sorunlar #7:
+       Bu blok iki kez kopyalanmıştı ve düello durumunu GLOBAL duello_ayarlari
+       (id=1) tablosundan okuyordu — yani bir öğretmenin açtığı düello bütün
+       okullarda açık görünüyordu. Artık her öğretmenin kendi
+       ogretmenler.duello_bitis alanı kullanılıyor (arenayla aynı desen). */
+    $durumSorgu = $pdo->prepare("SELECT arena_bitis, duello_bitis FROM ogretmenler WHERE id = ?");
+    $durumSorgu->execute([$ogretmen_id]);
+    $salterler = $durumSorgu->fetch(PDO::FETCH_ASSOC) ?: ['arena_bitis' => null, 'duello_bitis' => null];
+
+    $arena_acik_mi   = ($salterler['arena_bitis']  && strtotime($salterler['arena_bitis'])  > time());
+    $duello_aktif_mi = ($salterler['duello_bitis'] && strtotime($salterler['duello_bitis']) > time());
+
+    // Süresi dolmuşsa veritabanını temizle
+    if (!$arena_acik_mi && $salterler['arena_bitis']) {
+        $pdo->prepare("UPDATE ogretmenler SET arena_bitis = NULL WHERE id = ?")->execute([$ogretmen_id]);
+    }
+    if (!$duello_aktif_mi && $salterler['duello_bitis']) {
+        $pdo->prepare("UPDATE ogretmenler SET duello_bitis = NULL WHERE id = ?")->execute([$ogretmen_id]);
+    }
+    ?>
+
+    <!-- Onay bekleyen kayıt uyarısı -->
+    <a href="ogrenci_yonetimi.php" id="onayUyarisi" class="ot-hata-kutu pulse"
+       style="display:none; text-decoration:none; font-weight:800;">
+        🚨 Yeni öğrenci kaydı var! Onaylamak için tıkla →
+    </a>
+
+
+    <!-- ==================== SINIF KONTROLLERİ ====================
+         [2026-08] Bu üç anahtar eskiden sayfanın tepesinde çıkış ve menü
+         düğmeleriyle yan yana duruyordu; hangisinin ne yaptığı ve hangisinin
+         AÇIK olduğu anlaşılmıyordu. Artık kendi kartında, durumu görünür. -->
+    <div class="ot-kart">
+        <div class="ot-kart-baslik">
+            <h2>🎛️ Sınıf Kontrolleri</h2>
+            <span class="ot-canli"><span class="ot-canli-nokta" id="canliNokta"></span> Canlı</span>
+        </div>
+        <p class="aciklama">
+            Bu anahtarlar <b>senin sınıflarını</b> etkiler; başka öğretmenlerin öğrencileri görmez.
+            Arena ve düello süreli açılır, süre bitince kendiliğinden kapanır.
+        </p>
+
+        <div class="salter-izgara">
+            <!-- Savaş Arenası -->
+            <div class="salter <?= $arena_acik_mi ? 'acik' : '' ?>">
+                <div class="ust">
+                    <span class="ad">⚔️ Savaş Arenası</span>
+                    <span class="ot-rozet <?= $arena_acik_mi ? 'ot-rozet-yesil' : 'ot-rozet-gri' ?>">
+                        <?= $arena_acik_mi ? '● Açık' : '○ Kapalı' ?>
+                    </span>
+                </div>
+                <p class="aciklama">Öğrenciler birbirine meydan okuyup puan kapabilir. Sınıf içi PvP.</p>
+                <button id="btnArenaToggle"
+                        class="ot-btn <?= $arena_acik_mi ? 'ot-btn-kirmizi' : 'ot-btn-yesil' ?>"
+                        onclick="<?= $arena_acik_mi ? 'arenaKapat()' : 'arenaModalAc()' ?>">
+                    <?= $arena_acik_mi ? '🔒 Kapat' : '▶ Süreli Aç' ?>
+                </button>
             </div>
 
-            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
-                <div style="display: flex; gap: 15px; align-items: stretch;">
-
-                    <?php
-                    /* [2026-08] Bilinen Sorunlar #7:
-                       Bu blok iki kez kopyalanmıştı ve düello durumunu GLOBAL
-                       duello_ayarlari (id=1) tablosundan okuyordu — yani bir
-                       öğretmenin açtığı düello bütün okullarda açık görünüyordu.
-                       Artık her öğretmenin kendi ogretmenler.duello_bitis alanı
-                       kullanılıyor (savaş arenasıyla aynı desen). */
-                    $durumSorgu = $pdo->prepare("SELECT arena_bitis, duello_bitis FROM ogretmenler WHERE id = ?");
-                    $durumSorgu->execute([$ogretmen_id]);
-                    $salterler = $durumSorgu->fetch(PDO::FETCH_ASSOC) ?: ['arena_bitis' => null, 'duello_bitis' => null];
-
-                    $arena_acik_mi   = ($salterler['arena_bitis']  && strtotime($salterler['arena_bitis'])  > time());
-                    $duello_aktif_mi = ($salterler['duello_bitis'] && strtotime($salterler['duello_bitis']) > time());
-
-                    // Süresi dolmuşsa veritabanını temizle
-                    if (!$arena_acik_mi && $salterler['arena_bitis']) {
-                        $pdo->prepare("UPDATE ogretmenler SET arena_bitis = NULL WHERE id = ?")->execute([$ogretmen_id]);
-                    }
-                    if (!$duello_aktif_mi && $salterler['duello_bitis']) {
-                        $pdo->prepare("UPDATE ogretmenler SET duello_bitis = NULL WHERE id = ?")->execute([$ogretmen_id]);
-                    }
-                    ?>
-                    <button id="btnArenaToggle" onclick="<?= $arena_acik_mi ? 'arenaKapat()' : 'arenaModalAc()' ?>" style="background: <?= $arena_acik_mi ? '#ef4444' : '#10b981' ?>; color: white; padding: 10px 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.2);" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
-                        <?= $arena_acik_mi ? '🔒 Arenayı Kapat' : '⚔️ Savaş Arenasını Aç' ?>
-                    </button>
-
-                    <button id="btnDuelloToggle" onclick="duelloToggle()" style="background: <?= $duello_aktif_mi ? '#ef4444' : '#10b981' ?>; color: white; padding: 10px 15px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.2);" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
-                        <?= $duello_aktif_mi ? '🔒 Düello Kapat' : '⚔️ Düello Aç' ?>
-                    </button>
-
-                    <a href="quiz_kontrol_merkezi.php" style="background: linear-gradient(135deg, #8b5cf6, #6366f1); color: white; padding: 12px 25px; border-radius: 8px; text-decoration: none; font-weight: bold; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);">
-                        🎮 Quiz Başlat
-                    </a>
-
-                    <a href="ogrenci_yonetimi.php" style="background: #3b82f6; color: white; text-decoration: none; padding: 10px 35px; border-radius: 8px; font-weight: bold; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3); transition: 0.2s;" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
-                        <span style="font-size: 16px; margin-bottom: 3px;">Öğrenci</span>
-                        <span style="font-size: 16px;">Yönetimi</span>
-                    </a>
-
-                    <!-- [2026-08] Öğrencinin hangi bölümde olduğunu görme + geri gönderme -->
-                    <a href="ogrenci_ilerleme.php" style="background: #7c3aed; color: white; text-decoration: none; padding: 10px 30px; border-radius: 8px; font-weight: bold; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: 0 4px 6px rgba(124, 58, 237, 0.3); transition: 0.2s;" onmouseover="this.style.background='#5b21b6'" onmouseout="this.style.background='#7c3aed'">
-                        <span style="font-size: 16px; margin-bottom: 3px;">📊 İlerleme</span>
-                        <span style="font-size: 16px;">Takibi</span>
-                    </a>
-
-                    <div style="display: flex; flex-direction: column; justify-content: space-between; gap: 6px; width: 150px;">
-                        <a href="../api/logout.php" style="background: #ef4444; color: white; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 15px; transition: 0.2s; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.4); display: flex; align-items: center; justify-content: center; width: 100%; box-sizing: border-box; flex: 1;" onmouseover="this.style.background='#dc2626'" onmouseout="this.style.background='#ef4444'">
-                            🚪 Çıkış
-                        </a>
-
-                        <button onclick="sureTalepFormuAc()" style="background: <?= $rozet_renk ?>; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 11px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); text-align: center; width: 100%; box-sizing: border-box; cursor: pointer; transition: 0.2s; flex: 1; display: flex; align-items: center; justify-content: center;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'" title="Bitiş Tarihi: <?= htmlspecialchars($uyelik_bitis ?: 'Belirtilmemiş') ?>">
-                            ⏳ <?= $kalan_mesaj ?>
-                        </button>
-                    </div>
+            <!-- Düello -->
+            <div class="salter <?= $duello_aktif_mi ? 'acik' : '' ?>">
+                <div class="ust">
+                    <span class="ad">🤺 Düello</span>
+                    <span class="ot-rozet <?= $duello_aktif_mi ? 'ot-rozet-yesil' : 'ot-rozet-gri' ?>">
+                        <?= $duello_aktif_mi ? '● Açık' : '○ Kapalı' ?>
+                    </span>
                 </div>
+                <p class="aciklama">Birebir soru yarışı. Ekran açıldıktan sonra en hızlı doğru cevap kazanır.</p>
+                <button id="btnDuelloToggle"
+                        class="ot-btn <?= $duello_aktif_mi ? 'ot-btn-kirmizi' : 'ot-btn-yesil' ?>"
+                        onclick="duelloToggle()">
+                    <?= $duello_aktif_mi ? '🔒 Kapat' : '▶ Aç' ?>
+                </button>
+            </div>
 
-                <a href="ogrenci_yonetimi.php" id="onayUyarisi" class="pulse" style="display: none; color: #ef4444; font-weight: bold; font-size: 14px; background: #fee2e2; padding: 6px 15px; border-radius: 6px; border: 1px solid #ef4444; text-decoration: none; cursor: pointer; text-align: center;">🚨 YENİ KAYIT VAR! ONAYLAMAK İÇİN TIKLA ➡️</a>
+            <!-- Quiz -->
+            <div class="salter">
+                <div class="ust">
+                    <span class="ad">🎮 Quiz Savaşı</span>
+                    <span class="ot-rozet ot-rozet-mor">Sınıf seç</span>
+                </div>
+                <p class="aciklama">Tüm sınıf aynı anda yarışır. Bölüm ve zorluk seçip başlatırsın.</p>
+                <a href="quiz_kontrol_merkezi.php" class="ot-btn ot-btn-ana">🎮 Quiz Merkezine Git</a>
             </div>
         </div>
+    </div>
 
 
-        <div class="controls-area" style="background: #f1f5f9; padding: 20px; border-radius: 12px; margin-bottom: 20px;">
-            <label style="font-weight: bold; color: #475569; display: block; margin-bottom: 8px;">Filtrele (Görüntülenecek Sınıf):</label>
-            <select id="sinifSelect" style="width: 100%; max-width: 400px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 16px;" onchange="ogrencileriCek()">
-                <option value="0">Tüm Sınıfları Göster</option>
+    <!-- ==================== CANLI ÖĞRENCİ LİSTESİ ==================== -->
+    <div class="ot-kart">
+        <div class="ot-kart-baslik">
+            <h2>📡 Canlı Görev Takibi</h2>
+            <select id="sinifSelect" class="ot-girdi" style="width:auto; min-width:220px;" onchange="ogrencileriCek()">
+                <option value="0">Tüm sınıflar</option>
                 <?php foreach ($siniflar as $s): ?>
-                    <option value="<?= $s['id'] ?>"><?= htmlspecialchars($s['sinif_adi']) ?></option>
+                    <option value="<?= (int) $s['id'] ?>"><?= temizle($s['sinif_adi']) ?></option>
                 <?php endforeach; ?>
             </select>
         </div>
+        <p class="aciklama">
+            Öğrencilerin puanı ve durumu 3 saniyede bir kendiliğinden güncellenir.
+            Kilitlenen öğrenciyi buradan uzaktan açabilirsin.
+        </p>
 
-        <table class="student-table">
-            <thead>
-                <tr>
-                    <th>Öğrenci Adı</th>
-                    <th>Sınıfı</th>
-                    <th>Kalıcı Puan</th>
-                    <th>Bekleyen Puan</th>
-                    <th>Durum</th>
-                    <th>Uzaktan İşlem</th>
-                </tr>
-            </thead>
-            <tbody id="canliOgrenciListesi">
-                <tr>
-                    <td colspan="6" style="text-align:center; padding: 20px;">Öğrenciler yükleniyor...</td>
-                </tr>
-            </tbody>
-        </table>
+        <div class="ot-tablo-sarmal">
+            <table class="ot-tablo student-table">
+                <thead>
+                    <tr>
+                        <th>Öğrenci</th>
+                        <th>Sınıf</th>
+                        <th style="text-align:center;">Kalıcı Puan</th>
+                        <th style="text-align:center;">Bekleyen</th>
+                        <th>Durum</th>
+                        <th style="text-align:right;">Uzaktan İşlem</th>
+                    </tr>
+                </thead>
+                <tbody id="canliOgrenciListesi">
+                    <tr><td colspan="6" class="ot-bos">Öğrenciler yükleniyor…</td></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
+</div>
 
     <script>
         let canliYayinInterval;
@@ -280,6 +305,10 @@ if ($sure_doldu_mu) {
     <?php endif; ?>
 
     <script>
+        /* [2026-08] Süre talebi artık üst bardaki üyelik rozetinden yapılıyor
+           (bilesenler/ogretmen_ust_bar.php -> otSureTalepEt).
+           Bu fonksiyon geriye dönük uyumluluk için duruyor; eski bir yerden
+           çağrılırsa yine çalışsın. */
         function sureTalepFormuAc() {
             let ay = prompt("Kaç aylık ek süre talep ediyorsunuz? (Örn: 1, 3, 6)", "1");
             if (ay !== null && ay.trim() !== "") {

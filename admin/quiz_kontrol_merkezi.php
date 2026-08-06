@@ -329,8 +329,11 @@ $enYuksekBolum = (int) $st->fetchColumn();
         .geri-link { display:inline-block; margin-bottom:18px; color:#94a3b8; text-decoration:none; font-size:14px; font-weight:bold; }
         .geri-link:hover { color:#f8fafc; }
     </style>
+    <link rel="stylesheet" href="../css/ogretmen_tema.css">
 </head>
-<body>
+<body class="ot">
+<?php $OT_AKTIF = 'quiz'; require __DIR__ . '/../bilesenler/ogretmen_ust_bar.php'; ?>
+
 
 <div class="container">
     <a href="ogretmen_paneli.php" class="geri-link">← Öğretmen Paneline Dön</a>

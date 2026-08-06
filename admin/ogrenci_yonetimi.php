@@ -21,7 +21,11 @@ $siniflar = $sinifSorgu->fetchAll();
 
 <head>
     <meta charset="UTF-8">
-    <title>Öğrenci ve Sınıf Yönetimi</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Öğrenciler | mBlock Akademi</title>
+    <!-- [2026-08] Ortak öğretmen teması. teacher_panel.css hâlâ yükleniyor
+         çünkü bu sayfadaki modal/animasyon sınıflarının bir kısmı orada. -->
+    <link rel="stylesheet" href="../css/ogretmen_tema.css">
     <link rel="stylesheet" href="../css/teacher_panel.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -210,55 +214,84 @@ $siniflar = $sinifSorgu->fetchAll();
     </style>
 </head>
 
-<body>
+<body class="ot">
+<?php $OT_AKTIF = 'ogrenciler'; require __DIR__ . '/../bilesenler/ogretmen_ust_bar.php'; ?>
+
     <div id="classSuccessOverlay">
         <div class="stars-container" id="starsContainer"></div>
         <div class="success-text" id="classSuccessText"></div>
     </div>
 
-    <div class="teacher-container" style="max-width: 1200px;">
-        <div class="header-area">
-            <div>
-                <h1 style="margin-bottom: 5px;">⚙️ Sınıf ve Öğrenci Yönetimi</h1>
-                <p style="margin: 0; font-size: 15px; color: #64748b; font-weight: bold;">Okul: <?= htmlspecialchars($okul_adi) ?></p>
-            </div>
-            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px;">
-                <div style="display: flex; gap: 10px;">
-                    <button class="btn-modal btn-manual" onclick="ogrenciEkleModalAc('modalSingle')">👤 Tekli Ekle</button>
-                    <button class="btn-modal btn-excel" onclick="ogrenciEkleModalAc('modalExcel')">📊 Excel Ekle</button>
-                    <button class="btn-modal btn-pdf" onclick="pdfIndir()">📄 Şifre İndir</button>
+    <div class="ot-sarmal">
 
-                    <a href="ogretmen_paneli.php" style="background: #10b981; color: white; text-decoration: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; display: flex; align-items: center;">📡 Canlı Takibe Dön</a>
+        <!-- Onay bekleyen kayıt uyarısı -->
+        <div id="onayUyarisi" class="ot-hata-kutu" style="display:none; font-weight:800;">
+            🚨 Onay bekleyen öğrenciler var — aşağıdaki listede yeşil onay düğmesine bas.
+        </div>
+
+        <!-- ==================== 1. SINIFLAR ====================
+             [2026-08] Sınıf işlemleri ve öğrenci işlemleri eskiden aynı gri
+             kutuda karışıktı. Artık iki ayrı kart: önce sınıfı seç/oluştur,
+             sonra o sınıfa öğrenci ekle. -->
+        <div class="ot-kart">
+            <div class="ot-kart-baslik">
+                <h2>🏫 Sınıflar</h2>
+                <span class="ot-rozet ot-rozet-mor"><?= count($siniflar) ?> sınıf</span>
+            </div>
+            <p class="aciklama">Önce listelemek istediğin sınıfı seç. Yeni sınıf açabilir ya da boş sınıfları silebilirsin.</p>
+
+            <div style="display:flex; gap:14px; align-items:flex-end; flex-wrap:wrap;">
+                <div style="flex:1 1 260px;">
+                    <label style="font-weight:700; font-size:13px; color:#475569; display:block; margin-bottom:6px;">Listelenecek sınıf</label>
+                    <select id="sinifSelect" class="ot-girdi" onchange="ogrencileriCek(true)">
+                        <option value="0">Tüm sınıflar</option>
+                        <?php foreach ($siniflar as $s): ?>
+                            <option value="<?= (int) $s['id'] ?>"><?= temizle($s['sinif_adi']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
                 </div>
-                <div id="onayUyarisi" style="display: none; color: #ef4444; font-weight: bold; font-size: 14px; background: #fee2e2; padding: 5px 15px; border-radius: 6px; border: 1px solid #ef4444; animation: blinker 1.5s linear infinite;">🚨 ONAY BEKLEYEN ÖĞRENCİLER VAR</div>
-                <style>
-                    @keyframes blinker {
-                        50% {
-                            opacity: 0.5;
-                        }
-                    }
-                </style>
+
+                <div style="flex:1 1 260px;">
+                    <label style="font-weight:700; font-size:13px; color:#475569; display:block; margin-bottom:6px;">Yeni sınıf oluştur</label>
+                    <div style="display:flex; gap:8px;">
+                        <input type="text" id="yeniSinifAdi" class="ot-girdi" placeholder="Örn: 5-A" style="flex:2;">
+                        <button id="btnSinifEkle" class="ot-btn ot-btn-ana" style="flex:1;">Oluştur</button>
+                    </div>
+                </div>
+
+                <button class="ot-btn ot-btn-sade" onclick="acModal('modalSinifSil')"
+                        style="color:#b91c1c; border-color:#fca5a5;">🗑️ Sınıf Sil</button>
             </div>
         </div>
 
-        <div class="controls-area" style="background: #f1f5f9; padding: 20px; border-radius: 12px; margin-bottom: 20px; display: flex; gap: 15px; align-items: flex-end;">
-            <div style="flex: 1;">
-                <label style="font-weight: bold; color: #475569; display: block; margin-bottom: 8px;">Listelenecek Sınıf Seçimi:</label>
-                <select id="sinifSelect" style="width: 100%; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 16px;" onchange="ogrencileriCek(true)">
-                    <option value="0">Tüm Sınıfları Göster</option>
-                    <?php foreach ($siniflar as $s): ?>
-                        <option value="<?= $s['id'] ?>"><?= htmlspecialchars($s['sinif_adi']) ?></option>
-                    <?php endforeach; ?>
-                </select>
+
+        <!-- ==================== 2. ÖĞRENCİ EKLEME ==================== -->
+        <div class="ot-kart">
+            <div class="ot-kart-baslik">
+                <h2>➕ Öğrenci Ekle</h2>
             </div>
-            <div style="flex: 1; display: flex; gap: 10px;">
-                <input type="text" id="yeniSinifAdi" placeholder="Yeni Sınıf Adı (Örn: 5-A)" style="flex: 2; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 16px;">
-                <button id="btnSinifEkle" style="flex: 1; background: #4f46e5; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px;">Sınıf Oluştur</button>
-                <button class="btn-modal" style="flex: 1; background: #ef4444; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 16px;" onclick="acModal('modalSinifSil')">🗑️ Sınıf Sil</button>
+            <p class="aciklama">
+                Tek tek ekleyebilir ya da Excel'den toplu aktarabilirsin.
+                Şifre listesini PDF olarak indirip sınıfa dağıtabilirsin.
+            </p>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                <button class="ot-btn ot-btn-ana"     onclick="ogrenciEkleModalAc('modalSingle')">👤 Tek Öğrenci</button>
+                <button class="ot-btn ot-btn-yesil"   onclick="ogrenciEkleModalAc('modalExcel')">📊 Excel'den Toplu</button>
+                <button class="ot-btn ot-btn-sade"    onclick="pdfIndir()">📄 Şifre Listesi (PDF)</button>
             </div>
         </div>
 
-        <table class="student-table">
+
+        <!-- ==================== 3. ÖĞRENCİ LİSTESİ ==================== -->
+        <div class="ot-kart">
+            <div class="ot-kart-baslik">
+                <h2>👥 Öğrenci Listesi</h2>
+                <span class="ot-canli"><span class="ot-canli-nokta"></span> Canlı</span>
+            </div>
+            <p class="aciklama">Ada tıklayıp düzenleyebilir, onay bekleyenleri buradan onaylayabilirsin.</p>
+
+        <div class="ot-tablo-sarmal">
+        <table class="ot-tablo student-table">
             <thead>
                 <tr>
                     <th>Öğrenci Adı</th>
@@ -271,11 +304,13 @@ $siniflar = $sinifSorgu->fetchAll();
             </thead>
             <tbody id="ogrenciListesi">
                 <tr>
-                    <td colspan="6" style="text-align:center; padding: 20px;">Öğrenciler yükleniyor...</td>
+                    <td colspan="6" class="ot-bos">Öğrenciler yükleniyor…</td>
                 </tr>
             </tbody>
         </table>
-    </div>
+        </div><!-- /.ot-tablo-sarmal -->
+        </div><!-- /.ot-kart -->
+    </div><!-- /.ot-sarmal -->
 
     <div class="modal-overlay" id="modalSingle">
         <div class="modal-box">

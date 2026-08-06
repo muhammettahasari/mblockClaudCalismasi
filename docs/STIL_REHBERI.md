@@ -197,3 +197,40 @@ Sık değişen JS/CSS'te: `<script src="js/x.js?v=<?= time() ?>"></script>`
 **Login:** ekran ortasında `max-width: 400px` kutu, üstte sekme (`.tab-btn.active`), formlar `.hidden` class'ı ile değiştirilir.
 
 **Modal:** `position:fixed; inset:0; background:rgba(0,0,0,.7); z-index:999999;` — arena efektlerinde `z-index: 2147483647` kullanılıyor.
+
+---
+
+## 🎨 [2026-08] İKİ AYRI TEMA — bilerek farklı
+
+| Kim | Tema | Dosya | Neden |
+|---|---|---|---|
+| **Süper Admin** | KOYU (#0f172a) | sayfa içi `<style>` | Sistem sahibinin arka oda ekranı |
+| **Öğretmen** | AÇIK | `css/ogretmen_tema.css` | Sınıfta projeksiyona yansıtılıyor; koyu zemin yansıtıldığında okunmuyor |
+
+İkisini birleştirme — ayrım kasıtlı.
+
+### Öğretmen teması nasıl kullanılır
+
+```php
+<link rel="stylesheet" href="../css/ogretmen_tema.css">
+...
+<body class="ot">
+<?php $OT_AKTIF = 'panel'; require __DIR__ . '/../bilesenler/ogretmen_ust_bar.php'; ?>
+<div class="ot-sarmal"> ... </div>
+```
+
+`$OT_AKTIF` değerleri: `panel` | `ogrenciler` | `ilerleme` | `quiz`
+
+**Hazır sınıflar:** `.ot-kart` `.ot-sayac` `.ot-btn` (+`-ana -yesil -mavi -turuncu -kirmizi -sade -kucuk`)
+`.ot-girdi` `.ot-tablo` `.ot-rozet` (+`-yesil -turuncu -kirmizi -mavi -mor -gri`)
+`.ot-bilgi` `.ot-uyari-kutu` `.ot-basari-kutu` `.ot-hata-kutu` `.ot-perde` `.ot-panel`
+`.ot-cubuk` `.ot-canli` `.ot-bos`
+
+### Üst bar ne veriyor
+
+Öğretmenin adı, okulu, **tıklayınca kopyalanan sınıf PIN'i**, kalan üyelik süresi
+(tıklayınca süre talebi), çıkış ve dört sayfa arası sekmeler. Onay bekleyen
+öğrenci varsa "Öğrenciler" sekmesinde kırmızı sayı rozeti çıkar.
+
+> ⚠️ Üst bar `ogretmenZorunlu()` çağırır ve `$pdo` bekler. `guvenlik.php` zaten
+> yüklü olduğu için ayrıca require etmeye gerek yok.

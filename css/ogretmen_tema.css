@@ -1,0 +1,315 @@
+/* ============================================================================
+   DOSYA: css/ogretmen_tema.css
+   KULLANICI: Öğretmen — panel, öğrenci yönetimi, ilerleme takibi, quiz merkezi
+
+   NE İŞE YARAR? (HALK DİLİNDE)
+   Öğretmenin gördüğü dört sayfanın ORTAK görünüm dili. Renkler, kartlar,
+   tablolar, düğmeler, rozetler burada bir kez tanımlanır.
+
+   [2026-08] NEDEN YAZILDI?
+   Dört sayfa da ayrı ayrı tasarlanmıştı: her birinde farklı mavi tonu, farklı
+   düğme yüksekliği, farklı tablo çizgisi vardı. Sayfa değiştirdikçe arayüz
+   sıçrıyordu. Üstelik stiller sayfa içine gömülü olduğu için bir rengi
+   değiştirmek dört dosyada arama yapmayı gerektiriyordu.
+
+   ⚠️ TEMA AYRIMI — BİLEREK FARKLI:
+     Süper Admin  -> KOYU tema (#0f172a). Sistem sahibinin arka oda ekranı.
+     Öğretmen     -> AÇIK tema. Sınıfta projeksiyona yansıtılıyor; koyu zemin
+                     yansıtıldığında okunmuyor ve mürekkep gibi görünüyor.
+   İkisini birleştirme; ayrım kasıtlı.
+
+   KULLANIM:
+     <link rel="stylesheet" href="../css/ogretmen_tema.css">
+     <?php require __DIR__ . '/../bilesenler/ogretmen_ust_bar.php'; ?>
+   ========================================================================= */
+
+:root {
+    /* Ana kimlik rengi — öğretmen tarafı mor/indigo */
+    --ot-ana:        #6d28d9;
+    --ot-ana-koyu:   #5b21b6;
+    --ot-ana-acik:   #ede9fe;
+
+    /* Durum renkleri */
+    --ot-yesil:      #059669;
+    --ot-yesil-acik: #d1fae5;
+    --ot-turuncu:    #d97706;
+    --ot-turuncu-acik:#fef3c7;
+    --ot-kirmizi:    #dc2626;
+    --ot-kirmizi-acik:#fee2e2;
+    --ot-mavi:       #2563eb;
+    --ot-mavi-acik:  #dbeafe;
+
+    /* Nötrler */
+    --ot-zemin:      #f1f5f9;
+    --ot-kart:       #ffffff;
+    --ot-cizgi:      #e2e8f0;
+    --ot-cizgi-koyu: #cbd5e1;
+    --ot-metin:      #1e293b;
+    --ot-soluk:      #64748b;
+    --ot-cok-soluk:  #94a3b8;
+
+    --ot-radius:     12px;
+    --ot-golge:      0 1px 3px rgba(15,23,42,.07), 0 1px 2px rgba(15,23,42,.04);
+    --ot-golge-buyuk:0 8px 24px rgba(15,23,42,.10);
+}
+
+* { box-sizing: border-box; }
+
+body.ot {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: var(--ot-zemin);
+    color: var(--ot-metin);
+    margin: 0;
+    padding: 0 0 60px;
+    line-height: 1.5;
+}
+
+.ot-sarmal { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
+
+
+/* ==========================================================================
+   ÜST BAR — bilesenler/ogretmen_ust_bar.php ile birlikte çalışır
+   ========================================================================== */
+.ot-ustbar {
+    background: linear-gradient(135deg, var(--ot-ana), var(--ot-ana-koyu));
+    color: #fff;
+    padding: 18px 0 0;
+    margin-bottom: 26px;
+    box-shadow: var(--ot-golge-buyuk);
+}
+.ot-ustbar-ic {
+    max-width: 1240px; margin: 0 auto; padding: 0 20px;
+    display: flex; justify-content: space-between; align-items: flex-start;
+    gap: 18px; flex-wrap: wrap;
+}
+
+.ot-kimlik h1 { margin: 0; font-size: 21px; font-weight: 800; letter-spacing: -.2px; }
+.ot-kimlik .okul { color: rgba(255,255,255,.82); font-size: 13px; margin-top: 4px; }
+
+.ot-ustbar-sag { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* PIN kutusu — öğretmen sık sık öğrencilere söylüyor, kolay okunmalı */
+.ot-pin {
+    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3);
+    border-radius: 10px; padding: 7px 13px; cursor: pointer; transition: .15s;
+}
+.ot-pin:hover { background: rgba(255,255,255,.26); }
+.ot-pin .etiket { display: block; font-size: 9.5px; letter-spacing: 1px; opacity: .8; }
+.ot-pin .kod { font-family: Consolas, monospace; font-size: 18px; font-weight: 900; letter-spacing: 2px; }
+.ot-pin.kopyalandi { background: rgba(16,185,129,.35); border-color: #6ee7b7; }
+
+/* Üyelik rozeti */
+.ot-uyelik {
+    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3);
+    border-radius: 10px; padding: 8px 13px; font-size: 12.5px; font-weight: 700;
+    cursor: pointer; transition: .15s; color: #fff;
+}
+.ot-uyelik:hover { background: rgba(255,255,255,.26); }
+.ot-uyelik.az { background: rgba(220,38,38,.35); border-color: #fca5a5; }
+
+.ot-cikis {
+    background: rgba(220,38,38,.85); color: #fff; border: none;
+    border-radius: 10px; padding: 9px 16px; font-weight: 700; font-size: 13px;
+    text-decoration: none; display: inline-block; transition: .15s;
+}
+.ot-cikis:hover { background: #b91c1c; }
+
+/* Sekmeler */
+.ot-sekmeler {
+    max-width: 1240px; margin: 16px auto 0; padding: 0 20px;
+    display: flex; gap: 4px; flex-wrap: wrap;
+}
+.ot-sekme {
+    color: rgba(255,255,255,.82); text-decoration: none;
+    padding: 11px 18px; border-radius: 10px 10px 0 0;
+    font-size: 14px; font-weight: 700; transition: .15s;
+    display: inline-flex; align-items: center; gap: 7px;
+}
+.ot-sekme:hover { background: rgba(255,255,255,.14); color: #fff; }
+.ot-sekme.aktif { background: var(--ot-zemin); color: var(--ot-ana-koyu); }
+.ot-sekme .rozet-sayi {
+    background: var(--ot-kirmizi); color: #fff; font-size: 10.5px; font-weight: 900;
+    min-width: 19px; height: 19px; border-radius: 999px; padding: 0 6px;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+.ot-sekme.aktif .rozet-sayi { background: var(--ot-kirmizi); }
+
+
+/* ==========================================================================
+   KARTLAR
+   ========================================================================== */
+.ot-kart {
+    background: var(--ot-kart); border: 1px solid var(--ot-cizgi);
+    border-radius: var(--ot-radius); padding: 20px; margin-bottom: 20px;
+    box-shadow: var(--ot-golge);
+}
+.ot-kart-baslik {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 12px; flex-wrap: wrap; margin-bottom: 4px;
+}
+.ot-kart h2 { margin: 0; font-size: 16.5px; font-weight: 800; }
+.ot-kart .aciklama { margin: 6px 0 16px; color: var(--ot-soluk); font-size: 13px; line-height: 1.6; }
+
+/* Özet sayaç kutuları */
+.ot-sayaclar { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.ot-sayac {
+    background: var(--ot-kart); border: 1px solid var(--ot-cizgi);
+    border-radius: var(--ot-radius); padding: 15px; text-align: center;
+    box-shadow: var(--ot-golge);
+}
+.ot-sayac .sayi { font-size: 26px; font-weight: 900; display: block; line-height: 1.1; }
+.ot-sayac .etiket { color: var(--ot-soluk); font-size: 11px; margin-top: 5px; display: block; letter-spacing: .4px; text-transform: uppercase; }
+
+
+/* ==========================================================================
+   DÜĞMELER
+   ========================================================================== */
+.ot-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 10px 18px; border-radius: 9px; border: 1px solid transparent;
+    font-size: 13.5px; font-weight: 700; cursor: pointer;
+    text-decoration: none; transition: .15s; white-space: nowrap;
+}
+.ot-btn:active { transform: translateY(1px); }
+.ot-btn:disabled { opacity: .5; cursor: not-allowed; }
+
+.ot-btn-ana     { background: var(--ot-ana);     color: #fff; }
+.ot-btn-ana:hover { background: var(--ot-ana-koyu); }
+.ot-btn-yesil   { background: var(--ot-yesil);   color: #fff; }
+.ot-btn-yesil:hover { background: #047857; }
+.ot-btn-mavi    { background: var(--ot-mavi);    color: #fff; }
+.ot-btn-mavi:hover { background: #1d4ed8; }
+.ot-btn-turuncu { background: var(--ot-turuncu); color: #fff; }
+.ot-btn-turuncu:hover { background: #b45309; }
+.ot-btn-kirmizi { background: var(--ot-kirmizi); color: #fff; }
+.ot-btn-kirmizi:hover { background: #b91c1c; }
+.ot-btn-sade {
+    background: #fff; color: var(--ot-metin); border-color: var(--ot-cizgi-koyu);
+}
+.ot-btn-sade:hover { background: var(--ot-zemin); border-color: var(--ot-soluk); }
+
+.ot-btn-kucuk { padding: 6px 12px; font-size: 12.5px; border-radius: 7px; }
+
+
+/* ==========================================================================
+   FORM ÖĞELERİ
+   ========================================================================== */
+.ot-alan { margin-bottom: 14px; }
+.ot-alan label { display: block; font-weight: 700; font-size: 13px; margin-bottom: 6px; color: #475569; }
+
+.ot-girdi, select.ot-girdi, input.ot-girdi, textarea.ot-girdi {
+    width: 100%; padding: 10px 12px; font-size: 14px;
+    border: 2px solid var(--ot-cizgi); border-radius: 9px;
+    background: #fff; color: var(--ot-metin); outline: none; transition: .15s;
+    font-family: inherit;
+}
+.ot-girdi:focus { border-color: var(--ot-ana); box-shadow: 0 0 0 3px rgba(109,40,217,.12); }
+.ot-girdi:disabled { background: var(--ot-zemin); color: var(--ot-cok-soluk); }
+
+
+/* ==========================================================================
+   TABLOLAR
+   ========================================================================== */
+.ot-tablo-sarmal {
+    border: 1px solid var(--ot-cizgi); border-radius: var(--ot-radius);
+    overflow-x: auto; background: #fff;
+}
+table.ot-tablo { width: 100%; border-collapse: collapse; }
+table.ot-tablo th {
+    background: #f8fafc; color: var(--ot-soluk);
+    font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+    padding: 12px 12px; text-align: left; font-weight: 800;
+    border-bottom: 1px solid var(--ot-cizgi);
+}
+table.ot-tablo td {
+    padding: 13px 12px; border-bottom: 1px solid var(--ot-cizgi);
+    font-size: 13.5px; vertical-align: middle;
+}
+table.ot-tablo tbody tr:last-child td { border-bottom: none; }
+table.ot-tablo tbody tr:hover td { background: #faf5ff; }
+
+
+/* ==========================================================================
+   ROZETLER
+   ========================================================================== */
+.ot-rozet {
+    display: inline-block; padding: 4px 11px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 800; white-space: nowrap;
+}
+.ot-rozet-yesil   { background: var(--ot-yesil-acik);   color: #065f46; }
+.ot-rozet-turuncu { background: var(--ot-turuncu-acik); color: #92400e; }
+.ot-rozet-kirmizi { background: var(--ot-kirmizi-acik); color: #991b1b; }
+.ot-rozet-mavi    { background: var(--ot-mavi-acik);    color: #1e40af; }
+.ot-rozet-mor     { background: var(--ot-ana-acik);     color: #5b21b6; }
+.ot-rozet-gri     { background: var(--ot-zemin);        color: var(--ot-soluk); }
+
+
+/* ==========================================================================
+   BİLGİ KUTULARI
+   ========================================================================== */
+.ot-bilgi, .ot-uyari-kutu, .ot-basari-kutu, .ot-hata-kutu {
+    padding: 13px 16px; border-radius: 10px; font-size: 13px;
+    line-height: 1.6; margin-bottom: 16px; border: 1px solid;
+}
+.ot-bilgi       { background: var(--ot-mavi-acik);    border-color: #93c5fd; color: #1e40af; }
+.ot-uyari-kutu  { background: var(--ot-turuncu-acik); border-color: #fcd34d; color: #92400e; }
+.ot-basari-kutu { background: var(--ot-yesil-acik);   border-color: #6ee7b7; color: #065f46; }
+.ot-hata-kutu   { background: var(--ot-kirmizi-acik); border-color: #fca5a5; color: #991b1b; }
+
+.ot-bos { text-align: center; padding: 44px 20px; color: var(--ot-cok-soluk); font-size: 14px; }
+
+
+/* ==========================================================================
+   İLERLEME ÇUBUĞU
+   ========================================================================== */
+.ot-cubuk { background: var(--ot-cizgi); border-radius: 999px; height: 9px; overflow: hidden; }
+.ot-cubuk span { display: block; height: 100%; background: linear-gradient(90deg, var(--ot-yesil), #34d399); transition: width .5s ease; }
+
+
+/* ==========================================================================
+   MODAL (perde + panel)
+   ========================================================================== */
+.ot-perde {
+    position: fixed; inset: 0; background: rgba(15,23,42,.55);
+    display: none; align-items: center; justify-content: center;
+    z-index: 900; padding: 20px; backdrop-filter: blur(2px);
+}
+.ot-perde.acik { display: flex; }
+.ot-panel {
+    background: #fff; border-radius: 16px; padding: 24px;
+    width: 560px; max-width: 100%; max-height: 88vh; overflow-y: auto;
+    box-shadow: 0 24px 60px rgba(15,23,42,.3);
+    animation: otPanelGir .25s ease-out;
+}
+@keyframes otPanelGir { from { transform: scale(.96) translateY(10px); opacity: 0; } to { transform: none; opacity: 1; } }
+.ot-panel h2 { margin: 0 0 4px; font-size: 19px; }
+.ot-panel .alt { color: var(--ot-soluk); font-size: 13px; margin-bottom: 18px; }
+.ot-panel-dugmeler { display: flex; gap: 10px; margin-top: 20px; }
+.ot-panel-dugmeler .ot-btn { flex: 1; padding: 12px; }
+
+
+/* ==========================================================================
+   CANLI GÖSTERGESİ
+   ========================================================================== */
+.ot-canli { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ot-soluk); }
+.ot-canli-nokta {
+    width: 9px; height: 9px; border-radius: 50%; background: var(--ot-yesil);
+    animation: otNabiz 2s ease-out infinite;
+}
+.ot-canli-nokta.kopuk { background: var(--ot-kirmizi); animation: none; }
+@keyframes otNabiz {
+    0%   { box-shadow: 0 0 0 0 rgba(5,150,105,.5); }
+    70%  { box-shadow: 0 0 0 7px rgba(5,150,105,0); }
+    100% { box-shadow: 0 0 0 0 rgba(5,150,105,0); }
+}
+
+
+/* ==========================================================================
+   DAR EKRAN
+   ========================================================================== */
+@media (max-width: 720px) {
+    .ot-ustbar-ic { flex-direction: column; align-items: stretch; }
+    .ot-sekmeler { overflow-x: auto; flex-wrap: nowrap; }
+    .ot-sekme { flex: 0 0 auto; }
+    .ot-kimlik h1 { font-size: 18px; }
+}
