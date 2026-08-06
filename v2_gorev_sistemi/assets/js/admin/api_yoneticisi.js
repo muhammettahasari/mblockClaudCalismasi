@@ -86,10 +86,48 @@ document.getElementById('btnGoreviKaydet').addEventListener('click', function ()
             }
         }
 
+        /* [2026-08] 4. Bölge: Bilgi Al.
+           Editor.save() bir söz (promise) döndürdüğü için önce onu bekliyoruz;
+           yoksa paket, editör boşalmadan gönderilir ve bilgi kaybolur.
+           Alan hiç kurulmadıysa (eski sayfa, eklenti yüklenmedi) boş geç. */
+        const ipucuSozu = window.v2IpucuEditor
+            ? window.v2IpucuEditor.save().catch(function (e) {
+                  console.warn('Bilgi Al metni okunamadı:', e);
+                  return null;
+              })
+            : Promise.resolve(null);
+
+        ipucuSozu.then(function (ipucuMetni) {
+        const ipucuBloklari = (typeof window.getIpucuBloklari === 'function')
+            ? window.getIpucuBloklari() : '';
+
+        const ipucuDolu = (ipucuMetni && Array.isArray(ipucuMetni.blocks) && ipucuMetni.blocks.length > 0)
+                       || (ipucuBloklari && ipucuBloklari.trim() !== '');
+
+        /* VERİ KAYBI FRENİ — Bilgi Al için de.
+           Kayıtta bilgi VARDI ama şimdi boşsa kullanıcıya soralım; sessizce
+           silmek en can sıkıcı hata türü. */
+        const eskiIpucu = (kayitli && kayitli.icerik && kayitli.icerik.ipucu) || null;
+        const eskiIpucuDoluydu = eskiIpucu
+            && ((eskiIpucu.metin && Array.isArray(eskiIpucu.metin.blocks) && eskiIpucu.metin.blocks.length > 0)
+                || (eskiIpucu.bloklar && String(eskiIpucu.bloklar).trim() !== ''));
+
+        if (gorev_id > 0 && eskiIpucuDoluydu && !ipucuDolu) {
+            if (!confirm("⚠️ DİKKAT: Bu görevin 'Bilgi Al' içeriği vardı ama şu an BOŞ.\n\n"
+                       + "Kaydedersen silinir ve öğrenci bilgi alamaz.\n\nYine de devam edilsin mi?")) {
+                btn.disabled = false;
+                btn.innerHTML = eskiYazi;
+                return;
+            }
+        }
+
         const superPaket = {
             hikaye_metni: editorVerisi,
             blueprint: blueprintVerisi,
-            izin_verilen_bloklar: kullanilanBloklar
+            izin_verilen_bloklar: kullanilanBloklar,
+            /* Boşsa hiç yazma: sunucu "ipucu var mı" sorusunu bu alanın
+               dolu olup olmadığıyla cevaplıyor. */
+            ipucu: ipucuDolu ? { metin: ipucuMetni, bloklar: ipucuBloklari } : null
         };
 
         const govde = {
@@ -131,6 +169,8 @@ document.getElementById('btnGoreviKaydet').addEventListener('click', function ()
             console.error('Kargo Hatası:', err);
             hataylaBitir("❌ Sunucuya bağlanırken bir hata oluştu.");
         });
+
+        });   // ipucuSozu.then
 
     }).catch((error) => {
         console.error('Editor.js Veri Çekme Hatası:', error);

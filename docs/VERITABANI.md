@@ -247,3 +247,38 @@ seçilir. Migration: `kurulum/migration_2026_08_kilit_mesajlari.sql`
 > dizisinde. Tabloya yazsaydık her yeni öğretmen için satır kopyalamak
 > gerekirdi ve bir yazım hatasını düzeltmek yüzlerce satır güncellemek olurdu.
 > Bu tabloda sadece öğretmenin **kendi yazdıkları** durur.
+
+---
+
+## 💡 Bilgi Al (2026-08 eklendi)
+
+### `v2_ipucu_alindi`
+
+Migration: `kurulum/migration_2026_08_ipucu.sql`
+
+| Sütun | Tip | Açıklama |
+|---|---|---|
+| `id` | int | |
+| `ogrenci_id` | int | |
+| `v2_gorev_id` | int | |
+| `tarih` | datetime | |
+
+`UNIQUE (ogrenci_id, v2_gorev_id)` — ceza **bir kez** uygulanır; öğrenci
+bilgiye istediği kadar tekrar bakabilir.
+
+> ⚠️ **NEDEN `v2_ogrenci_ilerleme`'YE SÜTUN EKLENMEDİ?**
+> O tablodaki satır görev ÇÖZÜLDÜĞÜNDE oluşuyor; bilgi alma ise çözmeden
+> ÖNCE oluyor. Sütun eklemek için çözmemiş öğrenciye de satır açmak
+> gerekirdi. Oysa "satır var mı" ve `kazanilan_puan = 0 AND sifirlanma_tarihi
+> IS NOT NULL` sorguları ceza durumunu belirliyor; yarım kayıtlar o mantığı
+> bulandırırdı.
+
+> ⚠️ **NEDEN TARAYICIDA DEĞİL?** localStorage'da tutulsaydı öğrenci bilgiyi
+> alır, F5'e basar, ceza silinirdi.
+
+Görevin bilgi içeriği `v2_gorevler.icerik_json` içinde:
+```json
+"ipucu": { "metin": { ...Editor.js paketi... }, "bloklar": "<xml>…</xml>" }
+```
+Boşsa alan hiç yazılmaz; "bu görevde bilgi var mı" sorusu buna bakar.
+Resimler `img/gorev_ipuclari/` altında durur.

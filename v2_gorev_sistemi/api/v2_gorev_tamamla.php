@@ -155,6 +155,33 @@ try {
     $kazanilan   = max(1, (int) $gorev['puan']);
     $sifirlanmis = $oncekiKayit && !empty($oncekiKayit['sifirlanma_tarihi']);
 
+    /* ------------------------------------------------------------------
+     * [2026-08] BİLGİ ALDIYSA ÖDÜL YARIYA İNER
+     *
+     * Öğrenci "💡 Bilgi Al" düğmesine basıp uyarıyı kabul ettiyse
+     * v2_ipucu_alindi'ye satır düşmüştür. Ceza SUNUCUDA duruyor; tarayıcıda
+     * tutulsaydı öğrenci bilgiyi alıp sayfayı yeniler, ceza uçardı.
+     *
+     * Yarım puan olmaz: round() ile en yakın tam sayıya (25 -> 13).
+     * En az 1 verilir — "doğru çözdüm ama sıfır aldım" olmasın.
+     * ---------------------------------------------------------------- */
+    /* try/catch: migration çalıştırılmamışsa tablo yoktur. O durumda GÖREV
+       TESLİMİ ÇÖKMEMELİ — öğrencinin emeği kaybolur. Tablo yoksa "bilgi
+       alınmamış" sayılır, yani öğrenci tam puan alır. Şüpheden öğrenci
+       yararlanır; tersi olsaydı hak edilen puan haksızca yarıya inerdi. */
+    $ipucuAlindi = false;
+    try {
+        $st = $pdo->prepare("SELECT 1 FROM v2_ipucu_alindi WHERE ogrenci_id = ? AND v2_gorev_id = ? LIMIT 1");
+        $st->execute([$ogrenci_id, $gorev_id]);
+        $ipucuAlindi = (bool) $st->fetchColumn();
+    } catch (Throwable $e) {
+        error_log('[mBlock] v2_ipucu_alindi okunamadı (migration çalıştırıldı mı?): ' . $e->getMessage());
+    }
+
+    if ($ipucuAlindi) {
+        $kazanilan = max(1, (int) round($kazanilan / 2));
+    }
+
     $puanOdulu  = $sifirlanmis ? 0 : $kazanilan;   // puan sadece ilk seferde
     $elmasOdulu = $kazanilan;                      // elmas her seferinde
 
@@ -281,6 +308,12 @@ try {
           . ($ceza['cezali'] ? " (Tekrar edilecek {$ceza['gorev_sayisi']} görev kaldı.)" : ' Cezan tamamen kalktı!')
         : "🎉 Tebrikler! Görevi doğru çözdün. +{$puanOdulu} Puan ve +{$elmasOdulu} 💎 kazandın!";
 
+    /* Bilgi aldıysa NEDEN yarım aldığını söyle — yoksa öğrenci sistemin
+       yanlış saydığını düşünür. Sessiz ceza, ceza değil kafa karışıklığıdır. */
+    if ($ipucuAlindi) {
+        $mesaj .= ' (💡 Bilgi aldığın için ödül yarıya indi.)';
+    }
+
     apiJson([
         'success'      => true,
         'status'       => 'success',
@@ -291,6 +324,7 @@ try {
         'puan_odulu'   => $puanOdulu,
         'elmas_odulu'  => $elmasOdulu,
         'tekrar_cozum' => $sifirlanmis,
+        'ipucu_alindi' => $ipucuAlindi,
         'kalici_puan'  => (int) $bakiye['kalici_puan'],
         'elmas'        => (int) $bakiye['elmas'],
         'bolum_bitti'  => $bolumBitti,

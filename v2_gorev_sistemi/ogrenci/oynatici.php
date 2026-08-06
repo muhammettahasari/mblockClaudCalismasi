@@ -155,6 +155,35 @@ $baslik      = $gorev ? $gorev['gorev_adi'] : 'Görev Bulunamadı';
 $aktifGorevId = $gorev ? (int) $gorev['id'] : 0;
 $gorevPuani   = $gorev ? (int) $gorev['puan'] : 0;
 
+/* ============================================================================
+ * [2026-08] BİLGİ ALINDIYSA DÜĞMEDE YARIM PUAN YAZSIN
+ *
+ * Öğrenci "💡 Bilgi Al"ı kabul ettiyse ödül yarıya iner. Düğmede hâlâ
+ * "20 Puan" yazsaydı öğrenci 10 puan alınca sistemi hatalı sanardı.
+ * Kesilen bir ceza görünmüyorsa ceza değil, kafa karışıklığıdır.
+ *
+ * Yuvarlama v2_ipucu.php ve v2_gorev_tamamla.php ile AYNI olmalı:
+ * en yakına (round), en az 1.
+ *
+ * ⚠️ try/catch ZORUNLU: migration çalıştırılmamış bir kurulumda
+ * `v2_ipucu_alindi` tablosu yoktur ve bu sorgu ÖĞRENCİ SAYFASINI komple
+ * çökertirdi. Süs bilgi, asıl işi deviremez — daha önce kilit sayacında
+ * aynı hata yaşandı (bkz. docs/BILINEN_SORUNLAR.md). Tablo yoksa
+ * "bilgi alınmamış" varsayıyoruz: şüpheden öğrenci yararlanır. */
+$ipucuAlinmis = false;
+if ($ogrenciId > 0 && $aktifGorevId > 0) {
+    try {
+        $st = $pdo->prepare("SELECT 1 FROM v2_ipucu_alindi WHERE ogrenci_id = ? AND v2_gorev_id = ? LIMIT 1");
+        $st->execute([$ogrenciId, $aktifGorevId]);
+        $ipucuAlinmis = (bool) $st->fetchColumn();
+    } catch (Throwable $e) {
+        error_log('[mBlock] v2_ipucu_alindi okunamadı (migration çalıştırıldı mı?): ' . $e->getMessage());
+    }
+}
+if ($ipucuAlinmis && $gorevPuani > 0) {
+    $gorevPuani = max(1, (int) round($gorevPuani / 2));
+}
+
 /* Açılan görevi "kaldığın yer" olarak kaydet */
 if ($ogrenciId > 0 && $aktifGorevId > 0) {
     $pdo->prepare("UPDATE ogrenciler SET aktif_v2_gorev_id = ? WHERE id = ?")
@@ -742,6 +771,9 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
     <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/kod_tercumani.js', '../../') ?>"></script>
     <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/oyun_sahnesi.js', '../../') ?>"></script>
     <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/hakem_motoru.js', '../../') ?>"></script>
+    <!-- [2026-08] "💡 Bilgi Al" penceresi. hakem_motoru.js'ten SONRA gelmeli:
+         window.ipucuGoster'ın tek sahibi bu dosya. -->
+    <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/bilgi_al.js', '../../') ?>"></script>
 
     <!-- [2026-08] İlerleme çubuğu + konfetili kutlama ekranı -->
     <script>

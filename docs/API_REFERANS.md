@@ -285,3 +285,35 @@ SADECE öğretmenin kendi yazıp kaydettikleri durur (en fazla 30, çok kullanı
 > ⚠️ **SAHİPLİK:** `ogrenciler.ogretmen_id` **kullanılmaz**. Zincir
 > `ogretmenler → siniflar → ogrenciler`. Başka okulun öğrencisine istek
 > atılırsa 403 döner.
+
+---
+
+## 💡 Bilgi Al (2026-08)
+
+| Dosya | Girdi | İşlev | Auth |
+|---|---|---|---|
+| `v2_gorev_sistemi/api/v2_ipucu.php` | JSON `{islem, gorev_id}` | `durum` / `al` | ✅ öğrenci + bölüm erişimi |
+| `v2_gorev_sistemi/api/resim_yukle.php` | multipart `image` | Bilgi Al resmi yükler | ✅ **süper admin** |
+
+**Ödül yarıya iner.** Yuvarlama: `max(1, round(puan / 2))` — 25 → 13.
+Bu formül **üç yerde aynı** olmalı: `v2_ipucu.php`, `v2_gorev_tamamla.php`,
+`ogrenci/oynatici.php` (düğmedeki sayı).
+
+> ⚠️ **İÇERİK `durum` ADIMINDA GÖNDERİLMEZ.** Uyarı ekranıyla birlikte
+> yollasaydık öğrenci F12 → Ağ sekmesinden cevabı okuyup ceza almadan görürdü.
+> İçerik sadece `al` işleminde, kayıt düşüldükten sonra gider. Tek istisna:
+> öğrenci bedeli zaten ödemişse (`alinmis`) içerik `durum` ile de gelir.
+
+> ⚠️ **CEZA SUNUCUDA.** `v2_ipucu_alindi` tablosu. Tarayıcıdaki JS
+> değiştirilse bile ödülü yazan `v2_gorev_tamamla.php` bu tabloya bakar.
+
+> ⚠️ **RESİM YÜKLEME EN RİSKLİ UÇ NOKTA TÜRÜDÜR.** Alınan önlemler:
+> süper admin kapısı · uzantı **beyaz** liste (kara liste `.pHp5` gibi
+> türevleri kaçırır) · `getimagesize()` ile içerik doğrulama · dosya adını
+> **sunucu** üretir (gelen ad `../../db.php` olabilirdi) · 4 MB sınırı ·
+> klasöre `.htaccess` ile çalıştırma kapatma.
+
+> ⚠️ **TABLO YOKSA ÇÖKME.** `oynatici.php` ve `v2_gorev_tamamla.php`
+> `v2_ipucu_alindi` sorgusunu `try/catch` içine alır. Migration
+> çalıştırılmamış bir kurulumda öğrenci sayfası ve görev teslimi çalışmaya
+> devam eder; "bilgi alınmamış" varsayılır (şüpheden öğrenci yararlanır).

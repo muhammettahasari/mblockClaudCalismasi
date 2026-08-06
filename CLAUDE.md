@@ -211,6 +211,26 @@ Bölümün tüm görevleri bitince `mevcut_bolum` otomatik artar.
 
 Ayrıca **Paper.js tabanlı Kostüm Atölyesi** (vektör çizim editörü) var.
 
+> 💡 **[2026-08] BİLGİ AL ÇALIŞIR HALE GELDİ.** Tasarlayıcıda **4. Bölge**
+> (yazı + resim editörü ve *bilgi amaçlı* blok alanı) →
+> `v2_gorevler.icerik_json.ipucu = {metin, bloklar}`.
+> Öğrenci "💡 Bilgi Al"a basınca uyarı çıkar: **ödül yarıya iner**
+> (`max(1, round(puan/2))`, 25→13). Kabul ederse `v2_ipucu_alindi`'ye satır
+> düşer ve `v2_gorev_tamamla.php` ödülü yarıya indirir.
+> · Bilgi alanı **boşsa** ceza da yok.
+> · 4. Bölge'deki bloklar **cevap anahtarı DEĞİL**; öğrenciye `readOnly`
+>   gösterilir, hakem onlara bakmaz. Cevap anahtarı 2. Bölge.
+> · Yuvarlama **üç yerde aynı** olmalı: `v2_ipucu.php`, `v2_gorev_tamamla.php`,
+>   `ogrenci/oynatici.php` (düğmedeki sayı).
+> · İçerik `durum` isteğinde gönderilmez — yoksa F12'den bedava okunur.
+
+> 🖼️ **[2026-08] SAYFA AŞAĞI BÜYÜYOR.** Oynatıcıda `height:100vh` +
+> `overflow:hidden` kaldırıldı; artık `min-height:100vh` ve sayfa kaydırılabilir.
+> Şerit `sticky`. İki sütun `align-items:stretch` ile aynı boyda, yani sol panel
+> uzayınca Blockly de uzuyor — kod alanının boyu değişince `svgResize` çağıran
+> bir `ResizeObserver` var (`resize` olayı yetmez, o sadece PENCERE değişince
+> tetiklenir). 900px altında sütunlar alt alta geçer.
+
 > 🏠 **[2026-08] SÜPER ADMİN GEZİNME.** Yeni bir Süper Admin sayfası yazarken
 > `<body>`den hemen sonra tek satır ekle — sol alta 🏠 Ana Panel + 🚪 Çıkış gelir:
 > `<?php require __DIR__ . '/../bilesenler/super_gezinme.php'; ?>`

@@ -116,6 +116,54 @@ $onSecilenBolum = $onSecilenBolum ?? 0;
         <button type="button" id="btnAlternatifEkle" style="background: #10b981; color: white; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; margin-top: 10px;">+ Yeni Alternatif Çözüm Ekle</button>
     </div>
 
+    <!-- ====================================================================
+         4. BÖLGE: 💡 BİLGİ AL — [2026-08]
+
+         Öğrencinin oynatıcıdaki "💡 Bilgi Al" düğmesine bastığında göreceği
+         içerik. Yazı, resim ve BİLGİ AMAÇLI bloklardan oluşur.
+
+         ⚠️ BURADAKİ BLOKLAR ÇALIŞMAZ, ÇÖZÜM DE DEĞİLDİR.
+         Sadece "şöyle bir dizilim kurman gerekiyor" demek için var. Öğrenciye
+         salt okunur gösterilir; sürüklenemez, çalıştırılamaz, hakem bunlara
+         bakmaz. Cevap anahtarı 2. Bölge'dir.
+
+         ⚠️ BOŞ BIRAKILABİLİR. Boşsa öğrencide düğme "bu görevde bilgi yok"
+         der ve HİÇBİR ceza uygulanmaz.
+         ==================================================================== -->
+    <div style="margin-top: 40px; border-top: 2px dashed #cbd5e1; padding-top: 25px;">
+        <label style="font-weight: bold; color: #7c3aed; display: block; margin-bottom: 8px;">
+            4. Bölge: 💡 Bilgi Al (İsteğe Bağlı)
+        </label>
+
+        <div style="background:#fef3c7; border:1px solid #fcd34d; color:#92400e; border-radius:8px; padding:12px 14px; font-size:13px; line-height:1.6; margin-bottom:15px;">
+            <b>Öğrenci burayı açarsa bu görevden kazanacağı puan ve elmas yarıya iner</b>
+            (en yakına yuvarlanır: 25 → 13). Uyarı ekranda çıkar, öğrenci kabul etmezse
+            bir şey olmaz. Bu alanı <b>boş bırakırsan</b> ceza da olmaz.
+        </div>
+
+        <label style="font-weight:600; color:#475569; display:block; margin-bottom:6px; font-size:14px;">
+            Açıklama, ipucu ve resimler
+        </label>
+        <p style="color:#64748b; margin-bottom:10px; font-size:13px;">
+            Resim eklemek için satır başındaki <b>+</b> düğmesine basıp <b>Resim</b>'i seç.
+        </p>
+        <div id="v2-ipucu-editorjs" class="editor-alani"></div>
+
+        <label style="font-weight:600; color:#475569; display:block; margin:22px 0 6px; font-size:14px;">
+            Bilgi amaçlı blok dizilimi
+        </label>
+        <p style="color:#64748b; margin-bottom:12px; font-size:13px;">
+            Blokları birbirine takabilirsin ama <b>çalıştırılmazlar</b> — öğrenciye
+            sadece resim gibi gösterilir. Cevabın tamamını buraya koymak yerine
+            yol gösteren bir parça koymak daha iyi sonuç verir.
+        </p>
+        <div class="kod-sarmal" id="sarmalIpucu">
+            <button type="button" class="tam-ekran-btn" onclick="kodAlaniTamEkran('sarmalIpucu')"
+                    title="Tam ekran aç / kapat">⛶ Tam Ekran</button>
+            <div id="blocklyIpucu" style="height: 380px; width: 100%; border: 2px solid #7c3aed; border-radius: 8px;"></div>
+        </div>
+    </div>
+
     <button type="button" class="kaydet-btn" id="btnGoreviKaydet" style="margin-top: 30px; width: 100%; font-size: 18px;">
         💾 <?= $duzenlenen ? 'Değişiklikleri Kaydet' : 'Tüm Görevi ve Çözüm Haritalarını Kaydet' ?>
     </button>
@@ -212,9 +260,18 @@ body.kod-tam-ekran-acik { overflow: hidden; }
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest"></script>
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest"></script>
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/list@latest"></script>
+<!-- [2026-08] Bilgi Al alanına resim eklemek için. Yüklenen dosya
+     v2_gorev_sistemi/api/resim_yukle.php'ye gider, img/gorev_ipuclari/ altına düşer. -->
+<script src="https://cdn.jsdelivr.net/npm/@editorjs/image@latest"></script>
 <script src="https://unpkg.com/blockly/blockly_compressed.js"></script>
 <script src="https://unpkg.com/blockly/blocks_compressed.js"></script>
 <script src="https://unpkg.com/blockly/msg/tr.js"></script>
+
+<script>
+    /* Resim yükleme uç noktası — ipucu_alani.js bunu kullanır.
+       Yol sayfaya göre değişebilsin diye PHP'den geliyor. */
+    window.V2_RESIM_YUKLE = <?= json_encode($V2_TABAN . 'api/resim_yukle.php') ?>;
+</script>
 
 <!-- [2026-08] Önbellek kırıcı (?v=dosya-zamanı) eklendi.
      Bu olmadan tarayıcı ESKİ api_yoneticisi.js'i çalıştırıyor ve o sürüm
@@ -223,4 +280,7 @@ body.kod-tam-ekran-acik { overflow: hidden; }
 <script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/mblock_bloklari.js', $KOK_ONEK) ?>"></script>
 <script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/metin_editoru.js', $KOK_ONEK) ?>"></script>
 <script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/blueprint_motoru.js', $KOK_ONEK) ?>"></script>
+<!-- [2026-08] Bilgi Al alanı — blueprint_motoru'ndan SONRA yüklenmeli:
+     araç kutusu (#toolbox) orada DOM'a ekleniyor, bu dosya onu kullanıyor. -->
+<script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/ipucu_alani.js', $KOK_ONEK) ?>"></script>
 <script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/api_yoneticisi.js', $KOK_ONEK) ?>"></script>

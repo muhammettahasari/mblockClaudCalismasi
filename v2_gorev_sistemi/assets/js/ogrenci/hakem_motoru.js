@@ -406,31 +406,19 @@ function kutlamaVeIlerleme(data) {
 }
 
 
-/**
- * "💡 Bilgi Al" butonu — görev metnindeki ipucu bloklarını gösterir.
- * (Bu fonksiyon da eksikti; butona basınca hata veriyordu.)
- */
-window.ipucuGoster = function () {
-    let ipucu = '';
-
-    // Görev paketindeki hikaye metninde "ipucu" geçen blokları topla
-    try {
-        const paket = window.v2GorevPaketi || null;
-        const bloklar = paket && paket.hikaye_metni ? (paket.hikaye_metni.blocks || []) : [];
-
-        bloklar.forEach(function (b) {
-            const metin = (b.data && (b.data.text || b.data.caption)) || '';
-            if (metin && /ipucu|ipuçları|bilgi/i.test(metin)) {
-                ipucu += metin.replace(/<[^>]*>/g, '') + '\n';
-            }
-        });
-    } catch (e) { /* yoksay */ }
-
-    if (!ipucu.trim()) {
-        ipucu = 'Bu görev için ayrı bir ipucu tanımlanmamış.\n\n'
-              + 'Görev metnini baştan oku, blokları sırayla dizmeyi dene ve '
-              + 'her bloğa tıklayarak ne yaptığını gör.';
-    }
-
-    hakemSonucGoster('💡 ' + ipucu.trim(), 'bilgi');
-};
+/* ============================================================================
+ * "💡 Bilgi Al" — [2026-08] BU DOSYADAN TAŞINDI
+ *
+ * Burada görev metninde "ipucu" kelimesi arayan bir TAHMİN motoru vardı.
+ * Neredeyse her görevde "bu görev için ayrı bir ipucu tanımlanmamış" diyordu,
+ * çünkü tasarlayıcıda ipucu yazılacak bir alan hiç yoktu — düğme vardı,
+ * arkasında bir şey yoktu.
+ *
+ * Artık gerçek bir içerik alanı var (tasarlayıcı 4. Bölge) ve düğmenin
+ * tamamı burada:
+ *     v2_gorev_sistemi/assets/js/ogrenci/bilgi_al.js
+ *
+ * O dosya window.ipucuGoster'ı tanımlar ve oynatici.php'de BU DOSYADAN SONRA
+ * yüklenir. Buraya ikinci bir tanım yazma — hangisinin kazandığı yükleme
+ * sırasına kalır ve bulunması zor bir hataya dönüşür.
+ * ========================================================================== */
