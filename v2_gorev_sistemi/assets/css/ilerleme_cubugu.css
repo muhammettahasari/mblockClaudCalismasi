@@ -130,8 +130,7 @@ body{
 .ic-harita{
     position:absolute;
     top:var(--serit-boy); left:12px;
-    width:380px; max-width:calc(100vw - 24px);
-    max-height:min(60vh, 460px); overflow-y:auto;
+    width:400px; max-width:calc(100vw - 24px);
     background:#fff;
     border:1px solid #e2e8f0; border-top:none;
     border-radius:0 0 14px 14px;
@@ -149,7 +148,29 @@ body{
     text-transform:uppercase; letter-spacing:.5px;
     padding-bottom:9px; margin-bottom:10px;
     border-bottom:1px solid #f1f5f9;
+    display:flex; justify-content:space-between; align-items:center; gap:8px;
 }
+.ic-harita-baslik .ipucu{
+    font-weight:600; text-transform:none; letter-spacing:0;
+    color:#94a3b8; font-size:11px;
+}
+
+/* ================================================================
+   [2026-08] GÖVDE 3 BÖLÜM YÜKSEKLİĞİNDE
+   Yükseklik JS ile ölçülüp buraya yazılır (bkz. ilerleme_cubugu.js ->
+   haritaYuksekligiAyarla). Kaydırma başlığı değil SADECE listeyi
+   etkiler; "Bölüm Haritan" başlığı hep görünür kalır.
+   ================================================================ */
+.ic-harita-govde{
+    overflow-y:auto; overflow-x:hidden;
+    scrollbar-width:thin;
+    scroll-behavior:smooth;
+    /* JS ölçemezse diye makul bir yedek */
+    max-height:min(58vh, 300px);
+}
+.ic-harita-govde::-webkit-scrollbar{ width:7px; }
+.ic-harita-govde::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:9px; }
+.ic-harita-govde::-webkit-scrollbar-thumb:hover{ background:#94a3b8; }
 
 .ic-h-bolum{
     padding:9px 10px; border-radius:10px; margin-bottom:6px;
@@ -167,8 +188,40 @@ body{
 .ic-h-ad{ font-size:13px; font-weight:700; color:var(--ic-metin); }
 .ic-h-oran{ font-size:11.5px; font-weight:700; color:var(--ic-soluk); white-space:nowrap; }
 
-.ic-h-daireler{ display:flex; flex-wrap:wrap; gap:5px; }
-.ic-h-daireler .ic-daire{ width:26px; height:26px; font-size:11.5px; }
+/* ================================================================
+   [2026-08] GÖREV DAİRELERİ ALT SATIRA KAYMAZ, YANA KAYAR
+   Eskiden flex-wrap:wrap vardı; 50 görevli bir bölüm 5 satıra yayılıp
+   tek başına haritanın tamamını dolduruyordu. Artık tek satırda kalıp
+   sağa doğru uzuyor, fareyle ya da kaydırma çubuğuyla geziliyor.
+   Böylece her bölüm bloğu AYNI YÜKSEKLİKTE — "3 bölüm göster" hesabı
+   da bu sayede tutuyor.
+   ================================================================ */
+.ic-h-daireler{
+    display:flex; flex-wrap:nowrap; gap:5px;
+    overflow-x:auto; overflow-y:hidden;
+    padding-bottom:5px;
+    scrollbar-width:thin;
+    overscroll-behavior-x:contain;   /* yatay kaydırma dikeye taşmasın */
+}
+.ic-h-daireler::-webkit-scrollbar{ height:5px; }
+.ic-h-daireler::-webkit-scrollbar-thumb{ background:#cbd5e1; border-radius:9px; }
+.ic-h-daireler::-webkit-scrollbar-thumb:hover{ background:#94a3b8; }
+
+.ic-h-daireler .ic-daire{ width:26px; height:26px; font-size:11.5px; flex:0 0 auto; }
+
+/* Çok görevli bölümlerde "kaydırılabilir" olduğunu belli eden sağ kenar gölgesi */
+.ic-h-daire-sarmal{ position:relative; }
+.ic-h-daire-sarmal.kaydirilabilir::after{
+    content:''; position:absolute; top:0; right:0; bottom:5px; width:26px;
+    background:linear-gradient(90deg, rgba(255,255,255,0), #fff 78%);
+    pointer-events:none;
+}
+.ic-h-bolum.burada .ic-h-daire-sarmal.kaydirilabilir::after{
+    background:linear-gradient(90deg, rgba(255,251,235,0), #fffbeb 78%);
+}
+.ic-h-bolum.bitti .ic-h-daire-sarmal.kaydirilabilir::after{
+    background:linear-gradient(90deg, rgba(240,253,244,0), #f0fdf4 78%);
+}
 
 .ic-h-bos{ font-size:12px; color:#94a3b8; font-style:italic; }
 

@@ -225,7 +225,13 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
              tıklayınca kapanır, şerit tekrar sadece aktif bölümü gösterir.
              ================================================================ -->
         <div class="ic-harita" id="icHarita" role="menu">
-            <div class="ic-harita-baslik">🗺️ Bölüm Haritan</div>
+            <div class="ic-harita-baslik">
+                <span>🗺️ Bölüm Haritan</span>
+                <span class="ipucu">kaydırarak gez</span>
+            </div>
+            <!-- [2026-08] Gövde 3 bölüm yüksekliğinde; açılınca bulunduğun
+                 bölüm en üste gelir, yukarı/aşağı kaydırarak diğerlerine
+                 ulaşırsın. Yükseklik JS ile ölçülür. -->
             <div class="ic-harita-govde" id="icHaritaGovde"><!-- JS doldurur --></div>
         </div>
     </div>

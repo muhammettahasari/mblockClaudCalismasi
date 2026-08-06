@@ -180,12 +180,16 @@
             return;
         }
 
+        var aktifSatir = null;
+
         bolumler.forEach(function (b) {
             var satir = document.createElement('div');
             satir.className = 'ic-h-bolum'
                 + (b.id === aktifBolumId ? ' burada' : '')
                 + (b.bitti ? ' bitti' : '')
                 + (b.acik ? '' : ' kilitli');
+
+            if (b.id === aktifBolumId) aktifSatir = satir;
 
             var isaret = !b.acik ? '🔒 ' : (b.bitti ? '✅ ' : (b.id === aktifBolumId ? '📍 ' : ''));
 
@@ -204,6 +208,11 @@
             ust.appendChild(oran);
             satir.appendChild(ust);
 
+            /* Daireler yatay kaydırılabilir bir şeride konur.
+               Sarmal, "devamı var" gölgesini konumlandırmak için gerekli. */
+            var sarmal = document.createElement('div');
+            sarmal.className = 'ic-h-daire-sarmal';
+
             var daireler = document.createElement('div');
             daireler.className = 'ic-h-daireler';
 
@@ -211,17 +220,92 @@
                 daireler.appendChild(daireYap(g, sira));
             });
 
-            satir.appendChild(daireler);
+            sarmal.appendChild(daireler);
+            satir.appendChild(sarmal);
             kutu.appendChild(satir);
         });
+
+        /* Ölçüm ve konumlandırma DOM'a eklendikten sonra yapılmalı */
+        haritayiKonumla(kutu, aktifSatir);
     }
+
+
+    /* ====================================================================
+     * [2026-08] HARİTAYI 3 BÖLÜM YÜKSEKLİĞİNE AYARLA VE AKTİFE KAYDIR
+     *
+     * İSTENEN DAVRANIŞ:
+     * Öğrenci 23. bölümdeyse harita açıldığında 23-24-25 görünsün; yukarı
+     * kaydırınca geçmiş bölümlere, aşağı kaydırınca ileriye ulaşsın.
+     *
+     * NEDEN JS İLE ÖLÇÜYORUZ?
+     * Bölüm bloğunun yüksekliği sabit bir CSS değeri değil — başlık satırı,
+     * daire şeridi ve kaydırma çubuğu tarayıcıya göre birkaç piksel oynuyor.
+     * Sabit bir px yazsaydık kimi tarayıcıda 2.5, kiminde 3.4 bölüm görünürdü.
+     * İlk üç bloğu gerçekten ÖLÇÜP toplamı yükseklik yapıyoruz.
+     * ================================================================== */
+    function haritayiKonumla(kutu, aktifSatir) {
+        aktifBolumSatiri = aktifSatir;   // harita her açıldığında buraya kaydırılacak
+
+        var bloklar = kutu.children;
+        if (!bloklar.length) return;
+
+        /* Ölçüm için görünür olmak gerekiyor; harita kapalıyken
+           (opacity:0 + pointer-events:none) yükseklikler yine okunabilir,
+           çünkü display:none DEĞİL. */
+        requestAnimationFrame(function () {
+            var gosterilecek = Math.min(3, bloklar.length);
+            var toplam = 0;
+
+            for (var i = 0; i < gosterilecek; i++) {
+                var b = bloklar[i];
+                var stil = window.getComputedStyle(b);
+                toplam += b.offsetHeight + parseFloat(stil.marginBottom || 0);
+            }
+
+            /* 3'ten az bölüm varsa kaydırmaya gerek yok — kutu içeriğe otursun */
+            if (bloklar.length <= 3) {
+                kutu.style.maxHeight = '';
+            } else {
+                // Dördüncü bloğun ucu görünsün ki "devamı var" belli olsun
+                kutu.style.maxHeight = Math.round(toplam + 14) + 'px';
+            }
+
+            /* Aktif bölümü EN ÜSTE getir */
+            if (aktifSatir) {
+                kutu.scrollTop = aktifSatir.offsetTop - kutu.offsetTop;
+            }
+
+            /* Görev sayısı sığmıyorsa "sağa kaydır" gölgesini aç */
+            Array.prototype.forEach.call(
+                kutu.querySelectorAll('.ic-h-daire-sarmal'),
+                function (sarmal) {
+                    var serit = sarmal.querySelector('.ic-h-daireler');
+                    if (!serit) return;
+                    sarmal.classList.toggle('kaydirilabilir',
+                        serit.scrollWidth > serit.clientWidth + 4);
+                }
+            );
+        });
+    }
+
+    /* Aktif bölüm satırının referansı — harita her açıldığında oraya kaydırılır */
+    var aktifBolumSatiri = null;
 
     function haritayiAc() {
         var menu = el('icHarita');
         var tetik = el('icHaritaTetik');
         if (!menu || !tetik) return;
+
         menu.classList.add('acik');
         tetik.setAttribute('aria-expanded', 'true');
+
+        /* Her açılışta aktif bölümü tekrar en üste getir.
+           Öğrenci önceki açılışta yukarı kaydırmış olabilir; harita
+           "nerede olduğunu" göstermek için var, en son baktığı yeri değil. */
+        var kutu = el('icHaritaGovde');
+        if (kutu && aktifBolumSatiri) {
+            kutu.scrollTop = aktifBolumSatiri.offsetTop - kutu.offsetTop;
+        }
     }
 
     function haritayiKapat() {
