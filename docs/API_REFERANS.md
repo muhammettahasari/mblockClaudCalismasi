@@ -233,8 +233,26 @@ XAMPP/tek sunucu bir okulu (~300 öğrenci) rahat taşır. Binlerce eşzamanlı
 | Dosya | Girdi | İşlev | Auth |
 |---|---|---|---|
 | `api/ogrenci_kilit.php` | JSON `{islem, ogrenci_id\|sinif_id, mesaj?}` | Tek öğrenci / tüm sınıf kilitle-aç, durum sorgusu | ✅ öğretmen + **kendi sınıfı** |
+| `api/kilit_mesajlari.php` | JSON `{islem, mesaj?, id?}` | Öğretmenin kayıtlı kilit notları (liste/ekle/sil) | ✅ öğretmen (kendi kayıtları) |
 
 İşlemler: `kilitle` · `ac` · `sinif_kilitle` · `sinif_ac` · `durum`
+
+**Onay ve not artık tarayıcı kutusuyla değil, pencereyle alınır.**
+`bilesenler/kilit_modali.php` → `kilitModaliAc({islem, hedefId, hedefAd, onTamam})`.
+Pencere isteği kendi atar; çağıran sayfa sadece tabloyu tazeler.
+
+> Eskiden üst üste `confirm()` + `prompt()` çıkıyordu. Sorunları: ikinci kutuyu
+> iptal eden öğretmen kilidin kurulup kurulmadığını bilemiyordu, sınıfa
+> yansıtılan ekranda "localhost web sitesinin mesajı" yazısı görünüyordu ve
+> tarayıcının "bu sayfa daha fazla iletişim kutusu göstermesin" seçeneği bir kez
+> işaretlenirse `prompt()` sessizce `null` dönüp not hiç sorulmuyordu.
+
+Hazır notlar (`Tahtaya bakın!`, `Teneffüs`, …) **koda gömülü**
+(`bilesenler/kilit_modali.php` → `HAZIR` dizisi); tabloda değil ki yeni her
+öğretmen için kopyalanmak zorunda kalmasın. `kilit_mesajlari` tablosunda
+SADECE öğretmenin kendi yazıp kaydettikleri durur (en fazla 30, çok kullanılan
+üstte). Kullanılan not kayıtlılardan biriyle birebir eşleşirse
+`ogrenci_kilit.php` sayacını artırır.
 
 **Kilit üç katmanda çalışır:**
 

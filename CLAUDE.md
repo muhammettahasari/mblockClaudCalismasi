@@ -59,6 +59,18 @@ Bu dört dosya 2026-08 revizyonunda eklendi. **Yeni PHP dosyası yazarken
 > çağır** — perde sadece görsel, konsoldan silinebilir.
 > ⚠️ `ogretmen_kilidi` ile `durum='kilitli'` AYRI ŞEY: ilki ders dondurma,
 > ikincisi şifreyi 3 kez yanlış girme cezası. Biri diğerini ezmez.
+> Onay + not sorma işi `bilesenler/kilit_modali.php` penceresinde
+> (`kilitModaliAc({islem, hedefId, hedefAd, onTamam})`); hazır notlar oradaki
+> `HAZIR` dizisinde, öğretmenin kendi kaydettikleri `kilit_mesajlari` tablosunda.
+
+> 🚫 **[2026-08] `confirm()` / `prompt()` KULLANMA.** Onay ya da kısa metin
+> gerektiren yerlerde tarayıcı kutusu değil, sayfanın kendi penceresi
+> kullanılır. Gerekçe: o kutular biçimlendirilemez (sınıfa yansıtılan ekranda
+> "localhost web sitesinin mesajı" yazar), üst üste gelince hangisinin ne
+> sorduğu karışır ve tarayıcının "bu sayfa daha fazla iletişim kutusu
+> göstermesin" seçeneği işaretlenirse `prompt()` **sessizce `null` döner** —
+> yani soru hiç sorulmadan kod "iptal edildi" sanır.
+> Hazır desen: `bilesenler/kilit_modali.php`.
 
 **Standart API dosyası şablonu:**
 ```php

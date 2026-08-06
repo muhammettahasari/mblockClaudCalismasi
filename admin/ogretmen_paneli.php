@@ -215,6 +215,9 @@ if ($sure_doldu_mu) {
                 <b>⏸️ Ders Kilidi</b> — Seçili sınıfın ekranlarını dondurup çözersin.
                 Öğrenci sayfayı yenilese, çıkıp girse bile kilit durur; sadece sen açabilirsin.
                 <br><span style="opacity:.85;">Tek tek kilitlemek için satırdaki ⏸️ düğmesini kullan.</span>
+                <!-- Sınıf seçilmeden toplu kilide basılırsa burada uyarı çıkar.
+                     Eskiden alert() kutusuydu; ekranı kaplamasın diye satır içine alındı. -->
+                <div id="kilitUyari" style="display:none; margin-top:8px; font-weight:800; color:#b91c1c;"></div>
             </div>
             <div style="display:flex; gap:8px; flex-wrap:wrap;">
                 <button class="ot-btn ot-btn-turuncu ot-btn-kucuk" onclick="sinifKilidi('sinif_kilitle')">⏸️ Sınıfı Kilitle</button>
@@ -245,6 +248,11 @@ if ($sure_doldu_mu) {
     <script>
         let canliYayinInterval;
 
+        /* [2026-08] Kilit penceresi başlıkta öğrencinin adını gösteriyor.
+           Adı onclick içine gömmek yerine burada tutuyoruz: isimde tırnak
+           ya da apostrof olursa (O'Brien gibi) üretilen HTML bozulmasın. */
+        let ogrenciAdlari = {};
+
         function ogrencileriCek() {
             let secilenSinifId = document.getElementById('sinifSelect').value;
 
@@ -253,7 +261,9 @@ if ($sure_doldu_mu) {
                 .then(veri => {
                     if (veri.success) {
                         let html = '';
+                        ogrenciAdlari = {};
                         veri.data.forEach(ogr => {
+                            ogrenciAdlari[ogr.id] = ogr.ad_soyad;
                             let durumBadge = `<span class="badge" style="background:#cbd5e1; color:#334155;">Aktif (Oyun İçi)</span>`;
                             let actionButtons = '-';
                             let sinifAdi = ogr.sinif_adi || 'Sınıfsız';
@@ -319,19 +329,19 @@ if ($sure_doldu_mu) {
            sayfayı yenilese, çıkıp girse, hatta başka tarayıcı açsa bile kilit
            durur — çünkü tarayıcıda değil VERİTABANINDA tutuluyor.
            ================================================================== */
+        /* [2026-08] Onay ve not sorma işi artık bilesenler/kilit_modali.php'de.
+           Eskiden burada üst üste iki tarayıcı kutusu vardı — confirm() sonra
+           prompt(). İkincisini iptal eden öğretmen kilidin kurulup kurulmadığını
+           anlayamıyordu; üstelik o kutular sınıfa yansıtılan ekranda
+           "localhost web sitesinin mesajı" yazısıyla çıkıyordu.
+           Pencere isteği kendi atıyor, biz sadece tabloyu tazeliyoruz. */
         function dersKilidi(islem, ogrenciId) {
-            fetch('../api/ogrenci_kilit.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'same-origin',
-                body: JSON.stringify({ islem: islem, ogrenci_id: ogrenciId })
-            })
-            .then(r => r.json())
-            .then(d => {
-                if (!d.success) { alert('❌ ' + (d.mesaj || d.message || 'İşlem başarısız.')); return; }
-                ogrencileriCek();   // tablo hemen tazelensin
-            })
-            .catch(() => alert('❌ Sunucuya ulaşılamadı.'));
+            kilitModaliAc({
+                islem:   islem,                                       // 'kilitle' | 'ac'
+                hedefId: ogrenciId,
+                hedefAd: ogrenciAdlari[ogrenciId] || 'Öğrenci',
+                onTamam: ogrencileriCek
+            });
         }
 
         /* Tüm sınıfı kilitle / çöz.
@@ -342,36 +352,22 @@ if ($sure_doldu_mu) {
             const sinifId = parseInt(secim.value, 10);
 
             if (!sinifId) {
-                alert('Önce yukarıdan bir sınıf seç.\n\n"Tüm sınıflar" seçiliyken toplu kilit uygulanmaz — ' +
-                      'yanlışlıkla başka sınıfları dondurmamak için.');
+                const uyari = document.getElementById('kilitUyari');
+                uyari.textContent = '⚠️ Önce yukarıdan bir sınıf seç. "Tüm sınıflar" seçiliyken toplu kilit ' +
+                                    'uygulanmaz — yanlışlıkla başka sınıfları dondurmamak için.';
+                uyari.style.display = '';
                 secim.focus();
+                setTimeout(() => { uyari.style.display = 'none'; }, 6000);
                 return;
             }
+            document.getElementById('kilitUyari').style.display = 'none';
 
-            const sinifAdi = secim.options[secim.selectedIndex].text;
-            const soru = (islem === 'sinif_kilitle')
-                ? `"${sinifAdi}" sınıfının TAMAMI kilitlenecek.\n\nÖğrencilerin ekranında kilit çıkacak ve sen açana kadar hiçbir ilerleme kaydedemeyecekler.\n\nDevam edilsin mi?`
-                : `"${sinifAdi}" sınıfının kilidi açılacak.\n\nDevam edilsin mi?`;
-
-            if (!confirm(soru)) return;
-
-            let mesaj = '';
-            if (islem === 'sinif_kilitle') {
-                mesaj = prompt('Öğrencilere gösterilecek not (isteğe bağlı):', 'Tahtaya bakın.') || '';
-            }
-
-            fetch('../api/ogrenci_kilit.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'same-origin',
-                body: JSON.stringify({ islem: islem, sinif_id: sinifId, mesaj: mesaj })
-            })
-            .then(r => r.json())
-            .then(d => {
-                alert((d.success ? '✅ ' : '❌ ') + (d.mesaj || d.message || ''));
-                if (d.success) ogrencileriCek();
-            })
-            .catch(() => alert('❌ Sunucuya ulaşılamadı.'));
+            kilitModaliAc({
+                islem:   islem,                                       // 'sinif_kilitle' | 'sinif_ac'
+                hedefId: sinifId,
+                hedefAd: secim.options[secim.selectedIndex].text,
+                onTamam: ogrencileriCek
+            });
         }
 
         function uzaktanIslem(islemTuru, ogrenciId) {
@@ -597,7 +593,13 @@ if ($sure_doldu_mu) {
                 }).catch(e => console.log("Radar devrede..."));
         }, 2000); // 2 saniyede bir süreleri kontrol eder
     </script>
- 
+
+<?php
+/* [2026-08] Ders kilidi penceresi — confirm() + prompt() ikilisinin yerine.
+   Hazır notlar, öğretmenin kendi kayıtlı notları ve serbest metin burada. */
+$KILIT_MODAL_KOK = '../';
+require __DIR__ . '/../bilesenler/kilit_modali.php';
+?>
 </body>
 
 </html>

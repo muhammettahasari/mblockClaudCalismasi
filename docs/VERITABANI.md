@@ -225,3 +225,25 @@ duello_ayarlari (tek satır, global)
 >
 > Aynı sütunda tutulsaydı öğretmen sınıfı dondurup açtığında şifre yüzünden
 > kilitlenmiş öğrencinin cezası da farkında olmadan kalkardı.
+
+### `kilit_mesajlari` (2026-08 eklendi)
+
+Öğretmenin sık kullandığı kilit notlarını saklar; kilit penceresinde tek tıkla
+seçilir. Migration: `kurulum/migration_2026_08_kilit_mesajlari.sql`
+
+| Sütun | Tip | Açıklama |
+|---|---|---|
+| `id` | int | |
+| `ogretmen_id` | int | Sahibi — başka öğretmen göremez |
+| `mesaj` | varchar(160) | Öğrencinin kilit ekranında görünecek metin |
+| `kullanim_sayisi` | int | Çok kullanılan not listede üstte çıkar |
+| `son_kullanim` | datetime | |
+| `olusturma` | datetime | |
+
+`UNIQUE (ogretmen_id, mesaj)` — aynı metin iki kez kaydedilemez, liste şişmez.
+
+> ⚠️ **Hazır notlar bu tabloda DEĞİL.** "Tahtaya bakın!", "Teneffüs" gibi
+> herkese gelen seçenekler `bilesenler/kilit_modali.php` içindeki `HAZIR`
+> dizisinde. Tabloya yazsaydık her yeni öğretmen için satır kopyalamak
+> gerekirdi ve bir yazım hatasını düzeltmek yüzlerce satır güncellemek olurdu.
+> Bu tabloda sadece öğretmenin **kendi yazdıkları** durur.

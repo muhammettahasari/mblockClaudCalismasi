@@ -76,6 +76,25 @@ function sinifimMi(PDO $pdo, int $ogretmenId, int $sinifId): bool
     return (bool) $st->fetchColumn();
 }
 
+/**
+ * Kullanılan not öğretmenin KAYITLI mesajlarından biriyse sayacını artırır.
+ * Böylece kilit penceresinde en çok kullandığı not en üstte çıkar.
+ *
+ * Eşleşme yoksa (hazır mesaj ya da o anlık yazılmış bir not) hiçbir şey olmaz;
+ * tek UPDATE, sonucuna bakılmıyor — sayaç kozmetik, işi bloklamamalı.
+ */
+function mesajSayaciniArtir(PDO $pdo, int $ogretmenId, string $mesaj): void
+{
+    if ($mesaj === '') {
+        return;
+    }
+    $pdo->prepare(
+        "UPDATE kilit_mesajlari
+            SET kullanim_sayisi = kullanim_sayisi + 1, son_kullanim = NOW()
+          WHERE ogretmen_id = ? AND mesaj = ?"
+    )->execute([$ogretmenId, $mesaj]);
+}
+
 try {
     switch ($islem) {
 
@@ -99,6 +118,7 @@ try {
                         SET ogretmen_kilidi = 1, kilit_zamani = NOW(), kilit_mesaji = ?
                       WHERE id = ?"
                 )->execute([$mesaj !== '' ? $mesaj : null, $ogrenci_id]);
+                mesajSayaciniArtir($pdo, $ogretmen_id, $mesaj);
             } else {
                 $pdo->prepare(
                     "UPDATE ogrenciler
@@ -139,6 +159,7 @@ try {
                       WHERE sinif_id = ? AND onay_durumu = 1"
                 );
                 $st->execute([$mesaj !== '' ? $mesaj : null, $sinif_id]);
+                mesajSayaciniArtir($pdo, $ogretmen_id, $mesaj);
             } else {
                 $st = $pdo->prepare(
                     "UPDATE ogrenciler
