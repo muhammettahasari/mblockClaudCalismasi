@@ -85,7 +85,7 @@ try {
      * SORGU 2 — Sınıftaki öğrenciler (tek sorgu)
      * ================================================================== */
     $st = $pdo->prepare(
-        "SELECT id, ad_soyad, elmas, kalici_puan
+        "SELECT id, ad_soyad, kullanici_adi, elmas, kalici_puan
            FROM ogrenciler
           WHERE sinif_id = ? AND onay_durumu = 1
           ORDER BY ad_soyad ASC"
@@ -157,6 +157,10 @@ try {
         $cikti[] = [
             'id'      => $oid,
             'ad'      => $o['ad_soyad'],
+            /* [2026-08] Tablo panele taşınınca satırlar tamamen bu cevaptan
+               çiziliyor; kullanıcı adı da lazım oldu. Ek sorgu yok, aynı
+               SELECT'e bir sütun eklendi. */
+            'kullanici_adi' => $o['kullanici_adi'],
             'bolum'   => $suAnkiBolum,
             'cozulen' => $cozulenToplam,
             'toplam'  => $toplamGorev,

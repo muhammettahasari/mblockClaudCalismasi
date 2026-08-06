@@ -72,13 +72,34 @@ if (!empty($ot_bilgi['bitis_tarihi'])) {
     }
 }
 
-/* Sekme tanımları — tek yerde, sıraları da burada */
+/* ============================================================================
+ * SEKMELER — [2026-08] DÖRTTEN İKİYE İNDİ
+ *
+ * Eskiden dört sekme vardı: Canlı Takip · Öğrenciler · İlerleme · Quiz.
+ * İkisi gereksizdi çünkü aynı yere iki ayrı kapı açıyordu:
+ *   · İLERLEME  -> artık Canlı Takip'in İÇİNDE alt sekme. Ayrı sayfa olması
+ *                  öğretmeni sınıfı ikinci kez seçmeye zorluyordu; seçtiği
+ *                  sınıf sayfa değişince kayboluyordu.
+ *   · QUIZ      -> panelde "Sınıf Kontrolleri" kartında zaten düğmesi var.
+ *
+ * Kalan iki sekme gerçekten ayrı iki iş: ders sırasında sınıfı izlemek
+ * (panel) ve öğrenci kayıt/onay işleri (öğrenciler).
+ * ========================================================================== */
 $ot_sekmeler = [
-    'panel'      => ['ad' => '📡 Canlı Takip',    'yol' => 'ogretmen_paneli.php'],
-    'ogrenciler' => ['ad' => '👥 Öğrenciler',     'yol' => 'ogrenci_yonetimi.php'],
-    'ilerleme'   => ['ad' => '📊 İlerleme',       'yol' => 'ogrenci_ilerleme.php'],
-    'quiz'       => ['ad' => '🎮 Quiz',           'yol' => 'quiz_kontrol_merkezi.php'],
+    'panel'      => ['ad' => '📡 Canlı Takip', 'yol' => 'ogretmen_paneli.php'],
+    'ogrenciler' => ['ad' => '👥 Öğrenciler',  'yol' => 'ogrenci_yonetimi.php'],
 ];
+
+/* Sekmesi olmayan sayfalar (quiz merkezi gibi) için pasif konum göstergesi.
+   Üst barın var oluş sebeplerinden biri "hangi sayfadayım" sorusuydu;
+   sekme kalkınca o cevap kaybolmasın diye tıklanmayan bir etiket basıyoruz. */
+$ot_konum_adlari = [
+    'quiz'     => '🎮 Quiz Merkezi',
+    'ilerleme' => '📊 İlerleme',
+];
+$ot_konum = (!isset($ot_sekmeler[$OT_AKTIF]) && isset($ot_konum_adlari[$OT_AKTIF]))
+    ? $ot_konum_adlari[$OT_AKTIF]
+    : '';
 ?>
 <div class="ot-ustbar">
     <div class="ot-ustbar-ic">
@@ -116,6 +137,10 @@ $ot_sekmeler = [
                 <?php endif; ?>
             </a>
         <?php endforeach; ?>
+
+        <?php if ($ot_konum !== ''): ?>
+            <span class="ot-sekme aktif" aria-current="page"><?= $ot_konum ?></span>
+        <?php endif; ?>
     </nav>
 </div>
 

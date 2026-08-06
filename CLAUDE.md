@@ -231,9 +231,21 @@ Oynatıcının tepesinde **bölüm › görev** başlığı ve renkli görev dai
 dönülebilir (puan ikinci kez verilmez). **Otomatik geçiş YOK** — görev bitince
 konfetili kutlama açılır (`kutlama.js`), öğrenci "Sıradaki Görev"e kendisi basar.
 
-Öğretmen `admin/ogrenci_ilerleme.php`'de sınıfının ilerlemesini görür; ✏️ ile bir
-öğrencinin bölümlerini işaretleyip **tekrar yaptırır** (`api/ogrenci_ilerleme_sifirla.php`).
+Öğretmen sınıfının ilerlemesini **panelde, "Canlı Görev Takibi" kartının
+📊 İlerleme sekmesinde** görür; ✏️ ile bir öğrencinin bölümlerini işaretleyip
+**tekrar yaptırır** (`api/ogrenci_ilerleme_sifirla.php`).
 Tablo **canlı**dır (10 sn yoklama, `api/sinif_ilerleme_durumu.php`).
+
+> 🗂️ **[2026-08] ÖĞRETMEN GEZİNMESİ SADELEŞTİ.** Dört sekme ikiye indi:
+> **📡 Canlı Takip** ve **👥 Öğrenciler**. Kalkanlar ve nedenleri:
+> · *İlerleme* → Canlı Takip'in İÇİNDE alt sekme oldu (`?gorunum=ilerleme`).
+>   Ayrı sayfayken öğretmen sınıfı ikinci kez seçmek zorunda kalıyordu.
+>   `admin/ogrenci_ilerleme.php` artık sadece 301 yönlendirmesi.
+> · *Quiz* → panelde "Sınıf Kontrolleri" kartında zaten düğmesi vardı.
+> Sekmesi olmayan sayfalar (quiz merkezi) üst barda **pasif konum etiketi**
+> gösterir; `$ot_konum_adlari` dizisine eklenir.
+> Yeni bir öğretmen sayfası açmadan önce sor: bu gerçekten ayrı bir iş mi,
+> yoksa mevcut bir kartın sekmesi mi olmalı?
 
 > ⚡ **CANLI YOKLAMA KURALI:** Yoklanan uç noktalar öğrenci sayısından **bağımsız**
 > sabit sayıda sorgu çalıştırmalı. Sınıf verisi tek `GROUP BY` ile çekilir; döngü

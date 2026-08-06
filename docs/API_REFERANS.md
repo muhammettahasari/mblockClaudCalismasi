@@ -222,9 +222,22 @@ XAMPP/tek sunucu bir okulu (~300 öğrenci) rahat taşır. Binlerce eşzamanlı
 **(2)** cevabı 5 sn'lik APCu/Redis önbelleğine alın (anahtar: öğretmen için
 `sinif_id`), **(3)** ancak ondan sonra WebSocket/SSE düşünün.
 
-> ⚠️ Öğretmen sayfası `admin/ogrenci_ilerleme.php` de artık sabit sorgu kullanır.
+> ⚠️ İlerleme tablosu artık **öğretmen panelinin içinde** (📊 İlerleme sekmesi).
 > Öğrencilerin bölüm haritaları sayfaya **gömülmez**; ✏️ kalemine basılınca
 > `ogrenci_ilerleme_sifirla.php` → `islem: 'harita'` ile tek öğrenci için çekilir.
+
+> ⚡ **İKİ SEKME, TEK YOKLAMA.** Panelde iki tablo var (canlı takip 3 sn,
+> ilerleme 10 sn) ama **aynı anda sadece açık olan sekme** istek atar. İkisi
+> birden dönseydi öğretmen başına saniyede ~0.43 istek olurdu; görünmeyen
+> tabloyu tazelemenin kimseye faydası yok. Sekmeye geçildiğinde hemen bir kez
+> çekilir. Doğrulama: `kurulum/sim_panel.mjs` (gerçek kaynak kodu sahte DOM ile
+> çalıştırıp istek sayar).
+
+> ⚠️ **GEÇ GELEN CEVAP ESKİ SINIFI ÇİZMESİN.** Öğretmen sınıf değiştirdiğinde
+> uçuşta olan istek iptal edilmiyor; cevap döndüğünde `sinif_id` hâlâ seçili mi
+> diye bakılıp değilse **çöpe atılıyor**. Ayrıca "sınıf seçili mi" kontrolü
+> "istek uçuşta mı" kontrolünden ÖNCE gelir — arayüz her zaman şu anki seçimi
+> göstermeli.
 
 ---
 

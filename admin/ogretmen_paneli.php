@@ -88,6 +88,55 @@ if ($sure_doldu_mu) {
         }
         .btn-action:hover { filter: brightness(1.1); }
 
+        /* ================================================================
+           ALT SEKMELER — [2026-08] Canlı Takip / İlerleme
+           Üstteki ana sekmelerden görsel olarak AYRIŞMALI, yoksa öğretmen
+           hangi seviyede gezindiğini karıştırır. Bu yüzden ana sekmeler
+           koyu barda dolgulu, bunlar kart içinde alttan çizgili.
+           ================================================================ */
+        /* Sekmelerin oturduğu çizgi — sekme hissi bundan geliyor.
+           :has() yerine sınıf kullanıldı; okul bilgisayarlarındaki eski
+           tarayıcılarda :has() desteklenmiyor olabilir. */
+        .ot-kart-baslik.sekmeli { border-bottom: 2px solid var(--ot-cizgi); margin-bottom: 0; padding-bottom: 0; }
+        .ot-altsekmeler { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: -2px; }
+        .ot-altsekme {
+            background: none; border: none; border-bottom: 3px solid transparent;
+            padding: 9px 14px 8px; cursor: pointer; font-family: inherit;
+            font-size: 15px; font-weight: 800; color: var(--ot-soluk);
+            transition: .15s; border-radius: 8px 8px 0 0;
+        }
+        .ot-altsekme:hover { color: var(--ot-ana); background: #faf5ff; }
+        .ot-altsekme.aktif { color: var(--ot-ana-koyu); border-bottom-color: var(--ot-ana); }
+
+        /* İlerleme tablosu */
+        .il-cubuk { background: var(--ot-cizgi); border-radius: 99px; height: 9px; width: 140px; overflow: hidden; }
+        .il-cubuk span { display: block; height: 100%; background: linear-gradient(90deg, var(--ot-yesil), #34d399); }
+        .il-eksi { color: #b91c1c; font-weight: 800; }
+
+        /* Sıfırlama panelindeki bölüm satırları */
+        .bolum-satir {
+            display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+            border: 2px solid var(--ot-cizgi); border-radius: 10px; margin-bottom: 10px; cursor: pointer;
+        }
+        .bolum-satir.secili { border-color: var(--ot-kirmizi); background: #fef2f2; }
+        .bolum-satir.kilitli { opacity: .45; background: var(--ot-zemin); cursor: not-allowed; }
+        .bolum-satir input { width: 19px; height: 19px; cursor: pointer; }
+        .bolum-bilgi { flex: 1; }
+        .bolum-bilgi b { display: block; }
+        .bolum-bilgi small { color: var(--ot-soluk); }
+        .noktalar { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+        .nokta { width: 13px; height: 13px; border-radius: 50%; background: var(--ot-cizgi); }
+        .nokta.tamam { background: var(--ot-yesil); }
+        .nokta.sifirlandi { background: var(--ot-kirmizi); }
+        .nokta.aktif { background: var(--ot-turuncu); }
+
+        /* Canlı güncellenen satır kısa bir an vurgulanır */
+        tr.yenilendi td { animation: satirParla 1.6s ease-out; }
+        @keyframes satirParla {
+            0%   { background: #dcfce7; }
+            100% { background: transparent; }
+        }
+
         .pulse { animation: pulse-animation 1.5s infinite; }
         @keyframes pulse-animation {
             0%   { transform: scale(1); }
@@ -191,17 +240,40 @@ if ($sure_doldu_mu) {
     </div>
 
 
-    <!-- ==================== CANLI ÖĞRENCİ LİSTESİ ==================== -->
+    <!-- ==================== CANLI TAKİP + İLERLEME ====================
+         [2026-08] İki ayrı sayfaydı, tek karta alındı.
+
+         NEDEN BİRLEŞTİRİLDİ? İkisi de "sınıfım ne durumda?" sorusunu
+         cevaplıyordu ama ayrı sayfalardaydı. Öğretmen panelde 5A'yı seçiyor,
+         ilerlemeye geçince sınıf seçimi kayboluyor ve 5A'yı BİR DAHA seçmesi
+         gerekiyordu. Artık sınıf seçimi tek ve ortak; sekme değişince seçili
+         sınıf korunur.
+
+         Görünüm URL'de tutulur (?gorunum=ilerleme): öğretmen F5'e bastığında
+         ya da bağlantıyı paylaştığında aynı sekme açılır. -->
     <div class="ot-kart">
-        <div class="ot-kart-baslik">
-            <h2>📡 Canlı Görev Takibi</h2>
-            <select id="sinifSelect" class="ot-girdi" style="width:auto; min-width:220px;" onchange="ogrencileriCek()">
+        <div class="ot-kart-baslik sekmeli" style="align-items:flex-end; gap:14px;">
+            <div class="ot-altsekmeler" role="tablist">
+                <button type="button" class="ot-altsekme aktif" id="sekmeCanli"
+                        role="tab" onclick="gorunumDegistir('canli')">📡 Canlı Görev Takibi</button>
+                <button type="button" class="ot-altsekme" id="sekmeIlerleme"
+                        role="tab" onclick="gorunumDegistir('ilerleme')">📊 İlerleme</button>
+            </div>
+
+            <!-- Sınıf seçimi İKİ SEKME İÇİN ORTAK — bilerek kartın başlığında,
+                 sekmelerin dışında duruyor ki "bu seçim ikisini de etkiler"
+                 görsel olarak da anlaşılsın. -->
+            <select id="sinifSelect" class="ot-girdi" style="width:auto; min-width:200px; margin:0 0 10px auto;"
+                    onchange="sinifDegisti()">
                 <option value="0">Tüm sınıflar</option>
                 <?php foreach ($siniflar as $s): ?>
                     <option value="<?= (int) $s['id'] ?>"><?= temizle($s['sinif_adi']) ?></option>
                 <?php endforeach; ?>
             </select>
         </div>
+
+    <!-- ============ GÖRÜNÜM 1: CANLI TAKİP ============ -->
+    <div id="gorunumCanli">
         <p class="aciklama">
             Öğrencilerin puanı ve durumu 3 saniyede bir kendiliğinden güncellenir.
         </p>
@@ -242,6 +314,75 @@ if ($sure_doldu_mu) {
                 </tbody>
             </table>
         </div>
+    </div><!-- /gorunumCanli -->
+
+    <!-- ============ GÖRÜNÜM 2: İLERLEME ============
+         Tablo tamamen api/sinif_ilerleme_durumu.php'den doluyor — aynı uç
+         nokta canlı yoklamayı da besliyor, yani PHP tarafında ikinci bir
+         hesap kopyası YOK. Sınıf kaç kişilik olursa olsun 5 sorgu. -->
+    <div id="gorunumIlerleme" style="display:none;">
+        <p class="aciklama">
+            Her öğrencinin hangi bölümde olduğunu ve ne kadar ilerlediğini gösterir.
+            ✏️ ile bir öğrencinin bitirdiği bölümleri <b>tekrar yaptırabilirsin</b>.
+        </p>
+
+        <div class="ot-bilgi" id="ilerlemeSinifUyari" style="display:none;">
+            📊 İlerleme tablosu <b>tek sınıf</b> için gösterilir — yukarıdan bir sınıf seç.
+            ("Tüm sınıflar" seçiliyken bölüm yüzdeleri anlamlı olmaz.)
+        </div>
+
+        <div class="ot-tablo-sarmal" id="ilerlemeTabloSarmal">
+            <table class="ot-tablo">
+                <thead>
+                    <tr>
+                        <th>Öğrenci</th>
+                        <th>Bulunduğu Bölüm</th>
+                        <th>İlerleme</th>
+                        <th style="text-align:center;">💎 Elmas</th>
+                        <th>Durum</th>
+                        <th style="text-align:right;">İşlem</th>
+                    </tr>
+                </thead>
+                <tbody id="ilerlemeGovde">
+                    <tr><td colspan="6" class="ot-bos">Yükleniyor…</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div><!-- /gorunumIlerleme -->
+
+    </div><!-- /ot-kart -->
+</div>
+
+
+<!-- ==================== SIFIRLAMA PANELİ ====================
+     [2026-08] admin/ogrenci_ilerleme.php'den buraya taşındı.
+     İki adımlı: önce ÖNİZLEME (hiçbir şey yazılmaz), sonra onay.
+     Böylece öğretmen kaç elmas cezası keseceğini görmeden onaylamaz. -->
+<div class="ot-perde" id="sifirlaPerde">
+    <div class="ot-panel">
+        <h2 id="sifirlaBaslik">Öğrenci</h2>
+        <div class="alt">Tekrar yapmasını istediğin bölümleri işaretle.</div>
+
+        <div id="sifirlaBolumListesi"></div>
+
+        <div class="ot-uyari-kutu">
+            <b>Ulaşılmamış bölümler seçilemez.</b> Öğrencinin henüz gelmediği bölümler
+            soluk ve kilitli görünür — geri alınacak bir işi yok.
+        </div>
+
+        <div class="ot-alan" style="margin-top:6px;">
+            <label>Gerekçe <small style="font-weight:400; color:#64748b;">(isteğe bağlı, öğrenciye gösterilir)</small></label>
+            <input type="text" id="sifirlaSebep" class="ot-girdi" maxlength="255"
+                   placeholder="Örn: Konuyu pekiştirmen için 1. bölümü tekrar edelim.">
+        </div>
+
+        <div id="sifirlaOnizleme"></div>
+        <div id="sifirlaDurum" style="display:none; margin-top:12px; border-radius:9px; padding:11px 14px; font-weight:700;"></div>
+
+        <div class="ot-panel-dugmeler">
+            <button type="button" class="ot-btn ot-btn-sade" onclick="sifirlaKapat()">Vazgeç</button>
+            <button type="button" class="ot-btn ot-btn-kirmizi" id="sifirlaOnayBtn" disabled onclick="sifirlaAdimIlerle()">Devam</button>
+        </div>
     </div>
 </div>
 
@@ -253,7 +394,44 @@ if ($sure_doldu_mu) {
            ya da apostrof olursa (O'Brien gibi) üretilen HTML bozulmasın. */
         let ogrenciAdlari = {};
 
+        /* ====================================================================
+           ALT SEKME YÖNETİMİ — Canlı Takip / İlerleme
+
+           ⚡ TEK KURAL: SADECE AÇIK OLAN SEKME YOKLAMA YAPAR.
+           İkisi birden dönseydi öğretmen başına saniyede ~0.43 istek olurdu
+           (3 sn + 10 sn). Görünmeyen tabloyu tazelemenin kimseye faydası yok;
+           sekmeye geçildiğinde zaten hemen bir kez çekiliyor.
+           ================================================================== */
+        let aktifGorunum = 'canli';
+
+        function gorunumDegistir(ad) {
+            aktifGorunum = (ad === 'ilerleme') ? 'ilerleme' : 'canli';
+            const ilerlemeMi = (aktifGorunum === 'ilerleme');
+
+            document.getElementById('gorunumCanli').style.display    = ilerlemeMi ? 'none' : '';
+            document.getElementById('gorunumIlerleme').style.display = ilerlemeMi ? '' : 'none';
+            document.getElementById('sekmeCanli').classList.toggle('aktif', !ilerlemeMi);
+            document.getElementById('sekmeIlerleme').classList.toggle('aktif', ilerlemeMi);
+
+            /* Görünüm adreste tutulsun: F5 aynı sekmeyi açsın, bağlantı
+               paylaşıldığında karşı taraf aynı ekranı görsün. */
+            const adres = new URL(window.location);
+            if (ilerlemeMi) { adres.searchParams.set('gorunum', 'ilerleme'); }
+            else            { adres.searchParams.delete('gorunum'); }
+            history.replaceState(null, '', adres);
+
+            if (ilerlemeMi) { ilerlemeCek(); } else { ogrencileriCek(); }
+        }
+
+        /* Sınıf seçimi İKİ SEKME İÇİN ORTAK.
+           Öğretmen canlı takipte 5A'yı seçip ilerlemeye geçtiğinde 5A'yı
+           tekrar seçmek zorunda kalmasın diye tek kutu kullanılıyor. */
+        function sinifDegisti() {
+            if (aktifGorunum === 'ilerleme') { ilerlemeCek(); } else { ogrencileriCek(); }
+        }
+
         function ogrencileriCek() {
+            if (aktifGorunum !== 'canli') return;   // görünmeyen tabloyu tazeleme
             let secilenSinifId = document.getElementById('sinifSelect').value;
 
             fetch('../api/teacher_remote.php?islem=liste&sinif_id=' + secilenSinifId)
@@ -378,9 +556,325 @@ if ($sure_doldu_mu) {
                 });
         }
 
-        ogrencileriCek();
-        canliYayinInterval = setInterval(ogrencileriCek, 3000); // 3 saniyede bir tabloyu yenile
-        // canliYayinInterval = setInterval(ogrencileriCek, 3000); satırının altına yapıştırılacak
+        /* ====================================================================
+           İLERLEME SEKMESİ — [2026-08] admin/ogrenci_ilerleme.php'den taşındı
+
+           Tablo tamamen api/sinif_ilerleme_durumu.php'den doluyor. O uç nokta
+           sınıf kaç kişilik olursa olsun 5 SORGU çalıştırır (öğrenci başına
+           döngü içinde sorgu YOK), bu yüzden 10 saniyede bir yoklamak
+           sunucuyu zorlamaz.
+
+           Frenler: sekme arkadaysa dur, sıfırlama paneli açıkken dur, üst üste
+           istek atma, `damga` değişmediyse DOM'a hiç dokunma.
+           ================================================================== */
+        const ILERLEME_API = '../api/sinif_ilerleme_durumu.php';
+        const SIFIRLA_API  = '../api/ogrenci_ilerleme_sifirla.php';
+        const ILERLEME_ARALIK = 10000;
+
+        let ilerlemeDamga   = '';
+        let ilerlemeMesgul  = false;
+        let ilerlemeSonSinif = 0;   // hangi sınıf çizili — sınıf değişince vurgu yapma
+
+        function kacir(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+
+        function ilerlemeCek() {
+            if (aktifGorunum !== 'ilerleme') return;
+
+            /* ⚠️ SIRALAMA ÖNEMLİ — [2026-08 HATA DÜZELTMESİ]
+               Sınıf kontrolü, "istek uçuşta mı" (ilerlemeMesgul) kontrolünden
+               ÖNCE gelmeli. Ters sıradayken şu oluyordu: bir istek uçarken
+               öğretmen "Tüm sınıflar"a geçince fonksiyon erkenden dönüyor,
+               uyarı hiç görünmüyor ve saniyeler sonra dönen cevap ESKİ sınıfın
+               tablosunu çiziyordu. Ekranda "Tüm sınıflar" yazarken 5A'nın
+               verisi duruyordu. Arayüz her zaman ŞU ANKİ seçimi göstermeli. */
+            const sinifId = parseInt(document.getElementById('sinifSelect').value, 10);
+            const uyari   = document.getElementById('ilerlemeSinifUyari');
+            const sarmal  = document.getElementById('ilerlemeTabloSarmal');
+
+            /* "Tüm sınıflar" seçiliyken ilerleme gösterilmez: bölüm yüzdeleri
+               farklı sınıfların müfredat noktalarını karıştırırdı. */
+            if (!sinifId) {
+                uyari.style.display  = '';
+                sarmal.style.display = 'none';
+                ilerlemeDamga = '';          // sonraki sınıf mutlaka yeniden çizilsin
+                return;
+            }
+            uyari.style.display  = 'none';
+            sarmal.style.display = '';
+
+            if (ilerlemeMesgul) return;
+            if (document.hidden) return;
+            if (document.getElementById('sifirlaPerde').classList.contains('acik')) return;
+
+            ilerlemeMesgul = true;
+            fetch(ILERLEME_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ sinif_id: sinifId })
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (!d.success) throw new Error(d.mesaj || 'hata');
+
+                /* Cevap geç geldiyse ve öğretmen bu arada sınıfı değiştirdiyse
+                   ÇÖPE AT. Yoksa 5A'nın gecikmiş cevabı 5B'nin tablosunu ezer. */
+                if (parseInt(document.getElementById('sinifSelect').value, 10) !== sinifId) return;
+
+                /* Damga aynıysa hiçbir şey değişmemiş — DOM'a dokunma */
+                const yeniDamga = d.damga + ':' + sinifId;
+                if (yeniDamga === ilerlemeDamga) return;
+
+                /* Yeşil vurgu SADECE "bir şey değişti" demek için var.
+                   İlk çizimde ya da sınıf değiştiğinde tüm tablo yanıp sönerse
+                   anlamını yitirir — öğretmen neyin değiştiğini ayırt edemez. */
+                const vurgula = (ilerlemeDamga !== '') && (ilerlemeSonSinif === sinifId);
+
+                ilerlemeDamga    = yeniDamga;
+                ilerlemeSonSinif = sinifId;
+
+                ilerlemeCiz(d.ogrenciler || [], !vurgula);
+            })
+            .catch(() => {
+                document.getElementById('ilerlemeGovde').innerHTML =
+                    '<tr><td colspan="6" class="ot-bos">Bağlantı kurulamadı, tekrar denenecek.</td></tr>';
+            })
+            .finally(() => { ilerlemeMesgul = false; });
+        }
+
+        function ilerlemeCiz(liste, ilkCizim) {
+            const govde = document.getElementById('ilerlemeGovde');
+
+            if (!liste.length) {
+                govde.innerHTML = '<tr><td colspan="6" class="ot-bos">Bu sınıfta onaylı öğrenci yok.</td></tr>';
+                return;
+            }
+
+            let html = '';
+            liste.forEach(o => {
+                ogrenciAdlari[o.id] = o.ad;   // sıfırlama paneli başlığı için
+
+                const durum = o.cezali > 0
+                    ? `<span class="ot-rozet ot-rozet-kirmizi">⚠️ ${o.cezali} görev tekrar</span>`
+                    : `<span class="ot-rozet ot-rozet-yesil">✓ Temiz</span>`;
+
+                html += `<tr data-ogrenci="${o.id}">
+                    <td><strong>${kacir(o.ad)}</strong>${o.kullanici_adi ? `<br><small style="color:#64748b;">@${kacir(o.kullanici_adi)}</small>` : ''}</td>
+                    <td>${kacir(o.bolum)}</td>
+                    <td>
+                        <div class="il-cubuk"><span style="width:${o.yuzde}%"></span></div>
+                        <small style="color:#64748b;">${o.cozulen} / ${o.toplam} görev (%${o.yuzde})</small>
+                    </td>
+                    <td style="text-align:center;" class="${o.elmas < 0 ? 'il-eksi' : ''}">${o.elmas}</td>
+                    <td>${durum}</td>
+                    <td style="text-align:right;">
+                        <button class="ot-btn ot-btn-ana ot-btn-kucuk" onclick="sifirlaAc(${o.id})">✏️ Düzenle</button>
+                    </td>
+                </tr>`;
+            });
+            govde.innerHTML = html;
+
+            /* İlk çizimde her satır yanıp sönmesin — sadece sonraki
+               güncellemelerde öğretmenin gözü değişikliğe takılsın. */
+            if (!ilkCizim) {
+                govde.querySelectorAll('tr').forEach(tr => tr.classList.add('yenilendi'));
+            }
+        }
+
+        /* ====================================================================
+           SIFIRLAMA PANELİ — iki adımlı
+           Adım 1: bölüm seç -> "Devam" -> sunucudan ÖNİZLEME (hiçbir şey yazılmaz)
+           Adım 2: önizlemeyi gör -> "Evet, Sıfırla" -> gerçek işlem
+
+           ⚠️ CEZA KURALI: kalici_puan'a dokunulmaz (lig/arena/canavar ona bağlı).
+           Ceza sadece elmastan kesilir ve eksiye düşebilir.
+           ================================================================== */
+        let sifirlaOgrenci = 0;
+        let sifirlaAdim    = 1;
+
+        function sifirlaDurumGoster(tur, metin) {
+            const k = document.getElementById('sifirlaDurum');
+            k.textContent = metin;
+            k.style.display = '';
+            k.style.background = tur === 'hata' ? '#fef2f2' : '#ecfdf5';
+            k.style.color      = tur === 'hata' ? '#991b1b' : '#065f46';
+            k.style.border     = '1px solid ' + (tur === 'hata' ? '#fecaca' : '#a7f3d0');
+        }
+        function sifirlaDurumGizle() { document.getElementById('sifirlaDurum').style.display = 'none'; }
+
+        async function sifirlaAc(ogrenciId) {
+            sifirlaOgrenci = ogrenciId;
+            sifirlaAdim    = 1;
+
+            document.getElementById('sifirlaBaslik').textContent = ogrenciAdlari[ogrenciId] || 'Öğrenci';
+            document.getElementById('sifirlaSebep').value = '';
+            document.getElementById('sifirlaOnizleme').innerHTML = '';
+            document.getElementById('sifirlaOnayBtn').textContent = 'Devam';
+            document.getElementById('sifirlaOnayBtn').disabled = true;
+            sifirlaDurumGizle();
+
+            const kutu = document.getElementById('sifirlaBolumListesi');
+            kutu.innerHTML = '<div class="ot-bos">Yükleniyor…</div>';
+            document.getElementById('sifirlaPerde').classList.add('acik');
+
+            /* [PERFORMANS] Bölüm haritaları sayfaya GÖMÜLMÜYOR. 40 kişilik
+               sınıfta 40 ekstra sorgu demekti, üstelik öğretmen belki hiçbirine
+               tıklamayacaktı. Kaleme basılınca tek öğrenci için çekiliyor. */
+            let harita = null;
+            try {
+                const cevap = await fetch(SIFIRLA_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'same-origin',
+                    body: JSON.stringify({ islem: 'harita', ogrenci_id: ogrenciId })
+                });
+                const s = await cevap.json();
+                if (s.success) { harita = s.harita; }
+                else { kutu.innerHTML = `<div class="ot-bos">${kacir(s.mesaj || 'Harita alınamadı.')}</div>`; return; }
+            } catch (e) {
+                kutu.innerHTML = '<div class="ot-bos">Bağlantı kurulamadı.</div>';
+                return;
+            }
+
+            if (!harita || !harita.bolumler || !harita.bolumler.length) {
+                kutu.innerHTML = '<div class="ot-bos">Henüz görev tanımlanmamış.</div>';
+                return;
+            }
+
+            kutu.innerHTML = '';
+            harita.bolumler.forEach(b => {
+                const dokundu = b.cozulen > 0;   // hiç dokunmadığı bölüm seçilemez
+                const satir = document.createElement('label');
+                satir.className = 'bolum-satir' + (dokundu ? '' : ' kilitli');
+
+                const noktalar = b.gorevler.map(g =>
+                    `<span class="nokta ${g.durum}" title="${kacir(g.ad)}"></span>`).join('');
+
+                satir.innerHTML = `
+                    <input type="checkbox" value="${b.id}" ${dokundu ? '' : 'disabled'}>
+                    <div class="bolum-bilgi">
+                        <b>${dokundu ? '' : '🔒 '}${kacir(b.ad)}</b>
+                        <small>${b.cozulen} / ${b.toplam} görev tamamlandı</small>
+                        <div class="noktalar">${noktalar}</div>
+                    </div>`;
+
+                const kutucuk = satir.querySelector('input');
+                kutucuk.addEventListener('change', () => {
+                    satir.classList.toggle('secili', kutucuk.checked);
+                    sifirlaSecimKontrol();
+                });
+                kutu.appendChild(satir);
+            });
+        }
+
+        function sifirlaKapat() {
+            document.getElementById('sifirlaPerde').classList.remove('acik');
+            sifirlaOgrenci = 0;
+        }
+
+        function sifirlaSecilenler() {
+            return [...document.querySelectorAll('#sifirlaBolumListesi input:checked')]
+                   .map(i => parseInt(i.value, 10));
+        }
+
+        function sifirlaSecimKontrol() {
+            /* Seçim değişince önizleme geçersiz olur — adım 1'e dön.
+               Yoksa öğretmen A bölümünün önizlemesini görüp B'yi sıfırlardı. */
+            if (sifirlaAdim === 2) {
+                sifirlaAdim = 1;
+                document.getElementById('sifirlaOnizleme').innerHTML = '';
+                document.getElementById('sifirlaOnayBtn').textContent = 'Devam';
+            }
+            document.getElementById('sifirlaOnayBtn').disabled = sifirlaSecilenler().length === 0;
+        }
+
+        async function sifirlaIstek(islem) {
+            const cevap = await fetch(SIFIRLA_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({
+                    islem,
+                    ogrenci_id: sifirlaOgrenci,
+                    bolum_idler: sifirlaSecilenler(),
+                    sebep: document.getElementById('sifirlaSebep').value
+                })
+            });
+            return cevap.json();
+        }
+
+        async function sifirlaAdimIlerle() {
+            const btn = document.getElementById('sifirlaOnayBtn');
+            btn.disabled = true;
+            sifirlaDurumGizle();
+
+            try {
+                if (sifirlaAdim === 1) {
+                    const s = await sifirlaIstek('onizleme');
+                    if (!s.success) { sifirlaDurumGoster('hata', '❌ ' + (s.mesaj || s.message || 'Hata')); btn.disabled = false; return; }
+
+                    const v = s.veri || s.data || s;
+                    document.getElementById('sifirlaOnizleme').innerHTML = `
+                      <div class="ot-hata-kutu" style="margin-top:14px;">
+                        <b>Onaylarsan ne olacak?</b>
+                        <ul style="margin:10px 0 0; padding-left:20px; font-weight:400;">
+                          <li><b>${v.gorev_sayisi}</b> görev sıfırlanacak, öğrenci bunları tekrar çözecek.</li>
+                          <li>Elmas cezası: <b>-${v.elmas_cezasi} 💎</b>
+                              (${v.mevcut_elmas} → <b style="color:${v.yeni_elmas < 0 ? '#b91c1c' : 'inherit'}">${v.yeni_elmas}</b>)</li>
+                          <li>Puanına <b>dokunulmayacak</b> — lig sıralaması ve arena gücü bozulmaz.</li>
+                          <li>Avatarında kırmızı ceza efekti çıkacak; görevleri bitirince kalkacak.</li>
+                        </ul>
+                      </div>`;
+
+                    sifirlaAdim = 2;
+                    btn.textContent = '🔴 Evet, Sıfırla';
+                    btn.disabled = false;
+                    return;
+                }
+
+                const s = await sifirlaIstek('sifirla');
+                if (!s.success) { sifirlaDurumGoster('hata', '❌ ' + (s.mesaj || s.message || 'Hata')); btn.disabled = false; return; }
+
+                sifirlaDurumGoster('basari', '✅ ' + (s.mesaj || s.message || 'Sıfırlandı.'));
+                ilerlemeDamga = '';                 // tablo mutlaka yeniden çizilsin
+                setTimeout(() => { sifirlaKapat(); ilerlemeCek(); }, 900);
+
+            } catch (e) {
+                sifirlaDurumGoster('hata', '❌ Bağlantı hatası: ' + e.message);
+                btn.disabled = false;
+            }
+        }
+
+        document.getElementById('sifirlaPerde').addEventListener('mousedown', e => {
+            if (e.target.id === 'sifirlaPerde') sifirlaKapat();
+        });
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') sifirlaKapat();
+        });
+
+        /* ====================================================================
+           BAŞLANGIÇ
+           ================================================================== */
+        canliYayinInterval = setInterval(ogrencileriCek, 3000);   // canlı takip
+        setInterval(ilerlemeCek, ILERLEME_ARALIK);                // ilerleme
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && aktifGorunum === 'ilerleme') ilerlemeCek();
+        });
+
+        /* Adreste ?gorunum=ilerleme varsa o sekmeyle aç (F5 / paylaşılan bağlantı).
+           Sınıf da adresten gelebilir: eski ogrenci_ilerleme.php buraya
+           ?gorunum=ilerleme&sinif_id=N ile yönlendiriyor. */
+        (function baslangic() {
+            const p = new URLSearchParams(window.location.search);
+            const sinifId = parseInt(p.get('sinif_id') || '0', 10);
+            if (sinifId) {
+                const secim = document.getElementById('sinifSelect');
+                if ([...secim.options].some(o => parseInt(o.value, 10) === sinifId)) {
+                    secim.value = String(sinifId);
+                }
+            }
+            gorunumDegistir(p.get('gorunum') === 'ilerleme' ? 'ilerleme' : 'canli');
+        })();
     </script>
 
     <?php if ($uyelik_bitis): ?>
