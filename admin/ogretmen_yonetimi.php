@@ -204,6 +204,11 @@ function kalanSureMetni(?string $bitisTarihi): array
         .islem-btn.onay:hover { background: #10b981; }
         .islem-btn.uzat  { background: #1d4ed8; border-color: #3b82f6; }
         .islem-btn.uzat:hover { background: #2563eb; }
+        .islem-btn.eksi  { background: #334155; border-color: #64748b; color: #fcd34d; }
+        .islem-btn.eksi:hover { background: #475569; }
+        /* Aboneliği bitir: silmeyle KARIŞMASIN diye turuncu, sil kırmızı */
+        .islem-btn.kapat { background: transparent; border-color: #b45309; color: #fcd34d; }
+        .islem-btn.kapat:hover { background: #78350f; color: #fde68a; }
         .islem-btn.sil   { background: transparent; border-color: #7f1d1d; color: #fca5a5; }
         .islem-btn.sil:hover { background: #7f1d1d; color: #fecaca; }
         .islem-btn:disabled { opacity: .55; cursor: not-allowed; }
@@ -323,6 +328,16 @@ function kalanSureMetni(?string $bitisTarihi): array
             PIN'e tıklayarak panoya kopyalayabilirsin.
         </p>
 
+        <!-- [2026-08] İki farklı "kapatma" var, karıştırılmasın diye açıkça yazıldı -->
+        <div style="background:#1e3a5f; border:1px solid #2563eb; color:#bfdbfe; padding:12px 15px; border-radius:10px; font-size:12.5px; line-height:1.65; margin-bottom:16px;">
+            <b>⏹ Aboneliği Bitir</b> ile <b>Sil</b> aynı şey değil:
+            <br>• <b>Aboneliği Bitir</b> → öğretmen giriş yapamaz ama <b>hiçbir veri silinmez</b>.
+            PIN, sınıflar, öğrenciler ve puanlar durur. Parasını yatırıp dönerse
+            <b>+ Ay</b> ile kaldığı yerden devam eder. <i>(Vazgeçme / iade durumu için bunu kullan.)</i>
+            <br>• <b>− Ay</b> → kısmi iade. Örn. 15 ay aldı, 3 ay kullandı, 12 ay düşersin.
+            <br>• <b>Sil</b> → kayıt ve tüm verileri <b>kalıcı olarak</b> yok eder, geri dönüşü yoktur.
+        </div>
+
         <?php if (empty($kayitlilar)): ?>
             <div class="bos">Henüz kayıtlı öğretmen yok.</div>
         <?php else: ?>
@@ -390,11 +405,19 @@ function kalanSureMetni(?string $bitisTarihi): array
                     </td>
 
                     <td>
-                        <div style="display:flex; gap:7px; align-items:center; flex-wrap:wrap;">
+                        <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
                             <input type="number" class="ay-kutu" id="ay_uzat_<?= $oid ?>"
-                                   value="<?= $onerilenAy ?>" min="1" max="120" title="Eklenecek süre (ay)">
-                            <button class="islem-btn uzat" onclick="islemYap('uzat', <?= $oid ?>)">+ Süre</button>
-                            <button class="islem-btn sil" id="btn_sil_<?= $oid ?>" onclick="ogretmenSil(<?= $oid ?>, this)">Sil</button>
+                                   value="<?= $onerilenAy ?>" min="1" max="120" title="Eklenecek / düşülecek süre (ay)">
+                            <button class="islem-btn uzat" onclick="islemYap('uzat', <?= $oid ?>)"
+                                    title="Mevcut bitiş tarihine bu kadar ay EKLE">+ Ay</button>
+                            <button class="islem-btn eksi" onclick="sureAzalt(<?= $oid ?>)"
+                                    title="Mevcut bitiş tarihinden bu kadar ay DÜŞ (kısmi iade)">− Ay</button>
+                        </div>
+                        <div style="display:flex; gap:6px; margin-top:7px; flex-wrap:wrap;">
+                            <button class="islem-btn kapat" onclick="aboneligiBitir(<?= $oid ?>, <?= htmlspecialchars(json_encode($ogr['ad_soyad']), ENT_QUOTES) ?>)"
+                                    title="Aboneliği hemen kapat — hiçbir veri silinmez">⏹ Aboneliği Bitir</button>
+                            <button class="islem-btn sil" id="btn_sil_<?= $oid ?>" onclick="ogretmenSil(<?= $oid ?>, this)"
+                                    title="Kaydı ve tüm verilerini KALICI olarak sil">Sil</button>
                         </div>
                     </td>
                 </tr>
@@ -537,6 +560,54 @@ function islemYap(islemTuru, id) {
             } else {
                 alert('❌ ' + (d.message || d.mesaj || 'İşlem başarısız.'));
             }
+        })
+        .catch(() => alert('❌ Sunucuya ulaşılamadı.'));
+}
+
+
+/* ============================================================================
+   SÜRE AZALT — kısmi iade
+   Örn: 15 ay aldı, 3 ay kullandı, kalanın parasını istiyor -> 12 ay düş.
+   Geçmişe taşarsa abonelik kapanır ama VERİ SİLİNMEZ.
+   ========================================================================= */
+function sureAzalt(id) {
+    const kutu = document.getElementById('ay_uzat_' + id);
+    const ay   = kutu ? parseInt(kutu.value, 10) : 0;
+
+    if (!ay || ay < 1) { alert('Düşülecek ay sayısını gir.'); if (kutu) kutu.focus(); return; }
+
+    if (!confirm(ay + ' ay düşülecek.\n\nBu işlem sadece bitiş tarihini geri çeker.\n' +
+                 'Öğretmenin PIN\'i, sınıfları, öğrencileri ve puanları SİLİNMEZ.\n\nDevam edilsin mi?')) return;
+
+    apiCagir({ islem: 'sure_azalt', id: id, ay: ay })
+        .then(d => {
+            alert((d.success ? '✅ ' : '❌ ') + (d.message || d.mesaj || ''));
+            if (d.success) location.reload();
+        })
+        .catch(() => alert('❌ Sunucuya ulaşılamadı.'));
+}
+
+
+/* ============================================================================
+   ABONELİĞİ BİTİR — veri silmeden erişimi kapat
+
+   NEDEN SİLMEK YERİNE BU?
+   "Öğretmen vazgeçti, parasını geri istiyor" durumunda kaydı silmek geri
+   dönüşü olmayan bir kayıp: PIN, sınıflar, öğrencilerin puanları ve çözdüğü
+   görevler hepsi gider. Bu düğme sadece bitiş tarihini düne çeker; öğretmen
+   giriş yapamaz ama geri dönerse "+ Ay" ile kaldığı yerden devam eder.
+   ========================================================================= */
+function aboneligiBitir(id, ad) {
+    if (!confirm('"' + ad + '" adlı öğretmenin ABONELİĞİ KAPATILACAK.\n\n' +
+                 '• Öğretmen sisteme giriş yapamayacak\n' +
+                 '• PIN, sınıflar, öğrenciler ve puanlar SİLİNMEYECEK\n' +
+                 '• Parasını yatırıp dönerse "+ Ay" ile kaldığı yerden devam eder\n\n' +
+                 'Devam edilsin mi?')) return;
+
+    apiCagir({ islem: 'aboneligi_bitir', id: id })
+        .then(d => {
+            alert((d.success ? '✅ ' : '❌ ') + (d.message || d.mesaj || ''));
+            if (d.success) location.reload();
         })
         .catch(() => alert('❌ Sunucuya ulaşılamadı.'));
 }

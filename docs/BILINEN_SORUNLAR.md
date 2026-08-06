@@ -350,3 +350,50 @@ Podyum (ilk 3) + **tam sıralama** + **🏫 Yönetim Paneline Dön**
 Tek uç nokta: `api/quiz_skor_tablosu.php` — öğretmen kendi oturumunu, öğrenci
 kendi sınıfının oturumunu görebilir. İki ayrı dosya yazılsaydı sıralama mantığı
 iki yerde durur, biri değişince taraflar farklı tablo görürdü.
+
+---
+
+## ✅ 2026-08 — Abonelik iptali ve "Süreyi Ekle" hatası
+
+### 🐛 "Süreyi Ekle" düğmesi süreyi UZATMIYOR, SIFIRLIYORDU
+
+`api/admin_teacher_action.php` içindeki `uzat` işlemi şunu yapıyordu:
+
+```php
+$bitis_tarihi = date('Y-m-d H:i:s', strtotime("+$hesaplanacak_ay months"));
+```
+
+Yeni bitiş **NOW()'dan** hesaplanıyor, mevcut bitişe **eklenmiyordu**.
+Sonuç: 10 ayı kalan öğretmene 1 ay "eklediğinde" öğretmen **243 gün
+kaybediyordu**. Düğmenin adı "Süreyi Ekle" ama yaptığı iş sıfırlamaktı.
+
+**Düzeltme:** `yeni bitiş = (kalan süre varsa mevcut bitiş, yoksa bugün) + ay`
+Süresi çoktan dolmuş öğretmene eklerken geçmişten değil bugünden başlanır;
+yoksa eklenen ay geçmişte erir.
+
+### Abonelik iptali — veri silmeden
+
+**Senaryo:** Öğretmen 15 ay aldı, vazgeçti, para iadesi istiyor. Kaydı silmek
+geri dönüşü olmayan bir kayıp: PIN, sınıflar, öğrencilerin puanları ve çözdüğü
+görevler hepsi gider.
+
+Üç ayrı işlem eklendi:
+
+| İşlem | Ne yapar | Veri |
+|---|---|---|
+| `uzat` (+ Ay) | Mevcut bitişe ay ekler | — |
+| `sure_azalt` (− Ay) | Mevcut bitişten ay düşer (kısmi iade) | korunur |
+| `aboneligi_bitir` (⏹) | Erişimi hemen keser | **korunur** |
+| `sil` | Kaydı ve her şeyi yok eder | **silinir** |
+
+Abonelik kapatılan öğretmen `+ Ay` ile kaldığı yerden geri döner.
+
+> ⚠️ **TARİH KARŞILAŞTIRMASI TUZAĞI**
+> `api/teacher_login.php` girişte **sadece TARİHE** bakar — iki tarafa da
+> `setTime(0,0,0)` uygular, saate bakmaz. Yani `bitis_tarihi = NOW()` yazmak
+> öğretmeni **engellemez**, bugün hâlâ girebilir.
+> Bu yüzden iptalde tarih **DÜNE** çekilir (`engelliTarih()`).
+> Aynı tuzağa düşmemek için yeni bir "hemen engelle" kodu yazarken bunu hatırla.
+
+**Arayüz:** "⏹ Aboneliği Bitir" turuncu, "Sil" kırmızı — karıştırılmasın diye
+farklı renk ve tablonun üstünde ikisinin farkını anlatan bir bilgi kutusu var.
