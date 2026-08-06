@@ -67,33 +67,86 @@ if ($seciliSinif > 0) {
     $ogrenciler = $st->fetchAll(PDO::FETCH_ASSOC);
 }
 
-/* ---- Her öğrenci için ilerleme özeti (tek tek, ama sınıf küçük) ---- */
+/* ============================================================================
+ * HER ÖĞRENCİ İÇİN İLERLEME ÖZETİ
+ *
+ * [2026-08] Bu blok eskiden öğrenci başına 2 sorgu atıyordu (40 kişilik sınıfta
+ * 80 sorgu). Artık TÜM SINIF İÇİN TEK GROUP BY sorgusu çalışıyor — canlı
+ * tablonun kullandığı api/sinif_ilerleme_durumu.php ile aynı yöntem.
+ * ========================================================================== */
 $ozetler = [];
-foreach ($ogrenciler as $o) {
-    $oid = (int) $o['id'];
-    ilerlemeOnbelleginiTemizle($oid);
-    $harita = ilerlemeHaritasi($pdo, $oid);
-    $ceza   = ogrencininCezasi($pdo, $oid);
 
-    /* Şu an hangi bölümde? = tamamlanmamış ilk açık bölüm */
-    $suAnkiBolum = '—';
-    foreach ($harita['bolumler'] as $b) {
-        if ($b['acik'] && $b['toplam'] > 0 && !$b['bitti']) {
-            $suAnkiBolum = $b['ad'];
-            break;
+if ($ogrenciler) {
+    $bolumListesi = bolumleriGetir($pdo);
+
+    $bolumBilgi  = [];
+    $toplamGorev = 0;
+    foreach ($bolumListesi as $b) {
+        $adet = count($b['gorevler']);
+        if ($adet === 0) {
+            continue;   // boş bölüm ilerleme hesabına girmez
         }
-    }
-    if ($suAnkiBolum === '—' && $harita['cozulen_gorev'] > 0) {
-        $suAnkiBolum = '🏁 Tümü tamam';
+        $bolumBilgi[(int) $b['id']] = ['ad' => $b['bolum_adi'], 'toplam' => $adet];
+        $toplamGorev += $adet;
     }
 
-    $ozetler[$oid] = [
-        'bolum'  => $suAnkiBolum,
-        'yuzde'  => $harita['genel_yuzde'],
-        'cozulen'=> $harita['cozulen_gorev'],
-        'toplam' => $harita['toplam_gorev'],
-        'ceza'   => $ceza,
-    ];
+    /* Tek sorgu: öğrenci x bölüm kırılımında çözülen ve cezalı görev sayısı */
+    $st = $pdo->prepare(
+        "SELECT i.ogrenci_id,
+                g.bolum_id,
+                SUM(CASE WHEN i.kazanilan_puan > 0 THEN 1 ELSE 0 END) AS cozulen,
+                SUM(CASE WHEN i.kazanilan_puan = 0
+                          AND i.sifirlanma_tarihi IS NOT NULL THEN 1 ELSE 0 END) AS cezali
+           FROM v2_ogrenci_ilerleme i
+           JOIN v2_gorevler g ON g.id = i.v2_gorev_id AND g.yayinda = 1
+           JOIN ogrenciler  o ON o.id = i.ogrenci_id
+          WHERE o.sinif_id = ?
+          GROUP BY i.ogrenci_id, g.bolum_id"
+    );
+    $st->execute([$seciliSinif]);
+
+    $sayaclar = [];
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $sayaclar[(int) $r['ogrenci_id']][(int) $r['bolum_id']] = [
+            'cozulen' => (int) $r['cozulen'],
+            'cezali'  => (int) $r['cezali'],
+        ];
+    }
+
+    foreach ($ogrenciler as $o) {
+        $oid   = (int) $o['id'];
+        $kendi = $sayaclar[$oid] ?? [];
+
+        $cozulenToplam = 0;
+        $cezaliToplam  = 0;
+        $suAnkiBolum   = '—';
+        $bulundu       = false;
+
+        foreach ($bolumBilgi as $bid => $bilgi) {
+            $c = $kendi[$bid]['cozulen'] ?? 0;
+            $z = $kendi[$bid]['cezali']  ?? 0;
+
+            $cozulenToplam += $c;
+            $cezaliToplam  += $z;
+
+            if (!$bulundu && $c < $bilgi['toplam']) {
+                $suAnkiBolum = $bilgi['ad'];
+                $bulundu     = true;
+            }
+        }
+
+        if (!$bulundu && $cozulenToplam > 0) {
+            $suAnkiBolum = '🏁 Tümü tamam';
+        }
+
+        $ozetler[$oid] = [
+            'bolum'   => $suAnkiBolum,
+            'yuzde'   => $toplamGorev > 0 ? (int) round($cozulenToplam / $toplamGorev * 100) : 0,
+            'cozulen' => $cozulenToplam,
+            'toplam'  => $toplamGorev,
+            'ceza'    => ['cezali' => $cezaliToplam > 0, 'gorev_sayisi' => $cezaliToplam],
+        ];
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -173,6 +226,27 @@ foreach ($ogrenciler as $o) {
     .btn-onayla:disabled{ background:var(--gri); cursor:not-allowed; }
 
     .bos{ text-align:center; padding:44px; color:var(--soluk); }
+
+    /* ---- Canlı güncelleme göstergesi ---- */
+    .canli{ display:flex; align-items:center; gap:7px; font-size:12.5px; color:var(--soluk); }
+    .canli-nokta{
+        width:9px; height:9px; border-radius:50%; background:var(--yesil);
+        box-shadow:0 0 0 0 rgba(16,185,129,.6);
+        animation:canliNabiz 2s ease-out infinite;
+    }
+    .canli-nokta.kopuk{ background:var(--kirmizi); animation:none; }
+    @keyframes canliNabiz{
+        0%  { box-shadow:0 0 0 0 rgba(16,185,129,.55); }
+        70% { box-shadow:0 0 0 7px rgba(16,185,129,0); }
+        100%{ box-shadow:0 0 0 0 rgba(16,185,129,0); }
+    }
+
+    /* Güncellenen satır kısa bir an vurgulanır */
+    tr.yenilendi td{ animation:satirParla 1.6s ease-out; }
+    @keyframes satirParla{
+        0%  { background:#dcfce7; }
+        100%{ background:transparent; }
+    }
 </style>
 </head>
 <body>
@@ -197,6 +271,12 @@ foreach ($ogrenciler as $o) {
                 <?php endforeach; ?>
             </select>
             <span style="color:#64748b;font-size:14px;"><?= temizle($okul_adi) ?></span>
+
+            <!-- Tablo canlı: öğrenci görev bitirdiğinde kendiliğinden güncellenir -->
+            <span class="canli" style="margin-left:auto;">
+                <span class="canli-nokta" id="canliNokta" title="Canlı — tablo kendiliğinden güncelleniyor"></span>
+                Canlı
+            </span>
         </form>
     </div>
 
@@ -215,27 +295,28 @@ foreach ($ogrenciler as $o) {
                     <th style="text-align:right;">İşlem</th>
                 </tr>
             </thead>
-            <tbody>
+            <!-- Satırlar canlı güncellenir: her <td> data-alan ile etiketli -->
+            <tbody id="tabloGovde">
             <?php foreach ($ogrenciler as $o):
                 $oid = (int) $o['id'];
                 $oz  = $ozetler[$oid]; ?>
-                <tr>
+                <tr data-ogrenci="<?= $oid ?>">
                     <td>
                         <b><?= temizle($o['ad_soyad']) ?></b><br>
                         <small style="color:#64748b;">@<?= temizle($o['kullanici_adi']) ?></small>
                     </td>
-                    <td><?= temizle($oz['bolum']) ?></td>
-                    <td>
+                    <td data-alan="bolum"><?= temizle($oz['bolum']) ?></td>
+                    <td data-alan="ilerleme">
                         <div class="cubuk"><span style="width:<?= (int) $oz['yuzde'] ?>%"></span></div>
                         <small style="color:#64748b;">
                             <?= (int) $oz['cozulen'] ?> / <?= (int) $oz['toplam'] ?> görev
                             (%<?= (int) $oz['yuzde'] ?>)
                         </small>
                     </td>
-                    <td style="<?= (int) $o['elmas'] < 0 ? 'color:#b91c1c;font-weight:700;' : '' ?>">
+                    <td data-alan="elmas" style="<?= (int) $o['elmas'] < 0 ? 'color:#b91c1c;font-weight:700;' : '' ?>">
                         <?= (int) $o['elmas'] ?>
                     </td>
-                    <td>
+                    <td data-alan="durum">
                         <?php if ($oz['ceza']['cezali']): ?>
                             <span class="rozet ceza">⚠️ <?= (int) $oz['ceza']['gorev_sayisi'] ?> görev tekrar</span>
                         <?php else: ?>
@@ -292,11 +373,11 @@ foreach ($ogrenciler as $o) {
    Böylece öğretmen kaç elmas cezası verileceğini görmeden onaylamaz.
    ========================================================================= */
 
-const HARITALAR   = <?= json_encode(array_map(
-    fn($o) => ilerlemeHaritasi($pdo, (int) $o['id']),
-    array_combine(array_map(fn($o) => (int) $o['id'], $ogrenciler), $ogrenciler)
-), JSON_UNESCAPED_UNICODE) ?>;
-
+/* [2026-08 PERFORMANS] Öğrencilerin bölüm haritaları sayfaya GÖMÜLMÜYOR.
+   Eskiden sınıftaki her öğrenci için harita hesaplanıp JavaScript'e
+   yazılıyordu — 40 kişilik sınıfta 40 ekstra sorgu, üstelik öğretmen belki
+   hiçbirine tıklamayacaktı. Artık ✏️ kalemine basılınca tek öğrenci için
+   sunucudan çekiliyor. */
 const ADLAR = <?= json_encode(
     array_combine(
         array_map(fn($o) => (int) $o['id'], $ogrenciler),
@@ -305,12 +386,14 @@ const ADLAR = <?= json_encode(
     JSON_UNESCAPED_UNICODE
 ) ?>;
 
+const SIFIRLA_API = '<?= varlik('api/ogrenci_ilerleme_sifirla.php', '../') ?>';
+
 let aktifOgrenci = 0;
 let adim         = 1;
 
 function kacir(s){ const d=document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
 
-function paneliAc(ogrenciId){
+async function paneliAc(ogrenciId){
     aktifOgrenci = ogrenciId;
     adim = 1;
     document.getElementById('panelBaslik').textContent = ADLAR[ogrenciId] || 'Öğrenci';
@@ -319,13 +402,31 @@ function paneliAc(ogrenciId){
     document.getElementById('btnOnayla').textContent = 'Devam';
     document.getElementById('btnOnayla').disabled = true;
 
-    const harita = HARITALAR[ogrenciId];
-    const kutu   = document.getElementById('bolumListesi');
+    const kutu = document.getElementById('bolumListesi');
+    kutu.innerHTML = '<div class="bos">Yükleniyor…</div>';
+    document.getElementById('perde').classList.add('acik');
+
+    /* Haritayı şimdi, sadece bu öğrenci için çek */
+    let harita = null;
+    try{
+        const cevap = await fetch(SIFIRLA_API, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            credentials:'same-origin',
+            body: JSON.stringify({ islem:'harita', ogrenci_id: ogrenciId })
+        });
+        const s = await cevap.json();
+        if(s.success) harita = s.harita;
+        else kutu.innerHTML = `<div class="bos">${kacir(s.mesaj || 'Harita alınamadı.')}</div>`;
+    }catch(e){
+        kutu.innerHTML = '<div class="bos">Bağlantı kurulamadı.</div>';
+        return;
+    }
+
     kutu.innerHTML = '';
 
     if(!harita || !harita.bolumler || !harita.bolumler.length){
         kutu.innerHTML = '<div class="bos">Henüz görev tanımlanmamış.</div>';
-        document.getElementById('perde').classList.add('acik');
         return;
     }
 
@@ -354,8 +455,6 @@ function paneliAc(ogrenciId){
 
         kutu.appendChild(satir);
     });
-
-    document.getElementById('perde').classList.add('acik');
 }
 
 function paneliKapat(){
@@ -378,7 +477,7 @@ function secimiKontrolEt(){
 }
 
 async function istek(islem){
-    const cevap = await fetch('<?= varlik('api/ogrenci_ilerleme_sifirla.php', '../') ?>', {
+    const cevap = await fetch(SIFIRLA_API, {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify({
@@ -437,6 +536,124 @@ document.getElementById('perde').addEventListener('click', e => {
 document.addEventListener('keydown', e => {
     if(e.key === 'Escape') paneliKapat();
 });
+
+
+/* ============================================================================
+   CANLI TABLO — [2026-08]
+   Öğrenci bir görevi bitirdiği anda öğretmenin ekranı kendiliğinden güncellenir.
+   F5'e basmaya gerek yok.
+
+   ⚡ SUNUCUYU NEDEN ZORLAMAZ?
+   api/sinif_ilerleme_durumu.php sınıf kaç kişilik olursa olsun 3 SORGU
+   çalıştırır (öğrenci başına döngü içinde sorgu YOK). Ayrıca cevaptaki
+   "damga" değişmediyse tablo yeniden çizilmez.
+
+   Ek frenler:
+     - Sekme arka plandaysa hiç istek atılmaz
+     - Sıfırlama paneli açıkken durur (öğretmenin işini bölmesin)
+     - Üst üste istek gitmez
+     - Arka arkaya hata olursa aralık kendiliğinden uzar
+   ========================================================================= */
+(function(){
+    const API      = '<?= varlik('api/sinif_ilerleme_durumu.php', '../') ?>';
+    const SINIF_ID = <?= (int) $seciliSinif ?>;
+    const ARALIK   = 10000;   // 10 saniye
+
+    let sonDamga = '';
+    let calisiyor = false;
+    let hataSayisi = 0;
+    let zamanlayici = null;
+
+    function kacirMetin(s){ const d=document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
+
+    function satiriGuncelle(o){
+        const tr = document.querySelector(`tr[data-ogrenci="${o.id}"]`);
+        if(!tr) return;
+
+        const bolum = tr.querySelector('[data-alan="bolum"]');
+        if(bolum) bolum.textContent = o.bolum;
+
+        const ilerleme = tr.querySelector('[data-alan="ilerleme"]');
+        if(ilerleme){
+            ilerleme.innerHTML =
+                `<div class="cubuk"><span style="width:${o.yuzde}%"></span></div>` +
+                `<small style="color:#64748b;">${o.cozulen} / ${o.toplam} görev (%${o.yuzde})</small>`;
+        }
+
+        const elmas = tr.querySelector('[data-alan="elmas"]');
+        if(elmas){
+            elmas.textContent = o.elmas;
+            elmas.style.cssText = o.elmas < 0 ? 'color:#b91c1c;font-weight:700;' : '';
+        }
+
+        const durum = tr.querySelector('[data-alan="durum"]');
+        if(durum){
+            durum.innerHTML = o.cezali > 0
+                ? `<span class="rozet ceza">⚠️ ${o.cezali} görev tekrar</span>`
+                : `<span class="rozet temiz">✓ Temiz</span>`;
+        }
+
+        // Değişen satır kısa bir an vurgulansın ki öğretmen fark etsin
+        tr.classList.remove('yenilendi');
+        void tr.offsetWidth;              // animasyonu baştan başlat
+        tr.classList.add('yenilendi');
+    }
+
+    async function yokla(){
+        if(calisiyor) return;
+        if(document.hidden) return;                                  // sekme arkada
+        if(document.getElementById('perde').classList.contains('acik')) return;  // panel açık
+        if(SINIF_ID <= 0) return;
+
+        calisiyor = true;
+        try{
+            const cevap = await fetch(API, {
+                method:'POST',
+                headers:{'Content-Type':'application/json'},
+                credentials:'same-origin',
+                body: JSON.stringify({ sinif_id: SINIF_ID })
+            });
+            const s = await cevap.json();
+            if(!s.success) throw new Error(s.mesaj || 'hata');
+
+            hataSayisi = 0;
+
+            // Hiçbir şey değişmediyse DOM'a dokunma
+            if(s.damga === sonDamga) return;
+            sonDamga = s.damga;
+
+            (s.ogrenciler || []).forEach(satiriGuncelle);
+            isaretiGuncelle(true);
+
+        }catch(e){
+            hataSayisi++;
+            isaretiGuncelle(false);
+            // Arka arkaya hata varsa sunucuyu rahat bırak
+            if(hataSayisi >= 3){
+                clearInterval(zamanlayici);
+                zamanlayici = setInterval(yokla, ARALIK * 3);
+            }
+        }finally{
+            calisiyor = false;
+        }
+    }
+
+    function isaretiGuncelle(iyi){
+        const nokta = document.getElementById('canliNokta');
+        if(!nokta) return;
+        nokta.className = 'canli-nokta' + (iyi ? '' : ' kopuk');
+        nokta.title = iyi ? 'Canlı — tablo kendiliğinden güncelleniyor'
+                          : 'Bağlantı kurulamadı, tekrar denenecek';
+    }
+
+    zamanlayici = setInterval(yokla, ARALIK);
+
+    // Sekmeye dönünce hemen tazele
+    document.addEventListener('visibilitychange', () => { if(!document.hidden) yokla(); });
+
+    // İlk kontrolü biraz geciktir (sayfa zaten taze)
+    setTimeout(yokla, 3000);
+})();
 </script>
 </body>
 </html>

@@ -178,6 +178,13 @@ konfetili kutlama açılır (`kutlama.js`), öğrenci "Sıradaki Görev"e kendis
 
 Öğretmen `admin/ogrenci_ilerleme.php`'de sınıfının ilerlemesini görür; ✏️ ile bir
 öğrencinin bölümlerini işaretleyip **tekrar yaptırır** (`api/ogrenci_ilerleme_sifirla.php`).
+Tablo **canlı**dır (10 sn yoklama, `api/sinif_ilerleme_durumu.php`).
+
+> ⚡ **CANLI YOKLAMA KURALI:** Yoklanan uç noktalar öğrenci sayısından **bağımsız**
+> sabit sayıda sorgu çalıştırmalı. Sınıf verisi tek `GROUP BY` ile çekilir; döngü
+> içinde asla sorgu atılmaz. Frenler: sekme arkadaysa dur, modal açıkken dur,
+> üst üste istek atma, 3 hatadan sonra aralığı 3 katına çıkar, `damga` değişmediyse
+> DOM'a dokunma. Ölçek ve yük tablosu için `docs/API_REFERANS.md`.
 
 > ⚠️ **CEZA KURALI:** `kalici_puan`'a asla dokunma — lig/arena/canavar ona bağlı.
 > Ceza sadece **elmas**tan kesilir ve **eksiye düşebilir**. Sıfırlanan görev tekrar

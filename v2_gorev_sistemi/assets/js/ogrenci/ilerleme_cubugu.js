@@ -238,7 +238,15 @@
         var serit = el('ilerlemeCubugu');
         if (!menu || !tetik || !serit) return;
 
-        tetik.addEventListener('click', function (e) {
+        /* [2026-08] ŞERİDİN TAMAMI TIKLANABİLİR.
+           Sadece bölüm yazısı değil; boş alan, yüzde çubuğu, oran yazısı —
+           şeritte nereye tıklanırsa harita açılır/kapanır.
+           TEK İSTİSNA: görev daireleri. Onlar öğrenciyi göreve götürür.
+           (daireYap() içinde stopPropagation var, buraya hiç ulaşmazlar.) */
+        serit.addEventListener('click', function (e) {
+            // Açılır menünün İÇİNE tıklandıysa menüyü kapatma
+            if (menu.contains(e.target)) return;
+
             e.stopPropagation();
             if (menu.classList.contains('acik')) haritayiKapat();
             else haritayiAc();
@@ -412,9 +420,17 @@
 
     /* ====================================================================
      * CANLI YOKLAMA
-     * 15 saniyede bir sunucuyu kontrol eder. Sekme arka plandaysa
-     * (görünmüyorsa) boşuna istek atmaz.
+     *
+     * 10 saniyede bir sunucuyu kontrol eder. Frenler:
+     *   - Sekme arka plandaysa hiç istek atılmaz
+     *   - Kart açıkken durur (öğrencinin okuduğu şeyi bozmasın)
+     *   - Üst üste istek gitmez
+     *   - Arka arkaya 3 hata olursa aralık üç katına çıkar (sunucu rahatlasın)
      * ================================================================== */
+    var hataSayisi  = 0;
+    var zamanlayici = null;
+    var ARALIK      = 10000;
+
     function yokla() {
         if (yoklamaSuruyor) return;
         if (document.hidden) return;                       // sekme arkada
@@ -436,12 +452,21 @@
             var v = s.veri || s.data || s;
             if (!v || !v.harita) return;
 
+            hataSayisi = 0;
+
             window.ilerlemeCubuguCiz(v.harita);
             cezaEfektiniUygula(v.ceza);
 
             if (v.bildirim) uyariyiGoster(v.bildirim, v.sonraki_gorev_id);
         })
-        .catch(function () { /* ağ koptu, bir sonraki turda tekrar dener */ })
+        .catch(function () {
+            // Ağ koptu. Arka arkaya hata varsa sunucuyu rahat bırak.
+            hataSayisi++;
+            if (hataSayisi === 3 && zamanlayici) {
+                clearInterval(zamanlayici);
+                zamanlayici = setInterval(yokla, ARALIK * 3);
+            }
+        })
         .finally(function () { yoklamaSuruyor = false; });
     }
 
@@ -462,7 +487,7 @@
             });
         }
 
-        setInterval(yokla, 15000);
+        zamanlayici = setInterval(yokla, ARALIK);
 
         // Sekmeye geri dönünce hemen kontrol et
         document.addEventListener('visibilitychange', function () {

@@ -388,10 +388,17 @@ function kutlamaVeIlerleme(data) {
         ayar.elmas  = (data.elmas_odulu != null ? data.elmas_odulu : data.kazanilan) || 0;
 
         /* Kart kapanınca SUNUCUNUN söylediği göreve gidilir.
-           Bu, cezadan sonra doğru bölüme dönmeyi garantiler. */
+           Bu, cezadan sonra doğru bölüme dönmeyi garantiler.
+
+           [2026-08 HATA DÜZELTMESİ] Eskiden "her şey bittiyse boşuna yenileme"
+           diye yenile=false yapılıyordu. Ama ceza görevleri bitip sıradaki
+           görev bulunamadığında da bu dala düşülüyor, kart kapanıyor ve ekran
+           olduğu gibi kalıyordu; öğrenci elle F5'e basmak zorunda kalıyordu.
+           Artık kart HER ZAMAN yönlendirir. Gidilecek görev yoksa bile sayfa
+           tazelenir — bu ucuz bir işlem ve ekranın takılı kalmasını engeller. */
         ayar.gorevId = data.sonraki_gorev_id | 0;
         ayar.sonraki = tumuBitti ? '' : (data.sonraki_gorev_ad || '');
-        ayar.yenile  = !tumuBitti;   // her şey bittiyse boşuna yenileme
+        ayar.yenile  = true;
 
         // Sonuç mesajı okunsun diye kısa bir nefes payı
         setTimeout(function () { window.kutlamaGoster(ayar); }, 450);

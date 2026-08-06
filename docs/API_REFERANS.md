@@ -187,3 +187,41 @@ görevi seçmesi umuluyordu. İki hata çıkıyordu:
 > ⚠️ Tüm görevler bitince `oynatici.php` **yayındaki ilk göreve DÜŞMEMELİ**.
 > `sonErisilenGorev()` öğrenciyi ulaştığı son görevde bırakır; aksi hâlde her
 > şeyi bitiren öğrenci 1. bölümün 1. görevine atılıp orada takılı kalıyordu.
+
+---
+
+## ⚡ Canlı Güncelleme ve Yük (2026-08)
+
+| Uç nokta | Kim yoklar | Aralık | Sorgu (sabit) |
+|---|---|---|---|
+| `v2_gorev_sistemi/api/ilerleme_haritasi.php` | Öğrenci (oynatıcı) | 10 sn | ~4 |
+| `api/sinif_ilerleme_durumu.php` | Öğretmen (ilerleme takibi) | 10 sn | 5 |
+
+**Kritik tasarım kuralı:** İkisi de öğrenci sayısından **bağımsız** sabit sorgu
+çalıştırır. Öğretmen uç noktası tüm sınıfı tek `GROUP BY` ile çeker — 40 kişilik
+sınıf için de 400 kişilik için de 5 sorgu. Döngü içinde asla sorgu atmayın.
+
+**Ortak frenler (ikisinde de var):**
+
+- Sekme arka plandaysa istek atılmaz (`document.hidden`)
+- Modal/panel açıkken durur
+- Üst üste istek gitmez (`calisiyor` bayrağı)
+- Arka arkaya 3 hata → aralık 3 katına çıkar
+- Öğretmen cevabında `damga` (md5) var; değişmediyse DOM'a dokunulmaz
+
+**Kaba yük tahmini:**
+
+| Ölçek | İstek/sn | Sorgu/sn |
+|---|---|---|
+| 1 sınıf (30 öğrenci) | ~3 | ~12 |
+| 1 okul (300 öğrenci) | ~31 | ~126 |
+| 10 okul (3000 öğrenci) | ~312 | ~1260 |
+
+XAMPP/tek sunucu bir okulu (~300 öğrenci) rahat taşır. Binlerce eşzamanlı
+öğrenciye çıkılırsa sırasıyla: **(1)** aralığı 30 sn yapın (yük üçte bire iner),
+**(2)** cevabı 5 sn'lik APCu/Redis önbelleğine alın (anahtar: öğretmen için
+`sinif_id`), **(3)** ancak ondan sonra WebSocket/SSE düşünün.
+
+> ⚠️ Öğretmen sayfası `admin/ogrenci_ilerleme.php` de artık sabit sorgu kullanır.
+> Öğrencilerin bölüm haritaları sayfaya **gömülmez**; ✏️ kalemine basılınca
+> `ogrenci_ilerleme_sifirla.php` → `islem: 'harita'` ile tek öğrenci için çekilir.

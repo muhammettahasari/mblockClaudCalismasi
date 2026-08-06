@@ -40,7 +40,7 @@ require_once __DIR__ . '/../bilesenler/ilerleme_yardimcilari.php';
 $ogretmen_id = ogretmenZorunluApi();
 
 $gelen = istekVerisi();
-$islem = beyazListe($gelen['islem'] ?? 'sifirla', ['sifirla', 'onizleme'], 'sifirla');
+$islem = beyazListe($gelen['islem'] ?? 'sifirla', ['sifirla', 'onizleme', 'harita'], 'sifirla');
 
 $ogrenci_id = (int) ($gelen['ogrenci_id'] ?? 0);
 $bolumIdler = array_values(array_unique(array_filter(
@@ -52,13 +52,38 @@ $sebep = mb_substr(trim((string) ($gelen['sebep'] ?? '')), 0, 255);
 if ($ogrenci_id <= 0) {
     apiHata('Öğrenci seçilmedi.');
 }
-if (!$bolumIdler) {
-    apiHata('Tekrar ettirilecek en az bir bölüm seçmelisin.');
-}
 
 /* ---- ÇOK KİRACILIK: bu öğrenci gerçekten bu öğretmenin mi? ---- */
 if (!ogretmeninOgrencisiMi($pdo, $ogretmen_id, $ogrenci_id)) {
     apiHata('Bu öğrenci senin sınıfında değil.', 403);
+}
+
+/* ========================================================================
+ * HARİTA — öğretmen ✏️ kalemine bastığında SADECE O ÖĞRENCİNİN haritası
+ *
+ * [2026-08 PERFORMANS] Eskiden sayfa açılırken sınıftaki HER öğrenci için
+ * ilerlemeHaritasi() çalıştırılıp hepsi JavaScript'e gömülüyordu; 40 kişilik
+ * bir sınıfta 40 ekstra sorgu demekti ve öğretmen belki hiçbirine
+ * tıklamayacaktı. Artık harita tıklandığı anda, tek öğrenci için çekiliyor.
+ * ====================================================================== */
+if ($islem === 'harita') {
+    try {
+        ilerlemeOnbelleginiTemizle($ogrenci_id);
+
+        $st = $pdo->prepare("SELECT ad_soyad FROM ogrenciler WHERE id = ?");
+        $st->execute([$ogrenci_id]);
+
+        apiBasari([
+            'ogrenci_adi' => (string) ($st->fetchColumn() ?: ''),
+            'harita'      => ilerlemeHaritasi($pdo, $ogrenci_id),
+        ]);
+    } catch (Throwable $e) {
+        apiIstisna($e, 'Öğrencinin haritası alınamadı.');
+    }
+}
+
+if (!$bolumIdler) {
+    apiHata('Tekrar ettirilecek en az bir bölüm seçmelisin.');
 }
 
 try {
