@@ -416,6 +416,67 @@ window.kuklaSilIstegi = function(id) {
 
 window.kuklaSilMenu = function() { if(window.sagTikKuklaId) kuklaSilIstegi(window.sagTikKuklaId); };
 
+
+/* ============================================================================
+ * [2026-08] ÖĞRENCİNİN KENDİ KUKLALARI — SADECE TARAYICIDA
+ *
+ * YETKİ AYRIMI:
+ * Kukla KÜTÜPHANESİ (v2_kukla_kutuphanesi tablosu) Süper Admin'e aittir;
+ * oraya yazmak tüm okulları etkiler. Öğrenci ise kendi sahnesinde istediği
+ * kadar kukla oluşturur, adını değiştirir, kopyalar, siler — ama bunların
+ * hepsi window.projeKuklalari dizisinde, yani SADECE KENDİ TARAYICISINDA
+ * yaşar. Sunucuya hiçbir şey yazılmaz; sayfa kapanınca / çıkış yapılınca
+ * kaybolur.
+ *
+ * Eskiden öğrenci ekranında admin sayfalarını iframe'de açan kısayollar
+ * vardı; her öğrenci kütüphaneden kukla silebiliyordu. O kısayollar kaldırıldı.
+ * ========================================================================== */
+
+/** Boş (çizilmeye hazır) kukla oluşturur ve Kostüm Atölyesi'ni açar */
+window.bosKuklaOlustur = function () {
+    const ad = (prompt('Yeni kuklanın adı:', 'Kuklam ' + (window.projeKuklalari.length + 1)) || '').trim();
+    if (!ad) return;
+
+    // Şeffaf 1x1 PNG — öğrenci atölyede üstüne çizecek
+    const bosResim = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+
+    const yeni = {
+        id: 'kukla_' + Date.now(),
+        adi: ad,
+        x: 100, y: 100, boyut: 100, yon: 0, goster: true,
+        resimYolu: bosResim,
+        kostumler: [{ id: 'k_bos_' + Date.now(), adi: 'costume1', resimYolu: bosResim, cizimData: null }],
+        kodXml: '<xml xmlns="https://developers.google.com/blockly/xml"></xml>',
+        yerel: true          // sunucuya ait değil, öğrencinin kendi kuklası
+    };
+
+    window.projeKuklalari.push(yeni);
+
+    if (typeof kuklaPenceresiniKapat === 'function') kuklaPenceresiniKapat();
+    kuklaSec(yeni.id);
+
+    // Çizim yapabilsin diye atölyeyi aç
+    if (typeof kostumAtolyesiniAc === 'function') {
+        setTimeout(kostumAtolyesiniAc, 250);
+    }
+};
+
+/** Kuklanın adını değiştirir (yalnızca tarayıcıda) */
+window.kuklaYenidenAdlandir = function (id) {
+    const kukla = window.projeKuklalari.find(k => k.id === id);
+    if (!kukla) return;
+
+    const ad = (prompt('Kuklanın yeni adı:', kukla.adi) || '').trim();
+    if (!ad || ad === kukla.adi) return;
+
+    kukla.adi = ad;
+    ekraniYenile();
+};
+
+window.kuklaAdlandirMenu = function () {
+    if (window.sagTikKuklaId) kuklaYenidenAdlandir(window.sagTikKuklaId);
+};
+
 /* ============================================================================
  * [2026-08] TÜM KUKLALARIN KODUNU TEK XML'DE TOPLA
  *

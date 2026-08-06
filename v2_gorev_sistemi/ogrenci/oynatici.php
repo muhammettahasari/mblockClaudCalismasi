@@ -314,6 +314,7 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
         </div>
         <div class="kukla-listesi-kapsayici" id="kuklaListesiKapsayici"></div>
         <div id="sagTikMenu">
+            <div class="sag-tik-oge" onclick="kuklaAdlandirMenu()">✏️ Yeniden Adlandır</div>
             <div class="sag-tik-oge" onclick="kuklaKopyalaMenu()">📄 Kopyasını Çıkart</div>
             <div class="sag-tik-oge sil" onclick="kuklaSilMenu()">🗑️ Sil</div>
         </div>
@@ -591,20 +592,32 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
             <div class="modal-baslik-alani" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #e2e8f0; padding-bottom: 15px; margin-bottom: 20px;">
                 <h2 style="margin: 0;">🎭 Kütüphaneden Kukla Seç</h2>
                 <div style="display: flex; gap: 10px; align-items: center;">
-                    
-                  <!-- GEÇİCİ SİLME KISAYOLU (Iframe Modal Açar) -->
-                    <button onclick="adminPenceresiAc('/mblock_platform/v2_gorev_sistemi/admin/kukla_kutuphanesi/index.php')" style="background-color: #ef4444; color: white; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; display: inline-flex; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 14px;">
-                        🗑️ Kukla Sil
+
+                    <!-- ================================================================
+                         [2026-08] ADMIN KISAYOLLARI KALDIRILDI.
+                         Burada "Kukla Sil" ve "Yeni Kukla Tanımla" düğmeleri vardı;
+                         ikisi de SÜPER ADMİN sayfalarını iframe içinde açıyordu.
+                         Yani her öğrenci kütüphaneden kukla silebiliyor, sunucuya
+                         kalıcı kayıt yazabiliyordu — tüm okulları etkileyen bir yetki.
+
+                         Yerine: öğrenci BOŞ KUKLA oluşturabilir. Bu kukla sadece
+                         kendi tarayıcısında yaşar, sunucuya yazılmaz, çıkışta silinir.
+                         Kütüphaneye kalıcı kukla eklemek artık sadece Süper Admin'in
+                         işi (admin/kukla_kutuphanesi/index.php).
+                         ================================================================ -->
+                    <button onclick="bosKuklaOlustur()" title="Kendi kuklanı çiz — sadece sende kalır"
+                            style="background-color: #10b981; color: white; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; display: inline-flex; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 14px;">
+                        🎨 Kendi Kuklamı Çiz
                     </button>
 
-                    <!-- YENİ KUKLA TANIMLA KISAYOLU (Iframe Modal Açar) -->
-                    <button onclick="adminPenceresiAc('/mblock_platform/v2_gorev_sistemi/admin/kukla_kutuphanesi/kukla_ekle.php')" style="background-color: #10b981; color: white; padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: bold; display: inline-flex; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); font-size: 14px;">
-                        ➕ Yeni Kukla Tanımla
-                    </button>
-                    
                     <button class="btn-kapat" onclick="kuklaPenceresiniKapat()">✕</button>
                 </div>
             </div>
+            <div style="background:#eff6ff; border:1px solid #bfdbfe; color:#1e40af; padding:10px 13px; border-radius:8px; font-size:12.5px; line-height:1.55; margin-bottom:14px;">
+                ℹ️ Buradan seçtiğin kuklalar <b>sadece senin ekranında</b> durur. İstediğin kadar ekle,
+                adını değiştir, çiz, sil — kütüphaneyi bozmazsın. Çıkış yapınca sahnendeki kuklalar sıfırlanır.
+            </div>
+
             <div class="modal-filtreler" id="modalFiltreAlani"></div>
             <div class="modal-icerik" id="modalKuklaIzgarasi">
                 <div style="grid-column: 1 / -1; text-align: center; color: #94a3b8; padding: 40px;">Kuklalar Yükleniyor...</div>
@@ -1236,38 +1249,19 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
     <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/kostum_atolyesi/araclar_ve_yardimcilar.js', '../../') ?>"></script>
     <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/kostum_atolyesi.js', '../../') ?>"></script>
 
-<!-- YENİ ADMİN İŞLEMLERİ PENCERESİ (IFRAME MODAL) -->
-    <div class="kukla-modal-overlay" id="adminIslemModal" style="display: none; z-index: 99999;">
-        <div class="kukla-modal" style="width: 90%; max-width: 1100px; height: 85vh; padding: 0; display: flex; flex-direction: column; overflow: hidden; border-radius: 12px;">
-            
-            <div class="modal-baslik-alani" style="padding: 15px 20px; background: #fff; border-bottom: 2px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
-                <h2 style="margin: 0; color: #1e293b; font-size: 20px;">⚙️ Sistem Yönetimi</h2>
-                <button class="btn-kapat" onclick="adminPenceresiKapat()" style="background: #ef4444; color: white; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-weight: bold; font-size: 16px; display: flex; align-items: center; justify-content: center;">✕</button>
-            </div>
-            
-            <iframe id="adminIframe" src="" style="width: 100%; height: 100%; border: none; flex: 1; background: #f8fafc;"></iframe>
-            
-        </div>
-    </div>
+<!-- ============================================================================
+     [2026-08] "SİSTEM YÖNETİMİ" IFRAME PENCERESİ KALDIRILDI.
 
-    <script>
-        // İlgili sayfayı iframe içine yükler ve modalı gösterir
-        function adminPenceresiAc(url) {
-            // 1. Önce açık olan "Kütüphaneden Kukla Seç" penceresini gizle
-            document.getElementById('kuklaSeciciModal').style.display = 'none';
-            
-            // 2. Sonra yeni Admin penceresini aç
-            document.getElementById('adminIframe').src = url;
-            document.getElementById('adminIslemModal').style.display = 'flex';
-        }
+     Burada öğrenci ekranından Süper Admin sayfalarını (kukla ekleme/silme)
+     iframe içinde açan bir pencere vardı. Yani her öğrenci kütüphaneden
+     kukla silebiliyor, sunucuya kalıcı kayıt yazabiliyordu — tüm okulları
+     etkileyen bir yetki. Sayfalar zaten superAdminZorunlu() ile korunuyordu
+     ama arayüzün öğrenciye bu düğmeleri göstermesi baştan yanlıştı.
 
-        // Modalı kapatır, iframe içini temizler ve sayfayı yeniler (silinenleri/eklenenleri anında görmek için)
-        function adminPenceresiKapat() {
-            document.getElementById('adminIslemModal').style.display = 'none';
-            document.getElementById('adminIframe').src = '';
-            window.location.reload(); // Atölyeyi yenile
-        }
-    </script>
+     Yeni düzen:
+       Öğrenci  -> kendi kuklaları, sadece tarayıcıda (window.projeKuklalari)
+       S. Admin -> admin/kukla_kutuphanesi/index.php, kalıcı kütüphane
+     ============================================================================ -->
 </body>
 
 </html>

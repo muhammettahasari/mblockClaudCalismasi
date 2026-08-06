@@ -124,3 +124,52 @@ iki ayrı adresten açılabildiği için hangisinin güncel olduğu anlaşılmı
 
 > ⚠️ `admin/gorev_duzenle.php` KORUNDU — eski v1 görevlerini düzenlemenin tek yolu.
 > Müfredat sayfasındaki v1 satırlarından bağlanır.
+
+---
+
+## ✅ 2026-08 — Kukla kütüphanesi: yetki ayrımı ve birleştirme
+
+**Sorun 1 — yanlış yere dönüş.** Süper Admin panelden kütüphaneye girip
+"Kapat ve Dön" dediğinde `oynatici.php`ye, yani **öğrenci ekranına** düşüyordu.
+Sebep: `kapatVeYenile()` fonksiyonunun son çaresi sabit olarak öğrenci
+oynatıcısına gidiyordu. Artık Süper Admin paneline dönüyor.
+
+**Sorun 2 — öğrenci kütüphaneyi bozabiliyordu.** Öğrencinin "Kukla Seç"
+penceresinde **🗑️ Kukla Sil** ve **➕ Yeni Kukla Tanımla** düğmeleri vardı;
+ikisi de Süper Admin sayfalarını iframe içinde açıyordu. Sayfalar
+`superAdminZorunlu()` ile korunduğu için gerçek bir sızıntı yoktu ama arayüzün
+öğrenciye bu düğmeleri göstermesi baştan yanlıştı. Kaldırıldı; `adminIslemModal`
+iframe penceresi de silindi.
+
+### Yeni yetki ayrımı
+
+| | Öğrenci | Süper Admin |
+|---|---|---|
+| Nerede yaşar | `window.projeKuklalari` (tarayıcı) | `v2_kukla_kutuphanesi` (veritabanı) |
+| Kukla ekle | ✅ kütüphaneden seçerek / boş çizerek | ✅ dosya yükleyerek |
+| Yeniden adlandır | ✅ sadece kendinde | ✅ kalıcı |
+| Sil | ✅ sadece kendi sahnesinden | ✅ kalıcı (dosyalarıyla) |
+| Kostüm ekle/sil | ✅ Kostüm Atölyesi'nde çizerek | ✅ dosya yükleyerek |
+| Çıkışta | **kaybolur** | kalır |
+
+Öğrenci tarafındaki tek okuma noktası `v2_gorev_sistemi/api/kukla_api.php` —
+sadece `SELECT` yapar, yazma yolu yoktur.
+
+### Sayfa birleştirme
+
+| Eski dosya | Akıbeti |
+|---|---|
+| `kukla_kutuphanesi/kukla_ekle.php` | **SİLİNDİ** — form `index.php` içine alındı |
+| `kukla_kutuphanesi/kukla_sil.php` | **SİLİNDİ** — `kukla_islem.php`'ye taşındı |
+| `kukla_kutuphanesi/kukla_islem.php` | Tüm yazma işlemlerinin tek motoru oldu |
+| `kukla_kutuphanesi/index.php` | Tek yönetim ekranı (liste + ekle + düzenle) |
+
+`kukla_islem.php` işlemleri: `kukla_ekle`, `kostum_ekle` (multipart),
+`kukla_guncelle`, `kostum_adlandir`, `kostum_sil`, `kukla_sil` (JSON).
+
+> ⚠️ **Dosya silme güvenliği:** `kostumDosyasiSil()` `realpath()` ile hedefin
+> kuklalar klasörünün içinde kaldığını doğrular. Veritabanına elle
+> `../../db.php` gibi bir yol yazılmış olsa bile o dosya silinemez.
+
+**Tasarım:** Kütüphane `admin/super_panel.php` paletine geçirildi
+(#0f172a zemin, #1e293b kart, #334155 kenarlık) — panelden geçişte göz yormuyor.

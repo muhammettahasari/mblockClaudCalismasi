@@ -177,6 +177,15 @@ Bölümün tüm görevleri bitince `mevcut_bolum` otomatik artar.
 
 Ayrıca **Paper.js tabanlı Kostüm Atölyesi** (vektör çizim editörü) var.
 
+> ⚠️ **[2026-08] KUKLA YETKİ AYRIMI.**
+> **Süper Admin** → `v2_gorev_sistemi/admin/kukla_kutuphanesi/index.php` (tek ekran:
+> ekle, adlandır, kostüm ekle/sil, kukla sil). Yazma işlemleri `kukla_islem.php`.
+> `kukla_ekle.php` ve `kukla_sil.php` **SİLİNDİ**.
+> **Öğrenci** → kuklaları yalnızca `window.projeKuklalari` içinde, yani **tarayıcıda**
+> yaşar; sunucuya yazılmaz, çıkışta kaybolur. Öğrenci ekranındaki admin kısayolları
+> ve `adminIslemModal` iframe'i kaldırıldı. Öğrencinin gördüğü tek uç nokta
+> `api/kukla_api.php` ve o sadece `SELECT` yapar.
+
 ### I. İlerleme Çubuğu & Öğretmen Sıfırlaması ✅ (2026-08)
 Oynatıcının tepesinde **bölüm › görev** başlığı ve renkli görev daireleri var
 (`ilerleme_cubugu.js` + `ilerleme_cubugu.css`). Dairelere tıklanınca eski görevlere
