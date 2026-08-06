@@ -260,9 +260,6 @@ body.kod-tam-ekran-acik { overflow: hidden; }
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest"></script>
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest"></script>
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/list@latest"></script>
-<!-- [2026-08] Bilgi Al alanına resim eklemek için. Yüklenen dosya
-     v2_gorev_sistemi/api/resim_yukle.php'ye gider, img/gorev_ipuclari/ altına düşer. -->
-<script src="https://cdn.jsdelivr.net/npm/@editorjs/image@latest"></script>
 <script src="https://unpkg.com/blockly/blockly_compressed.js"></script>
 <script src="https://unpkg.com/blockly/blocks_compressed.js"></script>
 <script src="https://unpkg.com/blockly/msg/tr.js"></script>
@@ -280,7 +277,11 @@ body.kod-tam-ekran-acik { overflow: hidden; }
 <script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/mblock_bloklari.js', $KOK_ONEK) ?>"></script>
 <script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/metin_editoru.js', $KOK_ONEK) ?>"></script>
 <script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/blueprint_motoru.js', $KOK_ONEK) ?>"></script>
-<!-- [2026-08] Bilgi Al alanı — blueprint_motoru'ndan SONRA yüklenmeli:
-     araç kutusu (#toolbox) orada DOM'a ekleniyor, bu dosya onu kullanıyor. -->
+<!-- [2026-08] Bilgi Al alanı.
+     · resim_blogu.js ÖNCE gelmeli — ipucu_alani.js onu Editor.js'e araç
+       olarak tanıtıyor; sonra yüklenirse "tanımsız" der ve resim eklenemez.
+     · ipucu_alani.js blueprint_motoru'ndan SONRA gelmeli — Blockly araç
+       kutusu (#toolbox) orada DOM'a ekleniyor. -->
+<script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/resim_blogu.js', $KOK_ONEK) ?>"></script>
 <script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/ipucu_alani.js', $KOK_ONEK) ?>"></script>
 <script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/api_yoneticisi.js', $KOK_ONEK) ?>"></script>

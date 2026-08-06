@@ -230,6 +230,17 @@ Ayrıca **Paper.js tabanlı Kostüm Atölyesi** (vektör çizim editörü) var.
 > uzayınca Blockly de uzuyor — kod alanının boyu değişince `svgResize` çağıran
 > bir `ResizeObserver` var (`resize` olayı yetmez, o sadece PENCERE değişince
 > tetiklenir). 900px altında sütunlar alt alta geçer.
+> ⚠️ Başka dosyadaki stili ezerken **aynı özelliği** yaz: `height`'i
+> `min-height` ile, `overflow`'u tek başına `overflow-x` ile ezemezsin.
+> Kontrol: `kurulum/css_kademe.py`
+
+> 🖼️ **[2026-08] BİLGİ AL RESİMLERİ SOLA/SAĞA YASLANABİLİR.** Editor.js için
+> projeye özel blok: `assets/js/admin/resim_blogu.js` (`type: 'resim'`,
+> veri: `{url, aciklama, hizalama, genislik}`). Hazır `@editorjs/image`
+> kullanılmadı — onda sadece kenarlık/arka plan/tam genişlik var, "küçült ve
+> yazının soluna al" yok. Öğrenci tarafında `float` ile çizilir
+> (`bilgi_al.js` → `resmiCiz`), yani ALTINDAKİ yazı blokları resmin yanına
+> akar. Alan adları iki dosyada da aynı olmalı.
 
 > 🏠 **[2026-08] SÜPER ADMİN GEZİNME.** Yeni bir Süper Admin sayfası yazarken
 > `<body>`den hemen sonra tek satır ekle — sol alta 🏠 Ana Panel + 🚪 Çıkış gelir:

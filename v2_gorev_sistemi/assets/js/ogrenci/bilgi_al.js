@@ -78,8 +78,20 @@
             '.bilgi-govde h2,.bilgi-govde h3,.bilgi-govde h4{margin:16px 0 8px;color:#0f172a;}',
             '.bilgi-govde p{margin:0 0 10px;}',
             '.bilgi-govde ul,.bilgi-govde ol{margin:0 0 10px;padding-left:22px;}',
-            '.bilgi-govde img{max-width:100%;border-radius:10px;border:1px solid #e2e8f0;margin:8px 0;}',
-            '.bilgi-govde figcaption{font-size:12.5px;color:#64748b;margin-bottom:10px;}',
+            '.bilgi-govde img{max-width:100%;border-radius:10px;border:1px solid #e2e8f0;display:block;}',
+            /* Resim hizalama — yazı resmin yanına aksın diye float.
+               `.bilgi-govde` içinde overflow/display:flow-root YOK; olsaydı
+               yeni bir blok bağlamı açılır ve float sonraki paragrafları
+               etkilemezdi (yani yazı resmin yanına akmazdı). */
+            '.bilgi-resim{display:block;margin:8px 0;}',
+            '.bilgi-resim.sol{float:left;margin:4px 18px 10px 0;max-width:70%;}',
+            '.bilgi-resim.sag{float:right;margin:4px 0 10px 18px;max-width:70%;}',
+            '.bilgi-resim.orta img{margin-left:auto;margin-right:auto;}',
+            '.bilgi-resim.tam{width:100%;}',
+            '.bilgi-resim-alt{display:block;font-size:12.5px;color:#64748b;margin-top:4px;}',
+            /* Son float kapanmazsa pencerenin alt kenarı resmin üstüne biner */
+            '.bilgi-govde::after{content:"";display:block;clear:both;}',
+            '.bilgi-blok-etiket{clear:both;}',
             '.bilgi-bedel{background:#fffbeb;border:1px solid #fcd34d;color:#92400e;border-radius:12px;',
             '  padding:14px 16px;font-size:14.5px;line-height:1.6;}',
             '.bilgi-bedel b{color:#b45309;}',
@@ -154,6 +166,44 @@
        paragraf/başlık gövdesi olduğu gibi basılıyor. İçeriği SÜPER ADMİN
        yazıyor, öğrenci değil; öğrenci verisi buraya hiç girmiyor.
        -------------------------------------------------------------------- */
+    /**
+     * Resim bloğunu çizer.
+     *
+     * Süper admin tasarlayıcıda resmi sola/sağa yaslayıp genişliğini
+     * ayarlayabiliyor (assets/js/admin/resim_blogu.js). Buradaki `float`
+     * sayesinde ALTINDAKİ yazı blokları resmin yanındaki boşluğa akıyor —
+     * gazete sayfası gibi.
+     *
+     * ⚠️ Alan adları admin tarafıyla ANLAŞMALI: url, aciklama, hizalama,
+     * genislik. Biri değişirse ikisi birden değişmeli.
+     *
+     * Eski @editorjs/image ile kaydedilmiş bloklar `file.url` + `caption`
+     * kullanıyordu; onlar da çizilsin diye ikisi de okunuyor.
+     */
+    function resmiCiz(d) {
+        var url = (d.file && d.file.url) || d.url || '';
+        if (!url) { return ''; }
+
+        /* Adres proje köküne göreli saklanır ('img/gorev_ipuclari/x.png');
+           oynatıcı iki klasör içeride olduğu için başa ../../ ekleniyor. */
+        var tam = /^(https?:)?\/\//.test(url) || url.charAt(0) === '/'
+                ? url
+                : '../../' + url.replace(/^\.\.\/+/, '');
+
+        var hizalama = d.hizalama || 'orta';
+        var genislik = parseInt(d.genislik, 10) || 100;
+        if (genislik < 10)  { genislik = 10; }
+        if (genislik > 100) { genislik = 100; }
+
+        var stil = (hizalama === 'tam') ? 'width:100%;' : 'width:' + genislik + '%;';
+        var aciklama = d.aciklama || d.caption || '';
+
+        return '<span class="bilgi-resim ' + hizalama + '">' +
+                   '<img src="' + kacir(tam) + '" alt="" style="' + stil + '">' +
+                   (aciklama ? '<span class="bilgi-resim-alt">' + aciklama + '</span>' : '') +
+               '</span>';
+    }
+
     function metniCiz(veri) {
         if (!veri || !Array.isArray(veri.blocks)) { return ''; }
 
@@ -172,15 +222,13 @@
                     }).join('');
                     return '<' + etiket + '>' + maddeler + '</' + etiket + '>';
 
+                /* 'resim'  -> projeye özel blok (admin/resim_blogu.js)
+                   'image'   -> hazır @editorjs/image ile kaydedilmiş eski
+                                içerikler. İkisi de çizilebilsin ki bir sürüm
+                                geçişinde kimsenin resmi kaybolmasın. */
+                case 'resim':
                 case 'image':
-                    var url = (d.file && d.file.url) || d.url || '';
-                    if (!url) { return ''; }
-                    /* Adres kaydedilirken proje köküne göreliydi; oynatıcı iki
-                       klasör içeride olduğu için başa ../../ ekliyoruz. */
-                    var tam = /^(https?:)?\/\//.test(url) ? url : '../../' + url.replace(/^\/+/, '');
-                    return '<figure><img src="' + kacir(tam) + '" alt="">' +
-                           (d.caption ? '<figcaption>' + d.caption + '</figcaption>' : '') +
-                           '</figure>';
+                    return resmiCiz(d);
 
                 case 'paragraph':
                 default:

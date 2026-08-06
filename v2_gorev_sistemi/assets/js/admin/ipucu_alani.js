@@ -36,36 +36,14 @@
     if (typeof Header !== 'undefined') { araclar.header = { class: Header, inlineToolbar: true }; }
     if (typeof List   !== 'undefined') { araclar.list   = { class: List,   inlineToolbar: true }; }
 
-    /* Resim aracı — dosya sunucuya yüklenir, adresi kaydedilir.
-       ImageTool CDN'den gelmezse (ağ yok / engellendi) editör yine açılsın;
-       sadece resim eklenemez. Tüm alanın çökmesindense o daha iyi. */
-    if (typeof ImageTool !== 'undefined') {
-        araclar.image = {
-            class: ImageTool,
-            config: {
-                endpoints: { byFile: window.V2_RESIM_YUKLE || '../api/resim_yukle.php' },
-                field: 'image',
-                types: 'image/*',
-                captionPlaceholder: 'Resim açıklaması (isteğe bağlı)',
-                additionalRequestHeaders: {},
-                /* Editor.js varsayılan olarak fetch'e kimlik bilgisi koymaz;
-                   koymazsak oturum çerezi gitmez ve resim_yukle.php
-                   "yetkisiz" der. */
-                uploader: {
-                    uploadByFile: function (dosya) {
-                        var form = new FormData();
-                        form.append('image', dosya);
-                        return fetch(window.V2_RESIM_YUKLE || '../api/resim_yukle.php', {
-                            method: 'POST',
-                            credentials: 'same-origin',
-                            body: form
-                        }).then(function (r) { return r.json(); });
-                    }
-                }
-            }
-        };
+    /* Resim aracı — PROJEYE ÖZEL blok (assets/js/admin/resim_blogu.js).
+       Hazır @editorjs/image eklentisi kullanılmadı: onda sadece kenarlık,
+       arka plan ve tam genişlik ayarları var; "resmi küçült ve yazının
+       soluna al" seçeneği yok. İhtiyaç tam olarak buydu. */
+    if (typeof ResimBlogu !== 'undefined') {
+        araclar.resim = { class: ResimBlogu };
     } else {
-        console.warn('[Bilgi Al] Editor.js resim eklentisi yüklenemedi; yazı ve bloklar çalışıyor.');
+        console.warn('[Bilgi Al] resim_blogu.js yüklenemedi; yazı ve bloklar çalışıyor.');
     }
 
     /* Düzenleme modunda kayıtlı bilgiyi geri yükle.

@@ -55,11 +55,26 @@
    Doğrusu: pencere yetmiyorsa SAYFA uzasın, öğrenci aşağı kaydırsın.
    Şerit `sticky` olduğu için kaydırırken de tepede kalır.
    ------------------------------------------------------------------------- */
+/* Yatay kaymayı belgeye ver; gövdeye verirsek dikey taşmayı da kilitliyor
+   (aşağıdaki nota bak). */
+html{ overflow-x:hidden; }
+
 body{
     display:flex !important;
     flex-direction:column !important;
-    min-height:100vh;      /* sabit yükseklik DEĞİL — taban yükseklik */
-    overflow-x:hidden;     /* yatayda kaymasın, dikeyde serbest */
+
+    /* ⚠️ [2026-08 DÜZELTME] İKİ SATIR DA `!important` OLMAK ZORUNDA.
+       ogrenci_oynatici.css'te `body { height:100vh; overflow:hidden; }` var.
+       İlk denemede buraya sadece `min-height:100vh` ve `overflow-x:hidden`
+       yazmıştım; ikisi de yetmedi:
+         · `min-height`, `height`'i EZMEZ — gövde yine 100vh'de kaldı.
+         · `overflow:hidden` hem x hem y demek. Sadece `overflow-x` yazınca
+           y bileşeni hidden kalıyor ve sayfa kaydırılamıyordu.
+       Sonuç: kukla paneli ve kukla listesi ekranın altında kalıp
+       görünmez oluyordu. */
+    height:auto !important;
+    min-height:100vh;
+    overflow:visible !important;
     /* tasarlayici_style.css body'ye 20px padding veriyor; şerit kenardan
        kenara uzanabilsin diye sıfırlıyoruz. Panellerin kendi iç boşlukları
        zaten var, görsel olarak bir şey kaybolmuyor. */
@@ -83,7 +98,7 @@ body{
    overflow-y:auto ogrenci_oynatici.css'te tanımlı, burada geri alınıyor. */
 .sol-panel{
     flex-shrink:0;
-    overflow-y:visible;
+    overflow-y:visible !important;   /* ogrenci_oynatici.css'teki auto'yu ez */
     height:auto;
 }
 

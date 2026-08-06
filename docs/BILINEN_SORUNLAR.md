@@ -512,3 +512,39 @@ tanıyıp ham SQL yerine *"migration'ı çalıştır"* diyor, pencere de
 gidip eşya gelmeme riski), `teacher_remote.php`, `ogretmen_radar.php`,
 `student_register.php`, `teacher_add_student.php`, `teacher_bulk_add.php`,
 `duello/duello_kontrol.php`.
+
+
+---
+
+### Sayfa aşağı inmiyordu: kısaltma özellik + `min-height` tuzağı (2026-08)
+
+**Belirti:** Öğrenci oynatıcısında sayfa kaydırılamıyor, kukla paneli ve kukla
+listesi ekranın altında kalıp **görünmez** oluyordu.
+
+**Sebep — İKİ ayrı ezme hatası.** `ogrenci_oynatici.css` gövdeye şunu veriyor:
+
+```css
+body { height: 100vh; overflow: hidden; }
+```
+
+Düzeltmeyi `ilerleme_cubugu.css`'e (sonra yüklenen dosya) yazdım ama:
+
+| Yazdığım | Neden yetmedi |
+|---|---|
+| `min-height: 100vh` | `min-height`, `height`'i **ezmez**. Gövde yine 100vh'de kaldı. |
+| `overflow-x: hidden` | `overflow` bir **kısaltma**: hem x hem y demek. Sadece x'i yazınca **y hidden kaldı** ve sayfa kaydırılamadı. |
+
+**Çözüm:** `height:auto !important` + `overflow:visible !important`.
+Yatay taşma koruması gövdeden `html`'e taşındı (gövdeye `overflow-x` vermek
+dikey taşmayı da kilitliyor).
+
+**Eklenen denetim:** `kurulum/css_kademe.py` — dosyaları oynatıcıdaki `<link>`
+sırasıyla okur, `overflow` / `margin` / `padding` / `flex` kısaltmalarını alt
+özelliklerine açar, `!important` önceliğini uygular ve **gerçek kazananı**
+hesaplar. Betiği hatalı sürüme karşı çalıştırdım: `height` ve `overflow-y`
+satırlarını doğru şekilde ❌ işaretliyor.
+
+> ⚠️ **KURAL:** Başka bir stil dosyasındaki bir değeri ezerken
+> **aynı özelliği** yaz. `height`'i `min-height` ile, kısaltmayı (`overflow`,
+> `margin`, `flex`) tek bir alt özellikle ezmeye çalışma. Şüphelenirsen
+> `kurulum/css_kademe.py` çalıştır.
