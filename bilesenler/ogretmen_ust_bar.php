@@ -87,7 +87,7 @@ if (!empty($ot_bilgi['bitis_tarihi'])) {
  * ========================================================================== */
 $ot_sekmeler = [
     'panel'      => ['ad' => '📡 Canlı Takip', 'yol' => 'ogretmen_paneli.php'],
-    'ogrenciler' => ['ad' => '👥 Öğrenciler',  'yol' => 'ogrenci_yonetimi.php'],
+    'ogrenciler' => ['ad' => '👥 Öğrenci Yönetimi', 'yol' => 'ogrenci_yonetimi.php'],
 ];
 
 /* Sekmesi olmayan sayfalar (quiz merkezi gibi) için pasif konum göstergesi.

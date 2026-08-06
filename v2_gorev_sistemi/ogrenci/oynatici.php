@@ -865,6 +865,34 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
         }
         window.addEventListener('resize', ciziminiTazele);
         setTimeout(ciziminiTazele, 400);
+
+        /* ================================================================
+           [2026-08] SOL PANEL UZAYINCA BLOCKLY DE UZASIN
+
+           Sayfa artık aşağı büyüyor. Sol panelin boyu içerikle değişiyor
+           (görev metni geldi, kukla eklendi, bilgi kartı açıldı...) ve
+           iki sütun aynı boyda olduğu için sağdaki kod alanı da uzuyor.
+
+           Ama Blockly tuvalini KENDİ ölçüsüne göre bir kez çiziyor: kutu
+           büyüdüğünde SVG eski boyunda kalır, altta boş bir şerit oluşur ve
+           blok sürüklerken imleçle blok arasında kayma olur. Bu yüzden
+           kutunun boyu her değiştiğinde svgResize çağırmak ZORUNLU.
+
+           `resize` olayı yetmez — o sadece PENCERE boyutu değişince tetiklenir,
+           panel içerikle uzadığında değil.
+           ================================================================ */
+        if (typeof ResizeObserver === 'undefined') return;
+
+        var kutu = document.getElementById('kodAlaniSarmal');
+        if (!kutu) return;
+
+        var bekleyen = null;
+        new ResizeObserver(function () {
+            /* Gözlemci saniyede onlarca kez tetiklenebilir; svgResize pahalı
+               bir işlem. Son değişiklikten 80 ms sonra bir kez çalışsın. */
+            clearTimeout(bekleyen);
+            bekleyen = setTimeout(ciziminiTazele, 80);
+        }).observe(kutu);
     });
     </script>
 

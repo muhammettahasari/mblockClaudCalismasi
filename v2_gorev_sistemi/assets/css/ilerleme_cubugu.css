@@ -41,11 +41,25 @@
    alabilmek için burada dikey akışa çeviriyoruz. Bu dosya sonra yüklendiği
    için üstüne yazar.
    ========================================================================== */
+/* ---------------------------------------------------------------------------
+   [2026-08 DÜZELTME] SAYFA ARTIK AŞAĞI BÜYÜYOR.
+
+   Eskiden `height:100vh; overflow:hidden` vardı: sayfa ekran yüksekliğine
+   HAPİSTİ. Sol panelin içeriği (görev metni + sahne + kukla paneli + kukla
+   listesi) sığmayınca:
+     · sol panel kendi içinde kayıyordu, öğrenci sahneyi kaybediyordu
+     · kukla listesi 30 piksele eziliyor ve kendi minik kaydırma çubuğunu
+       çıkarıyordu — üst üste binmiş görünüyordu
+     · dar ekranlarda kutular birbirinin üstüne geliyordu
+
+   Doğrusu: pencere yetmiyorsa SAYFA uzasın, öğrenci aşağı kaydırsın.
+   Şerit `sticky` olduğu için kaydırırken de tepede kalır.
+   ------------------------------------------------------------------------- */
 body{
     display:flex !important;
     flex-direction:column !important;
-    height:100vh;
-    overflow:hidden;
+    min-height:100vh;      /* sabit yükseklik DEĞİL — taban yükseklik */
+    overflow-x:hidden;     /* yatayda kaymasın, dikeyde serbest */
     /* tasarlayici_style.css body'ye 20px padding veriyor; şerit kenardan
        kenara uzanabilsin diye sıfırlıyoruz. Panellerin kendi iç boşlukları
        zaten var, görsel olarak bir şey kaybolmuyor. */
@@ -58,15 +72,56 @@ body{
 
 .calisma-alani{
     display:flex;
-    flex:1 1 auto;
-    min-height:0;          /* flex çocuklarının taşmasını engeller */
-    overflow:hidden;
+    flex:1 0 auto;         /* içerik uzarsa uza; kısalma */
+    align-items:stretch;   /* iki sütun aynı boyda — sağdaki kod alanı da uzar */
     width:100%;
+    /* En az bir ekran boyu: kısa görevlerde sağdaki kod alanı cılız kalmasın */
+    min-height:calc(100vh - var(--serit-boy));
 }
 
-/* Sahne ASLA küçülmesin: gerekirse sol panel kendi içinde kayar */
-.sol-panel{ flex-shrink:0; }
+/* Sol panel kendi içinde KAYMAZ; uzar ve sayfayı uzatır.
+   overflow-y:auto ogrenci_oynatici.css'te tanımlı, burada geri alınıyor. */
+.sol-panel{
+    flex-shrink:0;
+    overflow-y:visible;
+    height:auto;
+}
+
+/* Sağ panel sol panelle aynı boya gelsin (align-items:stretch sayesinde).
+   oynatici.php'de satır içi height:100% var; auto'ya çekmezsek uzamaz. */
+.sag-panel{
+    height:auto !important;
+    align-self:stretch;
+}
+
+/* Sahne ASLA küçülmesin */
 .oyun-sahnesi{ min-height:300px; }
+
+/* Kukla paneli ve kukla listesi ezilmesin — ezilince üst üste binmiş
+   görünüyor ve listeye gereksiz kaydırma çubuğu çıkıyordu. */
+.kukla-paneli,
+.kukla-listesi-kapsayici{ flex-shrink:0; }
+.kukla-listesi-kapsayici{ min-height:120px; }
+
+/* ---------------------------------------------------------------------------
+   DAR EKRAN — iki sütun yan yana sığmıyorsa ALT ALTA geçsin.
+
+   Sol panelin `min-width:450px` değeri var. 900 pikselden dar bir ekranda
+   iki sütun yan yana durmaya çalışınca kutular birbirinin üstüne biniyordu.
+   Alt alta geçince sorun yok; sayfa zaten aşağı büyüyebiliyor.
+   ------------------------------------------------------------------------- */
+@media (max-width: 900px){
+    .calisma-alani{ flex-direction:column; }
+    .sol-panel{
+        width:100% !important;
+        min-width:0 !important;
+        border-right:none;
+        border-bottom:2px solid #e2e8f0;
+    }
+    .sag-panel{ width:100%; padding-right:15px; }
+    /* Alt alta dizilince kod alanı ekranın çoğunu kaplasın */
+    #kodAlaniSarmal{ min-height:70vh; }
+}
 
 
 /* ==========================================================================
@@ -76,7 +131,12 @@ body{
     flex:0 0 auto;
     width:100%;
     box-sizing:border-box;
-    position:relative;   /* açılır harita buna göre konumlanır */
+    /* [2026-08] sticky: sayfa aşağı kaydırılabilir olduğu için şerit
+       kayıp gitmesin — öğrenci hangi bölümde olduğunu hep görsün.
+       sticky de "konumlanmış" sayılır, açılır harita buna göre yerleşmeye
+       devam eder. */
+    position:sticky;
+    top:0;
     height:var(--serit-boy);
     display:flex;
     align-items:center;
