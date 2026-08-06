@@ -28,12 +28,32 @@ $savasBittiEkrani = static function (string $baslik = 'Savaş Sona Erdi!'): void
          </div>");
 };
 
-// 1. Oturum aktif mi VE bu öğrencinin sınıfına mı ait?
+/* ============================================================================
+ * 1. OTURUM AKTİF Mİ VE BU ÖĞRENCİNİN SINIFINA MI AİT?
+ *
+ * [2026-08 HATA DÜZELTMESİ — "Bu savaş sizin sınıfınıza ait değil"]
+ * Buradaki JOIN eskiden şuydu:
+ *     JOIN ogrenciler o ON o.sinif_id = qo.sinif_id
+ *                      AND o.ogretmen_id = qo.ogretmen_id
+ *
+ * Yani öğrencinin `ogretmen_id` sütununun oturumunkiyle birebir tutmasını
+ * şart koşuyordu. Ama bu sütun DENORMALİZE bir kopya: öğrenci kayıt olurken
+ * yazılıyor ve öğrenci başka bir sınıfa taşınınca ya da sınıf başka bir
+ * öğretmene devredilince güncellenmiyor. O anda öğrenci quiz davetini alıyor,
+ * arenaya tıklıyor ve "Bu savaş sizin sınıfınıza ait değil" duvarına çarpıyordu.
+ *
+ * Gerçek sahiplik zinciri: ogretmenler -> siniflar -> ogrenciler
+ * Artık öğretmeni SINIFTAN türetiyoruz; ogrenciler.ogretmen_id'ye bakmıyoruz.
+ * ========================================================================== */
 $oturum_sorgu = $pdo->prepare(
     "SELECT qo.*
        FROM quiz_oturum qo
-       JOIN ogrenciler o ON o.sinif_id = qo.sinif_id AND o.ogretmen_id = qo.ogretmen_id
-      WHERE qo.id = ? AND qo.durum = 'aktif' AND o.id = ?"
+       JOIN ogrenciler o ON o.sinif_id = qo.sinif_id
+       JOIN siniflar   s ON s.id       = o.sinif_id
+      WHERE qo.id = ?
+        AND qo.durum = 'aktif'
+        AND o.id = ?
+        AND s.ogretmen_id = qo.ogretmen_id"
 );
 $oturum_sorgu->execute([$oturum_id, $ogrenci_id]);
 $oturum = $oturum_sorgu->fetch(PDO::FETCH_ASSOC);

@@ -106,8 +106,17 @@ Diğer: `cinsiyet` enum(erkek/kiz), `genel_guc`, `can`, `enerji`, `ceviklik` (*b
 `cevap_a_metni`…`cevap_d_metni` + `cevap_a_medya`…`cevap_d_medya`, `dogru_cevap` enum(A/B/C/D)
 
 ### `quiz_oturum`
-`id`, `bolum_idler` (virgüllü: `"1,2,3"`), `zorluk_seviyesi` (virgüllü), `durum` enum(`bekliyor`/`aktif`/`bitti`), `baslangic_zaman`
-> ⚠️ Öğretmene bağlı değil — **global**. Aynı anda tüm okullar aynı oturumu görür.
+`id`, **`ogretmen_id`**, **`sinif_id`**, `bolum_idler` (virgüllü: `"1,2,3"`),
+`zorluk_seviyesi` (virgüllü), `durum` enum(`bekliyor`/`aktif`/`bitti`),
+`baslangic_zaman`, **`bitis_zaman`**
+> ✅ [2026-08] Artık **sınıf bazlı**. `ogretmen_id` + `sinif_id` migration ile eklendi;
+> bir öğretmen quiz başlatınca sadece o sınıf etkileniyor.
+>
+> ⚠️ **SAHİPLİK ZİNCİRİ:** Oturumun öğrencinin olup olmadığı kontrol edilirken
+> `ogrenciler.ogretmen_id` sütununa **BAKMA**. O sütun kayıt anında yazılan
+> denormalize bir kopya; öğrenci başka sınıfa taşınınca ya da sınıf başka
+> öğretmene devredilince güncellenmiyor. Doğru zincir:
+> `ogretmenler → siniflar → ogrenciler`, yani `siniflar.ogretmen_id`.
 
 ### `quiz_ogrenci`
 `id`, `oturum_id`, `ogrenci_id`, `puan`, `cozulen_soru_sayisi`, `kalkan_aktif`,

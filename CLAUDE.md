@@ -149,6 +149,20 @@ Ayrıca `api/canavara_saldir.php` ile öğrenci envanterinden eşya feda edip (3
 ### F. Quiz Arena (çoklu, canlı) — **SINIF BAZLI**
 Öğretmen `quiz_oturum` açar (**sınıf** + bölüm + zorluk seçer) → SADECE o sınıfın öğrencileri çekilir.
 `quiz_oturum.ogretmen_id` + `sinif_id` bu bağı kurar.
+
+**Akış:** öğretmen başlatır → `api/ogrenci_radar.php` (3 sn) → `api/quiz_baskin.php`
+perdesi + **3-2-1 geri sayım** → `quiz_arena.php` → öğretmen bitirince
+`api/quiz_arena_kontrol.php` öğrenciyi köye yollar.
+
+> ⚠️ **SAHİPLİK ZİNCİRİ:** Oturum-öğrenci eşleşmesinde `ogrenciler.ogretmen_id`
+> sütununu KULLANMA — o denormalize bir kopya, sınıf devredilince bayatlıyor ve
+> öğrenci quiz davetini alamıyor. Doğru zincir `ogretmenler → siniflar → ogrenciler`,
+> yani `siniflar.ogretmen_id`.
+
+> ⚠️ **SORU HAVUZU ORTAK:** `quiz_sorulari` hem quiz hem düello tarafından kullanılır.
+> Düello zorluk ayrımı yapmaz ve "öğrencinin bölümü ve altı" diye kısıtlar — bu yüzden
+> **en alt bölümde her zaman soru bulunmalı**, yoksa düello "soru bulunamadı" deyip iptal olur.
+> Örnek seed: `kurulum/soru_havuzu_2026_08.sql`
 4 güç (her biri 1 hak): **kilic** (hedef yanlış bilirse -20/+20), **kalkan** (kılıcı geri teptirir, +20 ödül), **glitch**, **saat** (doğru bilirse 2 kat geri teper).
 
 ### G. Düello (1v1) — **SINIF İÇİ**

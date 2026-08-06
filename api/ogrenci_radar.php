@@ -9,7 +9,7 @@
  * Öğrencinin sayfası arka planda sürekli "yeni bir şey var mı?" diye sorar.
  * Eskiden bunu DÖRT ayrı dosyaya ayrı ayrı soruyordu:
  *   - api/duello/dinle.php          (düello isteği geldi mi?)
- *   - api/quiz_durum_kontrol.php    (quiz başladı mı?)
+ *   - api/quiz_durum_kontrol.php    (quiz başladı mı?) [2026-08: SİLİNDİ]
  *   - api/arena_durum_kontrol.php   (savaş arenası açıldı mı?)
  *   - api/student_sync.php?dinle    (öğretmen uzaktan onay verdi mi?)
  *
@@ -48,12 +48,26 @@ $cevap = [
 ];
 
 try {
-    /* ---- 1. Öğrencinin kimlik ve durum bilgisi + öğretmen şalterleri (TEK sorgu) ---- */
+    /* ---- 1. Öğrencinin kimlik ve durum bilgisi + öğretmen şalterleri (TEK sorgu) ----
+     *
+     * [2026-08 HATA DÜZELTMESİ] Öğretmen eskiden `o.ogretmen_id` üzerinden
+     * bulunuyordu. O sütun denormalize bir kopya; öğrenci başka sınıfa
+     * taşınınca ya da sınıf devredilince güncellenmiyor. Sonuç: quiz açılıyor
+     * ama öğrenciye davet gitmiyor, arena/düello şalterleri de yanlış öğretmenden
+     * okunuyordu.
+     *
+     * Gerçek zincir: ogretmenler -> siniflar -> ogrenciler
+     * Öğretmeni SINIFTAN türetiyoruz; ogrenciler.ogretmen_id yalnızca sınıfı
+     * olmayan eski kayıtlar için yedek olarak kalıyor (COALESCE).
+     */
     $st = $pdo->prepare(
-        "SELECT o.durum, o.sinif_id, o.ogretmen_id,
+        "SELECT o.durum,
+                o.sinif_id,
+                COALESCE(sn.ogretmen_id, o.ogretmen_id) AS ogretmen_id,
                 ogr.arena_bitis, ogr.duello_bitis
            FROM ogrenciler o
-      LEFT JOIN ogretmenler ogr ON ogr.id = o.ogretmen_id
+      LEFT JOIN siniflar    sn  ON sn.id  = o.sinif_id
+      LEFT JOIN ogretmenler ogr ON ogr.id = COALESCE(sn.ogretmen_id, o.ogretmen_id)
           WHERE o.id = ?"
     );
     $st->execute([$ogrenci_id]);

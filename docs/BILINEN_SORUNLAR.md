@@ -232,3 +232,62 @@ taklit ederek açar; böylece editörün **tek satırı bile** değişmedi.
   Yazdıkça **önce başlayanlar, sonra içerenler** listelenir; tam eşleşme yoksa
   "➕ Yeni grup" satırı çıkar. Altta mevcut gruplar tek tıkla seçilebilen çip
   olarak durur. Türkçe karakterler için `toLocaleLowerCase('tr')` kullanılır.
+
+---
+
+## ✅ 2026-08 — Quiz akışı uçtan uca çalışır hâle getirildi
+
+### Asıl hata: sahiplik zinciri denormalize sütuna dayanıyordu
+
+Öğretmen quiz başlatıyor ama öğrencinin ekranında hiçbir şey olmuyordu.
+Sebep, üç ayrı yerde tekrarlanan şu koşuldu:
+
+```sql
+JOIN ogrenciler o ON o.sinif_id = qo.sinif_id
+                 AND o.ogretmen_id = qo.ogretmen_id   -- ⚠️ kırılgan
+```
+
+`ogrenciler.ogretmen_id` kayıt anında yazılan bir **kopya**. Öğrenci başka
+sınıfa taşındığında ya da sınıf başka öğretmene devredildiğinde
+güncellenmiyor. O anda:
+
+- `api/ogrenci_radar.php` → quiz'i hiç görmüyor, davet gitmiyor
+- `quiz_arena.php` → "Bu savaş sizin sınıfınıza ait değil"
+- `api/quiz_arena_kontrol.php` → arenaya girse bile 2 saniye sonra atıyor
+
+**Çözüm:** Üçünde de öğretmen artık **sınıftan** türetiliyor
+(`ogretmenler → siniflar → ogrenciler`). `ogrenciler.ogretmen_id` yalnızca
+sınıfı olmayan eski kayıtlar için `COALESCE` yedeği olarak duruyor.
+
+> ⚠️ Yeni bir quiz/arena sorgusu yazarken `ogrenciler.ogretmen_id` ile
+> eşleştirme YAPMA. `siniflar.ogretmen_id` kullan.
+
+### Geri sayım eklendi
+
+`api/quiz_baskin.php` perdeyi açıp **sabit 2.5 saniye** bekleyip yönlendiriyordu;
+öğrenci ne olduğunu anlamadan kendini arenada buluyordu. Artık daralan bir halka
+ile 3 → 2 → 1 geri sayıyor ve ses eşlik ediyor. (`assets/sounds/ucsaniyegerisayim.mp3`
+zaten projede duruyordu ama hiçbir yerde çalınmıyordu.)
+
+Ayrıca **sonsuz döngü** önlendi: öğrenci arenadan panele dönerse quiz hâlâ aktif
+olduğu için radar yine "aktif" der ve perde tekrar açılırdı. Gösterilen oturum id'si
+`sessionStorage`'da tutuluyor, aynı oturum için perde bir kez açılıyor.
+
+### Ölü dosya silindi
+
+`api/quiz_durum_kontrol.php` — radar birleştirmesinden sonra çağıranı kalmamıştı.
+Silindi; durmaya devam etseydi biri ikinci bir yoklayıcı eklemeye kalkışabilirdi.
+
+### Soru havuzu: quiz ve düello ORTAK kullanır
+
+`kurulum/soru_havuzu_2026_08.sql` ile 5 soru eklendi.
+
+| | Nereden çeker | Zorluk filtresi |
+|---|---|---|
+| Quiz Arena | öğretmenin seçtiği bölüm + zorluk | ✅ var |
+| Düello | öğrencinin bölümü ve altı | ❌ yok |
+
+> ⚠️ Düello zorluk ayrımı yapmaz ve "öğrencinin bulunduğu bölüm ve altı" diye
+> kısıtlar. Sorular yalnızca üst bölümlere eklenirse yeni öğrenciler düello
+> kabul ettiğinde *"Havuzda seviyenize uygun soru bulunamadı"* alır ve düello
+> iptal olur. Bu yüzden **her zaman en alt bölümde de soru bulunsun.**

@@ -23,12 +23,16 @@ if ($oturum_id <= 0) {
 }
 
 try {
-    // Oturum bu öğrencinin sınıfına mı ait?
+    /* Oturum bu öğrencinin sınıfına mı ait?
+       [2026-08] Sahiplik zinciri quiz_arena.php ile aynı olmalı:
+       ogretmenler -> siniflar -> ogrenciler. Aksi hâlde arenaya girebilen
+       öğrenci burada "bitti" cevabı alıp saniyeler içinde dışarı atılırdı. */
     $st = $pdo->prepare(
         "SELECT qo.durum
            FROM quiz_oturum qo
            JOIN ogrenciler o ON o.sinif_id = qo.sinif_id
-          WHERE qo.id = ? AND o.id = ?"
+           JOIN siniflar   s ON s.id       = o.sinif_id
+          WHERE qo.id = ? AND o.id = ? AND s.ogretmen_id = qo.ogretmen_id"
     );
     $st->execute([$oturum_id, $ogrenci_id]);
     $durum = $st->fetchColumn();
