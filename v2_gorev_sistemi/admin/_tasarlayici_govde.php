@@ -6,32 +6,36 @@
  *
  * NE İŞE YARAR (HALK DİLİNDE):
  * Görev tasarlama formunun (başlık + bölüm/sıra/puan + hikaye editörü +
- * Blockly cevap anahtarı) tek kopyası. İki farklı sayfa bunu kullanır:
- *   1. v2_gorev_sistemi/admin/tasarlayici.php   (bağımsız tasarlayıcı)
- *   2. admin/gorev_ekle.php                     (bölüm yönetimi + tasarlayıcı)
- * Böylece form iki yerde ayrı ayrı bakılmak zorunda kalmıyor.
+ * Blockly cevap anahtarı) tek kopyası.
+ *
+ * [2026-08] Eskiden bu gövdeyi İKİ sayfa kullanıyordu (tasarlayici.php ve
+ * admin/gorev_ekle.php). gorev_ekle.php kaldırıldı; artık tek kullanıcısı
+ * tasarlayici.php. Gövde yine ayrı dosyada tutuluyor çünkü form uzun ve
+ * sayfanın kendi iskeletinden ayrı okunması kolaylık sağlıyor.
  *
  * ÇAĞIRMADAN ÖNCE TANIMLANMASI GEREKENLER:
- *   $V2_TABAN      — v2_gorev_sistemi/ klasörüne giden yol
- *                    (tasarlayici.php'de '../', gorev_ekle.php'de '../v2_gorev_sistemi/')
- *   $KOK_ONEK      — proje KÖKÜNE çıkan yol (önbellek kırıcı varlik() için)
- *                    (tasarlayici.php'de '../../', gorev_ekle.php'de '../')
- *   $bolumler      — bolumler tablosundan satırlar
- *   $duzenlenen    — düzenleme modundaysa v2_gorevler satırı, yoksa null
- *   $duzenlenenId  — düzenlenen görevin id'si (yoksa 0)
- *   $onerilenSira  — önerilen sıra numarası
+ *   $V2_TABAN        — v2_gorev_sistemi/ klasörüne giden yol ('../')
+ *   $KOK_ONEK        — proje KÖKÜNE çıkan yol ('../../', varlik() için)
+ *   $bolumler        — bolumler tablosundan satırlar
+ *   $duzenlenen      — düzenleme modundaysa v2_gorevler satırı, yoksa null
+ *   $duzenlenenId    — düzenlenen görevin id'si (yoksa 0)
+ *   $onerilenSira    — önerilen sıra numarası
+ *   $onSecilenBolum  — açılışta seçili gelecek bölüm id'si
  *
  * YENİ EKLENEN ÖZELLİKLER:
  *  - [2026-08] Dosya oluşturuldu; tasarlayıcı gövdesi tek kaynağa indirildi.
+ *  - [2026-08] $onSecilenBolum ile bölüm ön seçimi.
+ *  - [2026-08] Blockly alanlarına TAM EKRAN düğmesi eklendi.
  * ============================================================================
  */
 
-$V2_TABAN     = $V2_TABAN     ?? '../';
-$KOK_ONEK     = $KOK_ONEK     ?? '../../';
-$bolumler     = $bolumler     ?? [];
-$duzenlenen   = $duzenlenen   ?? null;
-$duzenlenenId = $duzenlenenId ?? 0;
-$onerilenSira = $onerilenSira ?? 1;
+$V2_TABAN       = $V2_TABAN       ?? '../';
+$KOK_ONEK       = $KOK_ONEK       ?? '../../';
+$bolumler       = $bolumler       ?? [];
+$duzenlenen     = $duzenlenen     ?? null;
+$duzenlenenId   = $duzenlenenId   ?? 0;
+$onerilenSira   = $onerilenSira   ?? 1;
+$onSecilenBolum = $onSecilenBolum ?? 0;
 ?>
 
 <form id="v2GorevForm">
@@ -53,7 +57,7 @@ $onerilenSira = $onerilenSira ?? 1;
             <select id="gorevBolumId" style="width:100%; padding:12px; border:1px solid #cbd5e1; border-radius:6px; font-size:15px;">
                 <?php foreach ($bolumler as $b): ?>
                     <option value="<?= (int) $b['id'] ?>"
-                        <?= ($duzenlenen && (int) $duzenlenen['bolum_id'] === (int) $b['id']) ? 'selected' : '' ?>>
+                        <?= ((int) $onSecilenBolum === (int) $b['id']) ? 'selected' : '' ?>>
                         <?= (int) $b['sira_no'] ?>. <?= temizle($b['bolum_adi']) ?>
                     </option>
                 <?php endforeach; ?>
@@ -92,7 +96,12 @@ $onerilenSira = $onerilenSira ?? 1;
             Öğrencinin yapmasını beklediğiniz %100 doğru kod dizilimini buraya kurun.
             Sistem öğrencileri bu haritaya göre <b>sunucuda</b> test edecek.
         </p>
-        <div id="blocklyAnaCozum" style="height: 500px; width: 100%; border: 2px solid #d97706; border-radius: 8px;"></div>
+        <!-- [2026-08] TAM EKRAN: geniş ekranda rahat kod kurup geri dönebilmek için -->
+        <div class="kod-sarmal" id="sarmalAnaCozum">
+            <button type="button" class="tam-ekran-btn" onclick="kodAlaniTamEkran('sarmalAnaCozum')"
+                    title="Tam ekran aç / kapat">⛶ Tam Ekran</button>
+            <div id="blocklyAnaCozum" style="height: 500px; width: 100%; border: 2px solid #d97706; border-radius: 8px;"></div>
+        </div>
     </div>
 
     <div style="margin-top: 40px; border-top: 2px dashed #cbd5e1; padding-top: 25px;">
@@ -126,7 +135,79 @@ $onerilenSira = $onerilenSira ?? 1;
 
     // Görev listesine dönüş bağlantısı
     window.V2_LISTE_YOLU = <?= json_encode($V2_TABAN . 'admin/gorev_listesi.php') ?>;
+
+    /* ========================================================================
+     * [2026-08] KOD ALANI TAM EKRAN
+     * Blockly tuvali dar bir kutuya sıkışınca uzun kod dizilimlerini kurmak
+     * zorlaşıyor. Bu düğme kutuyu ekranın tamamına yayar, tekrar basınca
+     * eski hâline döndürür. Blockly tuvalini kendi ölçüsüne göre çizdiği için
+     * her iki durumda da svgResize çağırmak ZORUNLU; yoksa bloklar kayar.
+     * ====================================================================== */
+    window.kodAlaniTamEkran = function (sarmalId) {
+        var sarmal = document.getElementById(sarmalId);
+        if (!sarmal) return;
+
+        var acildi = sarmal.classList.toggle('tam-ekran');
+        document.body.classList.toggle('kod-tam-ekran-acik', acildi);
+
+        var dugme = sarmal.querySelector('.tam-ekran-btn');
+        if (dugme) dugme.textContent = acildi ? '✕ Küçült' : '⛶ Tam Ekran';
+
+        // Blockly'nin tuvali yeni boyutu ölçsün
+        setTimeout(function () {
+            try {
+                if (typeof Blockly === 'undefined' || !Blockly.svgResize) return;
+                var kutu = sarmal.querySelector('[id^="blockly"]');
+                if (!kutu) return;
+
+                // Bu kutuya bağlı çalışma alanını bul
+                var ws = (window.blueprintAlanlari && window.blueprintAlanlari[kutu.id])
+                      || Blockly.getMainWorkspace();
+                if (ws) Blockly.svgResize(ws);
+            } catch (e) { /* Blockly hazır değilse sorun değil */ }
+            window.dispatchEvent(new Event('resize'));
+        }, 60);
+    };
+
+    /* ESC ile tam ekrandan çık */
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        var acik = document.querySelector('.kod-sarmal.tam-ekran');
+        if (acik) window.kodAlaniTamEkran(acik.id);
+    });
 </script>
+
+<style>
+/* ============================================================================
+   KOD ALANI TAM EKRAN — [2026-08]
+   ========================================================================= */
+.kod-sarmal { position: relative; }
+
+.tam-ekran-btn {
+    position: absolute; top: 8px; right: 8px; z-index: 20;
+    background: rgba(15,23,42,.82); color: #fff; border: none;
+    padding: 7px 13px; border-radius: 8px;
+    font-size: 12.5px; font-weight: bold; cursor: pointer;
+    transition: .15s;
+}
+.tam-ekran-btn:hover { background: #0f172a; }
+
+.kod-sarmal.tam-ekran {
+    position: fixed; inset: 0; z-index: 9500;
+    background: #f8fafc; padding: 52px 14px 14px;
+    margin: 0; border-radius: 0;
+}
+.kod-sarmal.tam-ekran > div[id^="blockly"] {
+    height: 100% !important;
+    border-radius: 10px;
+}
+.kod-sarmal.tam-ekran .tam-ekran-btn {
+    top: 12px; right: 16px; background: #dc2626; padding: 9px 18px; font-size: 14px;
+}
+
+/* Tam ekran açıkken arkadaki sayfa kaymasın */
+body.kod-tam-ekran-acik { overflow: hidden; }
+</style>
 
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest"></script>
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest"></script>

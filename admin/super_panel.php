@@ -59,17 +59,17 @@ $kartlar = [
      'aciklama' => 'Başvuruları onayla, PIN üret, üyelik süresi ver.',
      'rozet' => $bekleyenOgretmen > 0 ? $bekleyenOgretmen . ' onay bekliyor' : '', 'renk' => '#ef4444'],
 
-    ['baslik' => '📚 Görev Yönetimi (v1)', 'link' => 'gorev_yonetimi.php',
-     'aciklama' => 'Bölümleri ve mBlock görevlerini listele, sırala, sil.',
-     'rozet' => $toplamGorev . ' görev', 'renk' => '#3b82f6'],
+    /* [2026-08] ÜÇ KART TEK KARTA İNDİ.
+       Eskiden "Görev Yönetimi (v1)", "Yeni Görev Ekle (v1)" ve "Görev
+       Tasarlayıcı (v2)" diye üç ayrı giriş vardı; hangisinden görev
+       ekleneceği belirsizdi. Artık müfredatın tek adresi var. */
+    ['baslik' => '📚 Müfredat ve Görev Yönetimi', 'link' => '../v2_gorev_sistemi/admin/gorev_listesi.php',
+     'aciklama' => 'Bölümleri kur, görev tasarla, sırala, yayına al.',
+     'rozet' => ($toplamV2Gorev + $toplamGorev) . ' görev', 'renk' => '#8b5cf6'],
 
-    ['baslik' => '➕ Yeni Görev Ekle (v1)', 'link' => 'gorev_ekle.php',
-     'aciklama' => 'Ekran görüntülü klasik görev oluştur.',
-     'rozet' => '', 'renk' => '#3b82f6'],
-
-    ['baslik' => '🚀 Görev Tasarlayıcı (v2)', 'link' => '../v2_gorev_sistemi/admin/gorev_listesi.php',
-     'aciklama' => 'Tarayıcı içi Blockly görevleri — otomatik kontrol.',
-     'rozet' => $toplamV2Gorev . ' görev', 'renk' => '#8b5cf6'],
+    ['baslik' => '🚀 Yeni Görev Tasarla', 'link' => '../v2_gorev_sistemi/admin/tasarlayici.php',
+     'aciklama' => 'Blockly cevap anahtarıyla yeni nesil görev oluştur.',
+     'rozet' => '', 'renk' => '#8b5cf6'],
 
     ['baslik' => '🎭 Kukla Kütüphanesi', 'link' => '../v2_gorev_sistemi/admin/kukla_kutuphanesi/index.php',
      'aciklama' => 'v2 sahnesindeki kuklaları ve kostümleri yönet.',

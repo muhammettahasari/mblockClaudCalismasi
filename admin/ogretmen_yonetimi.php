@@ -124,8 +124,8 @@ $kayitlilar = $pdo->query("SELECT * FROM ogretmenler WHERE durum = 'onaylandi'")
 
     <div class="container">
         <div style="display: flex; justify-content: flex-end; gap: 15px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 2px solid #e2e8f0;">
-            <a href="gorev_ekle.php" style="background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">➕ Yeni Görev / Bölüm Ekle</a>
-            <a href="gorev_yonetimi.php" style="background: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">📚 Müfredat ve Görev Yönetimi ➡️</a>
+            <a href="../v2_gorev_sistemi/admin/gorev_listesi.php" style="background: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">➕ Yeni Görev / Bölüm Ekle</a>
+            <a href="../v2_gorev_sistemi/admin/gorev_listesi.php" style="background: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">📚 Müfredat ve Görev Yönetimi ➡️</a>
             <a href="admin_market.php" style="background: #8b5cf6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">🛒 Gizemli Market Yönetimi</a>
         </div>
         <h1>👑 Süper Admin Kontrol Merkezi</h1>

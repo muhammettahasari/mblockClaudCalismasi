@@ -371,9 +371,14 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
             <button id="tab-btn-savas" onclick="sekmeDegistir('savas')" style="flex: 1; padding: 14px; background: #1e293b; color: #94a3b8; border: none; font-weight: 800; font-size: 14px; cursor: pointer; transition: 0.2s;">
                 ⚔️ Savaş Alanı
             </button>
+            <!-- [2026-08] Kod alanını tam ekran yapıp geri döndürme -->
+            <button id="btnKodTamEkran" onclick="kodAlaniTamEkran()" title="Kod alanını tam ekran yap (ESC ile çık)"
+                    style="flex: 0 0 auto; padding: 14px 18px; background: #1e293b; color: #94a3b8; border: none; border-left: 1px solid #334155; font-weight: 800; font-size: 14px; cursor: pointer; transition: 0.2s;">
+                ⛶ Tam Ekran
+            </button>
         </div>
 
-        <div style="flex: 1 1 auto; position: relative; border: 1px solid #334155; border-radius: 0 0 10px 10px; background: #ffffff; min-height: 400px; overflow: hidden;">
+        <div id="kodAlaniSarmal" style="flex: 1 1 auto; position: relative; border: 1px solid #334155; border-radius: 0 0 10px 10px; background: #ffffff; min-height: 400px; overflow: hidden;">
             
             <div id="sekme-kod-alani" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: block;">
                 <div id="blocklyOgrenci" style="width: 100%; height: 100%;"></div>
@@ -390,7 +395,61 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
 
     </div><!-- /.calisma-alani -->
 
+    <style>
+    /* ====================================================================
+       [2026-08] KOD ALANI TAM EKRAN
+       Öğrenci uzun kod dizilimlerini kurarken dar kutuya sıkışmasın diye
+       kod alanı ekranın tamamına yayılabilir. Aynı düğme geri döndürür.
+       ================================================================== */
+    #kodAlaniSarmal.tam-ekran{
+        position: fixed !important; inset: 0 !important;
+        z-index: 9400; border-radius: 0 !important;
+        min-height: 0 !important; margin: 0 !important;
+    }
+    body.kod-tam-ekran #btnKodTamEkran{
+        position: fixed; top: 12px; right: 16px; z-index: 9450;
+        background: #dc2626 !important; color: #fff !important;
+        border-radius: 9px; border: none !important; padding: 10px 18px;
+        box-shadow: 0 6px 18px rgba(0,0,0,.35);
+    }
+    body.kod-tam-ekran{ overflow: hidden; }
+    </style>
+
      <script>
+        /* Kod alanını tam ekran aç/kapat.
+           Blockly tuvalini kendi ölçüsüne göre çizdiği için her iki durumda da
+           svgResize çağırmak ZORUNLU; yoksa bloklar kayık görünür. */
+        function kodAlaniTamEkran() {
+            const sarmal = document.getElementById('kodAlaniSarmal');
+            const dugme  = document.getElementById('btnKodTamEkran');
+            if (!sarmal) return;
+
+            const acildi = sarmal.classList.toggle('tam-ekran');
+            document.body.classList.toggle('kod-tam-ekran', acildi);
+            if (dugme) dugme.textContent = acildi ? '✕ Küçült' : '⛶ Tam Ekran';
+
+            // Tam ekrana geçince kod sekmesi görünsün
+            if (acildi) sekmeDegistir('kod');
+
+            setTimeout(function () {
+                try {
+                    const ws = window.ogrenciWorkspace
+                            || (typeof Blockly !== 'undefined' ? Blockly.mainWorkspace : null);
+                    if (ws && typeof Blockly !== 'undefined' && Blockly.svgResize) {
+                        Blockly.svgResize(ws);
+                    }
+                } catch (e) { /* Blockly hazır değilse sorun değil */ }
+                window.dispatchEvent(new Event('resize'));
+            }, 60);
+        }
+
+        /* ESC ile tam ekrandan çık */
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape') return;
+            const sarmal = document.getElementById('kodAlaniSarmal');
+            if (sarmal && sarmal.classList.contains('tam-ekran')) kodAlaniTamEkran();
+        });
+
         function sekmeDegistir(hedef) {
             const btnKod = document.getElementById('tab-btn-kod');
             const btnSavas = document.getElementById('tab-btn-savas');

@@ -93,6 +93,7 @@ mblock_platform/
 ├── img/esyalar/<kategori>/ # Avatar eşya PNG'leri (dosya adı = "<seviye>_seviye_<ad>_<id>.png")
 │
 └── v2_gorev_sistemi/       # 🚧 YENİ NESİL GÖREV SİSTEMİ (geliştirme aşamasında, eski sistemden AYRI)
+    ├── admin/gorev_listesi.php           # MÜFREDAT: bölüm yönetimi + tüm görevler (TEK EKRAN)
     ├── admin/tasarlayici.php          # Blockly ile "Blueprint" (cevap anahtarı) tasarlama
     ├── admin/kukla_kutuphanesi/       # Kukla (sprite) + kostüm yükleme
     ├── ogrenci/oynatici.php           # Öğrencinin kod yazıp çalıştırdığı sahne (846 satır)
@@ -158,6 +159,12 @@ Puan: okuyan kazanırsa +5/-3, okunan kazanırsa +6/-6, süre biterse ikisi de c
 ### H. v2 Görev Sistemi ✅ (çalışır durumda)
 Admin `tasarlayici.php`'de Blockly ile "Master Blueprint" (cevap anahtarı) + alternatif çözümler kurar, **bölüm/sıra/puan seçer** → `v2_gorevler.icerik_json`.
 `admin/gorev_listesi.php` ile görevler listelenir, sıralanır, yayına alınır.
+
+> ⚠️ **[2026-08] MÜFREDATIN TEK ADRESİ VAR.** Aynı işi yapan üç sayfa birleştirildi:
+> `admin/gorev_ekle.php` ve `admin/gorev_yonetimi.php` **SİLİNDİ**.
+> Bölüm yönetimi + v2/v1 görev listesi → `v2_gorev_sistemi/admin/gorev_listesi.php`
+> Görev tasarlama → `v2_gorev_sistemi/admin/tasarlayici.php` (`?bolum=N` ile ön seçim)
+> Yeni bir "görev ekle" bağlantısı yazarken bu ikisinden birini kullan, yenisini açma.
 
 Öğrenci `oynatici.php?gorev_id=N`'de kodu blokla kurar → **"Görevimi Kontrol Et"** →
 `hakem_motoru.js` workspace XML'ini `api/v2_gorev_tamamla.php`'ye gönderir →

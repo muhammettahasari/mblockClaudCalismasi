@@ -1,1 +1,6 @@
-skorboardın üstündeki avatar resmini sayfaya yerleştirmeye çalışıyorum.
+görev eklemek için http://localhost/mblock_platform/v2_gorev_sistemi/admin/tasarlayici.php bir bu sayfa var birde http://localhost/mblock_platform/admin/gorev_ekle.php bu sayfa var eski sayfa kullanılmıyorsa sil. eğer o sayfayı referans alıp yeniyi oluşturdu isen sayfaları birleştir yok yeni sayfa yaptıysan eskiyi yok et. başka sayfalardaki yönlendirmeleri yeniye yönlendir.
+http://localhost/mblock_platform/admin/gorev_yonetimi.php müfredat ve görev yeönetimi sayfası ile http://localhost/mblock_platform/v2_gorev_sistemi/admin/gorev_listesi.php bu sayfanın farkı ne ikinci versiyonun tasarımı güzel burada olmayan özellikleri diğerinden al tek sayfa yapalım diğerini kaldıralım. başka sayfalardaki yönlendirmeleri yeniye yönlendir.
+görev tasarlayıcı v2 alanında bölümlerin arkaplan koyuluk renkleri color:#94a3b8 bu kullanılmış arkaplandan bir ton açık olsun ki bölümler arkaplandan ayrılsın bölümler arasıda aynı renktonlarının farklı iki tonuda her bölümü birbirinden ayırsın örnek tek sayı 1,3,5 vs bölümler o renkgin bir tonuysa çift sayılı bölümler başka bir tonu olsunki bölümler ayrılsın.
+
+kod bloklarının olduğu kodlama alanıda tam ekran yapılabilsin bu sayede geniş bir ekranda kodlarını yazar ve geri eski haline getirip kontrollerini yapabilir
+

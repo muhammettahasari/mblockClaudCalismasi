@@ -39,7 +39,7 @@ $bolumler = $pdo->query("SELECT * FROM bolumler ORDER BY sira_no ASC")->fetchAll
 <div class="admin-container">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h2 style="margin: 0; color: #1e293b;">✏️ Görevi Düzenle</h2>
-        <a href="gorev_yonetimi.php" style="background: #64748b; color: white; padding: 8px 15px; text-decoration: none; border-radius: 6px; font-weight: bold;">⬅️ Listeye Dön</a>
+        <a href="../v2_gorev_sistemi/admin/gorev_listesi.php" style="background: #64748b; color: white; padding: 8px 15px; text-decoration: none; border-radius: 6px; font-weight: bold;">⬅️ Listeye Dön</a>
     </div>
     
     <form id="gorevForm" action="../api/task_update.php" method="POST">

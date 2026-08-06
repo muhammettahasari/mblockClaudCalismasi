@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <script>
                 setTimeout(function() {
-                    window.location.href = "../admin/gorev_yonetimi.php";
+                    window.location.href = "../v2_gorev_sistemi/admin/gorev_listesi.php";
                 }, 2000);
             </script>
         </body>

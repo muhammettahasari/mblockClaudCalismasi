@@ -8,14 +8,18 @@
  * Süper Admin'in görevleri yazdığı, Ana Çözüm (Blueprint) ve Alternatif
  * Çözümleri tasarladığı bağımsız sayfa.
  *
- * NOT: Formun kendisi _tasarlayici_govde.php içindedir; aynı gövde
- * admin/gorev_ekle.php sayfasında da kullanılır (tek kaynak).
+ * NOT: Formun kendisi _tasarlayici_govde.php içindedir.
+ *
+ * [2026-08] GÖREV TASARLAMANIN TEK ADRESİ BURASI.
+ * Eskiden aynı tasarlayıcı admin/gorev_ekle.php içine de gömülüydü; iki ayrı
+ * adresten aynı iş yapılıyor, hangisinin güncel olduğu belirsizdi.
+ * gorev_ekle.php kaldırıldı, içindeki bölüm yönetimi gorev_listesi.php'ye taşındı.
  *
  * YENİ EKLENEN ÖZELLİKLER:
  *  - [Önceki] Kodlar modüler JS dosyalarına bölündü, Blueprint arayüzü geldi.
  *  - [2026-08] Süper Admin oturumu zorunlu hale getirildi (Bilinen Sorunlar #1).
  *  - [2026-08] Bölüm / sıra no / puan alanları eklendi; sabit kodlama kaldırıldı (#17).
- *  - [2026-08] Form gövdesi paylaşılan parçaya taşındı.
+ *  - [2026-08] ?bolum=N ile açılırsa o bölüm hazır seçili gelir.
  * ============================================================================
  */
 
@@ -34,13 +38,22 @@ if ($duzenlenenId > 0) {
 
 $bolumler = $pdo->query("SELECT id, bolum_adi, sira_no FROM bolumler ORDER BY sira_no ASC")->fetchAll(PDO::FETCH_ASSOC);
 
+/* [2026-08] "+ Bu bölüme görev ekle" bağlantısıyla gelindiğinde o bölüm
+   hazır seçili olsun; admin listeden geldiği bölümü tekrar aramasın. */
+$onSecilenBolum = isset($_GET['bolum']) ? (int) $_GET['bolum'] : 0;
+if ($duzenlenen) {
+    $onSecilenBolum = (int) $duzenlenen['bolum_id'];
+} elseif ($onSecilenBolum <= 0 && $bolumler) {
+    $onSecilenBolum = (int) $bolumler[0]['id'];
+}
+
 // Seçili bölüm için bir sonraki sıra numarasını öner
 $onerilenSira = 1;
 if ($duzenlenen) {
     $onerilenSira = (int) $duzenlenen['sira_no'];
-} elseif ($bolumler) {
+} elseif ($onSecilenBolum > 0) {
     $st = $pdo->prepare("SELECT COALESCE(MAX(sira_no),0)+1 FROM v2_gorevler WHERE bolum_id = ?");
-    $st->execute([$bolumler[0]['id']]);
+    $st->execute([$onSecilenBolum]);
     $onerilenSira = (int) $st->fetchColumn();
 }
 
@@ -66,7 +79,7 @@ $KOK_ONEK = '../../';   // proje köküne (önbellek kırıcı için)
             <span style="font-size:14px; font-weight:normal; color:#64748b;">(Blueprint Sistemi)</span>
         </h2>
         <div style="display:flex; gap:10px;">
-            <a href="gorev_listesi.php" style="background:#334155; color:#fff; padding:9px 16px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:14px;">← Görev Listesi</a>
+            <a href="gorev_listesi.php" style="background:#334155; color:#fff; padding:9px 16px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:14px;">← Müfredat</a>
             <a href="../../admin/super_panel.php" style="background:#64748b; color:#fff; padding:9px 16px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:14px;">Panel</a>
         </div>
     </div>
@@ -74,8 +87,8 @@ $KOK_ONEK = '../../';   // proje köküne (önbellek kırıcı için)
     <?php if (empty($bolumler)): ?>
         <div style="background:#fee2e2; border:1px solid #fecaca; color:#991b1b; padding:16px; border-radius:10px; margin-top:20px; font-weight:bold;">
             ⚠️ Sistemde hiç bölüm yok. Önce
-            <a href="../../admin/gorev_ekle.php" style="color:#991b1b;">Bölüm Yönetimi</a>
-            sayfasından bir bölüm oluşturun.
+            <a href="gorev_listesi.php" style="color:#991b1b;">Müfredat sayfasından</a>
+            bir bölüm oluşturun.
         </div>
     <?php endif; ?>
 

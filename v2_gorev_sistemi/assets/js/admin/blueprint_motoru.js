@@ -35,6 +35,14 @@ const anaWorkspace = Blockly.inject('blocklyAnaCozum', {
     zoom: { controls: true, wheel: false, startScale: 0.9 }
 });
 
+/* [2026-08] TAM EKRAN DESTEĞİ
+   Tam ekran düğmesi hangi Blockly kutusuna basıldığını biliyor ama o kutuya
+   bağlı çalışma alanını (workspace) bilemiyor. Kutu id'si -> workspace
+   eşlemesini burada tutuyoruz ki büyütünce svgResize doğru alana uygulansın;
+   yoksa bloklar kayık görünür. */
+window.blueprintAlanlari = window.blueprintAlanlari || {};
+window.blueprintAlanlari['blocklyAnaCozum'] = anaWorkspace;
+
 // 2. ALTERNATİF ÇÖZÜMLER YÖNETİMİ
 let alternatifWorkspaces = []; // Alternatif alanları hafızada tutacağımız dizi
 let alternatifSayaci = 0;
@@ -58,12 +66,19 @@ function alternatifCozumEkle(yuklenecekXml) {
     cerceve.style.background = '#f8fafc';
 
     // B. Başlık, Sil Butonu ve Blockly Hedef Div'i
+    // [2026-08] Bu alan da tam ekran yapılabilsin diye .kod-sarmal içine alındı
+    const sarmalId = 'sarmal_' + containerId;
+
     cerceve.innerHTML = `
         <h4 style="margin: 0 0 10px 0; color: #10b981;">Alternatif Çözüm Varyasyonu ${alternatifSayaci}</h4>
         <button type="button" onclick="silAlternatifCozum(this, '${containerId}')" style="position:absolute; top:15px; right:15px; background:#ef4444; color:white; border:none; padding:6px 12px; border-radius:4px; cursor:pointer; font-weight:bold;">Tümünü Sil</button>
-        <div id="${containerId}" style="height: 350px; width: 100%; border: 1px solid #cbd5e1; border-radius: 6px;"></div>
+        <div class="kod-sarmal" id="${sarmalId}">
+            <button type="button" class="tam-ekran-btn" style="top:6px; right:6px;"
+                    onclick="kodAlaniTamEkran('${sarmalId}')" title="Tam ekran aç / kapat">⛶ Tam Ekran</button>
+            <div id="${containerId}" style="height: 350px; width: 100%; border: 1px solid #cbd5e1; border-radius: 6px;"></div>
+        </div>
     `;
-    
+
     document.getElementById('alternatifCozumlerKonteyneri').appendChild(cerceve);
 
     // C. Oluşan Yeni Div'in İçine Blockly (mBlock) Motorunu Enjekte Et
@@ -89,6 +104,7 @@ function alternatifCozumEkle(yuklenecekXml) {
 
     // Hafızaya Kaydet
     alternatifWorkspaces.push({ id: containerId, workspace: altWs });
+    window.blueprintAlanlari[containerId] = altWs;   // tam ekran için eşleme
     return altWs;
 }
 

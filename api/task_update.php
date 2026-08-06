@@ -49,8 +49,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ':id' => $id
         ]);
         
-        // Başarıyla güncellendiğinde görev yönetimi listesine geri fırlat
-        header("Location: ../admin/gorev_yonetimi.php");
+        // [2026-08] Müfredat sayfası v2 klasörüne taşındı (tek ekranda birleşti)
+        header("Location: ../v2_gorev_sistemi/admin/gorev_listesi.php");
         exit;
     } catch (PDOException $e) {
         die("Veritabanı hatası: " . $e->getMessage());

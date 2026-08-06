@@ -93,3 +93,34 @@ ortaokul öğrencileri şifrelerini unutuyor. Hash'lenirse bu özellik çalışm
 | Düşük | v1 ve v2 paralel çalışıyor | Geçiş tamamlanınca v1 (`gorevler` + ekran görüntüsü) emekliye ayrılabilir. |
 | Düşük | `api/api_market_islem.php` içindeki `senkronize_et` dosyaları diskte yeniden adlandırıyor | Güvenli sürümü `super_bakim.php`'de. Eski uç nokta admin korumalı ama kaldırılabilir. |
 | Düşük | `admin/gorev_ekle.php` / `gorev_duzenle.php` formlarında CSRF yok | Süper Admin korumalı oldukları için risk düşük. |
+
+---
+
+## ✅ 2026-08 — Görev yönetimi sayfaları birleştirildi
+
+**Sorun:** Aynı işi yapan üç ayrı sayfa vardı ve hangisinin güncel olduğu belirsizdi:
+
+| Eski sayfa | Ne yapıyordu | Akıbeti |
+|---|---|---|
+| `admin/gorev_ekle.php` | Bölüm yönetimi + gömülü v2 tasarlayıcı | **SİLİNDİ** |
+| `admin/gorev_yonetimi.php` | Müfredat listesi (v1 + v2) | **SİLİNDİ** |
+| `v2_gorev_sistemi/admin/gorev_listesi.php` | v2 görev listesi | **Tek müfredat ekranı oldu** |
+
+"Kaç görevim var?" sorusu üç yerde üç farklı cevap veriyordu; görev tasarlayıcı
+iki ayrı adresten açılabildiği için hangisinin güncel olduğu anlaşılmıyordu.
+
+**Yeni düzen (iki sayfa):**
+
+- `v2_gorev_sistemi/admin/gorev_listesi.php` — **Müfredat ve Görev Yönetimi**
+  Bölüm ekle/adlandır/sırala/sil + her bölümün altında v2 ve v1 görevleri,
+  cevap anahtarı önizlemesi (🔑), yayın aç/kapa, çözen öğrenci sayısı.
+  Bölüm kartları tek/çift farklı tonda (`.ton-a` / `.ton-b`) ki sınırları belli olsun.
+- `v2_gorev_sistemi/admin/tasarlayici.php` — **Görev Tasarlayıcı**
+  `?id=N` düzenleme, `?bolum=N` ile bölüm ön seçimi.
+
+**Güncellenen bağlantılar:** `admin/super_panel.php` (üç kart → iki kart),
+`admin/ogretmen_yonetimi.php`, `admin/gorev_duzenle.php`, `api/task_save.php`,
+`api/task_update.php`.
+
+> ⚠️ `admin/gorev_duzenle.php` KORUNDU — eski v1 görevlerini düzenlemenin tek yolu.
+> Müfredat sayfasındaki v1 satırlarından bağlanır.

@@ -234,9 +234,24 @@ try {
      * ====================================================================== */
     $sonrakiGorevId = sonrakiGoreviBul($pdo, $ogrenci_id, $gorev_id);
 
-    // Her şey bittiyse öğrenciyi 1. bölüme geri atma; bulunduğu yerde kalsın
+    /* [2026-08 HATA DÜZELTMESİ — CEZADAN SONRA GERİ DÖNMEME]
+     *
+     * Burada eskiden "$sonrakiGorevId = $gorev_id" yazıyordu, yani çözülmemiş
+     * görev kalmayınca öğrenci AZ ÖNCE ÇÖZDÜĞÜ görevde bırakılıyordu.
+     *
+     * Bu, tam olarak şu senaryoyu kırıyordu:
+     *   Öğrenci 2. bölümü bitirmiş, öğretmen onu 1. bölüme geri gönderiyor.
+     *   Öğrenci 1. bölümü tekrar bitiriyor -> ortada çözülmemiş görev yok
+     *   (2. bölüm zaten çözülüydü) -> sonrakiGoreviBul null dönüyor ->
+     *   öğrenci 1. bölümdeki ceza görevinde bırakılıyordu. Ekranda "cezan
+     *   kalktı" yazıyor ama öğrenci hâlâ eski bölümde duruyordu.
+     *
+     * Doğrusu: çözülecek bir şey kalmadıysa öğrenciyi ULAŞTIĞI EN SON göreve
+     * götür. Böylece 1. bölümü tekrar eden öğrenci, işi bitince kaldığı yere
+     * (2. bölümün son görevine) döner.
+     */
     if (!$sonrakiGorevId) {
-        $sonrakiGorevId = $gorev_id;
+        $sonrakiGorevId = sonErisilenGorev($pdo, $ogrenci_id) ?: $gorev_id;
     }
 
     $sonrakiAd = '';
