@@ -127,5 +127,17 @@ try {
     }
 
 } catch (Throwable $e) {
+    /* [2026-08] Migration çalıştırılmamışsa buraya "Base table or view not
+       found" düşüyor. Ham SQL metnini öğretmene göstermek anlamsız — ne
+       yapacağını söyleyen bir cümle veriyoruz. `kurulum` bayrağıyla arayüz
+       "kayıtlı notlar kapalı" diyebiliyor, hazır notlar çalışmaya devam ediyor. */
+    if (str_contains($e->getMessage(), '42S02') || str_contains($e->getMessage(), "kilit_mesajlari' doesn't exist")) {
+        apiHata(
+            'Kayıtlı not özelliği henüz kurulmamış. phpMyAdmin\'de '
+            . 'kurulum/migration_2026_08_kilit_mesajlari.sql dosyasını çalıştır.',
+            503,
+            ['kurulum' => false]
+        );
+    }
     apiIstisna($e, 'Mesaj işlemi tamamlanamadı.');
 }

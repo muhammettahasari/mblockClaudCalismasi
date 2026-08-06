@@ -475,3 +475,40 @@ atlayarak etiketin gerçek bitişini bulur.
 > ⚠️ **KURAL:** Bir sayfaya `<body>` sonrası içerik eklerken `<body[^>]*>`
 > deseniyle arama YAPMA. Etiket içinde `<?= ... ?>` varsa desen yanlış yerde
 > biter. Etiketin bitişini PHP bloklarını atlayarak bul.
+
+---
+
+### İş oldu ama ekranda "başarısız" yazdı — süs, işi devirdi (2026-08)
+
+**Belirti:** Öğretmen sınıfı kilitliyor, kırmızı hata çıkıyor:
+`SQLSTATE[42S02] ... Table 'mblock_egitim.kilit_mesajlari' doesn't exist` —
+ama sınıf **gerçekten kilitleniyor** ve sonra açılabiliyor.
+
+**Sebep:** `api/ogrenci_kilit.php` iki iş yapıyordu:
+
+```php
+UPDATE ogrenciler SET ogretmen_kilidi = 1 ...   // ASIL İŞ  → başarılı, commit oldu
+mesajSayaciniArtir(...)                          // SÜS      → tablo yok, fırlattı
+```
+
+İkisi de tek `try` bloğundaydı. İkinci satırın istisnası dıştaki
+`catch`e düştü ve `apiIstisna()` kullanıcıya **hata** döndürdü. Autocommit
+açık olduğu için birinci UPDATE geri alınmadı. Sonuç: iş oldu, ekran "olmadı"
+dedi. En kötü türden yanlış bilgi — öğretmen tekrar deneyebilir ya da kilidin
+kurulmadığını sanıp derse öyle devam edebilirdi.
+
+**Çözüm:** Sayacın kendi `try/catch`i var; hata sunucu günlüğüne yazılıyor,
+öğretmene yansımıyor. Ayrıca `api/kilit_mesajlari.php` "tablo yok" durumunu
+tanıyıp ham SQL yerine *"migration'ı çalıştır"* diyor, pencere de
+"kaydetme kapalı" gösterip hazır notlarla çalışmaya devam ediyor.
+
+> ⚠️ **KURAL:** Bir uç noktada asıl işten SONRA gelen ikincil yazma
+> (sayaç, günlük, önbellek tazeleme) asıl işi deviremez. Ya kendi
+> `try/catch`ine alınır, ya da ikisi `beginTransaction()` ile tek işlem yapılır.
+> Ortası yok — ortası "iş oldu ama hata gösterdi" demek.
+
+**Aynı desen taşıyan, henüz elden geçirilmemiş dosyalar** (2+ tabloya yazıyor,
+`beginTransaction()` yok): `api_market_islem.php` (9 yazma/3 tablo — elmas
+gidip eşya gelmeme riski), `teacher_remote.php`, `ogretmen_radar.php`,
+`student_register.php`, `teacher_add_student.php`, `teacher_bulk_add.php`,
+`duello/duello_kontrol.php`.

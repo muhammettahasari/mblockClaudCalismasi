@@ -364,7 +364,12 @@ $KILIT_MODAL_KOK = $KILIT_MODAL_KOK ?? '';
         if (varMi) {
             kendiListe.forEach(function (k) { kendiEl.appendChild(cipYap(k.mesaj, k.id)); });
         }
-        bosNotEl.style.display = varMi ? 'none' : '';
+        if (kurulumEksik) {
+            bosNotEl.innerHTML = '⚙️ Kayıtlı not özelliği henüz kurulmamış — ' +
+                '<code>kurulum/migration_2026_08_kilit_mesajlari.sql</code> çalıştırılmalı. ' +
+                'Hazır notlar ve elle yazma çalışmaya devam ediyor.';
+        }
+        bosNotEl.style.display = (varMi && !kurulumEksik) ? 'none' : '';
         seciliIsaretle();
     }
 
@@ -394,19 +399,27 @@ $KILIT_MODAL_KOK = $KILIT_MODAL_KOK ?? '';
         var zatenVar = HAZIR.indexOf(yazi) !== -1 ||
             (kendiListe || []).some(function (k) { return k.mesaj === yazi; });
 
-        kaydetEl.disabled = (yazi === '' || zatenVar);
-        kaydetEl.textContent = zatenVar && yazi !== '' ? '✔️ Zaten kayıtlı' : '💾 Bu notu kaydet';
+        kaydetEl.disabled = (yazi === '' || zatenVar || kurulumEksik);
+        kaydetEl.textContent = kurulumEksik ? '💾 Kaydetme kapalı'
+                             : (zatenVar && yazi !== '' ? '✔️ Zaten kayıtlı' : '💾 Bu notu kaydet');
         seciliIsaretle();
     }
 
     /* ----------------------------------------------------------------------
        Kayıtlı notlar — listele / ekle / sil
        -------------------------------------------------------------------- */
+    /* Kayıtlı not özelliği kullanılabilir mi?
+       Migration çalıştırılmadıysa API 503 + {kurulum:false} döner. O durumda
+       hazır notlar ve serbest yazı ÇALIŞMAYA DEVAM EDER; sadece kaydetme
+       kapanır ve neden kapalı olduğu yazılır. */
+    var kurulumEksik = false;
+
     function notlariCek() {
         if (kendiListe !== null) { ciplerCiz(); return; }   // bir kez yeter
 
         istek('kilit_mesajlari.php', { islem: 'liste' })
             .then(function (d) {
+                if (d.kurulum === false) { kurulumEksik = true; }
                 kendiListe = (d.success && d.mesajlar) ? d.mesajlar : [];
                 ciplerCiz();
                 metinGuncelle();
@@ -416,6 +429,7 @@ $KILIT_MODAL_KOK = $KILIT_MODAL_KOK ?? '';
                    kilidin ön şartı değil. */
                 kendiListe = [];
                 ciplerCiz();
+                metinGuncelle();
             });
     }
 

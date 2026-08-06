@@ -80,19 +80,30 @@ function sinifimMi(PDO $pdo, int $ogretmenId, int $sinifId): bool
  * Kullanılan not öğretmenin KAYITLI mesajlarından biriyse sayacını artırır.
  * Böylece kilit penceresinde en çok kullandığı not en üstte çıkar.
  *
- * Eşleşme yoksa (hazır mesaj ya da o anlık yazılmış bir not) hiçbir şey olmaz;
- * tek UPDATE, sonucuna bakılmıyor — sayaç kozmetik, işi bloklamamalı.
+ * ⚠️ BURASI ASLA HATA FIRLATMAMALI — [2026-08 HATA DÜZELTMESİ]
+ * Bu fonksiyon eklendiğinde try/catch'i yoktu. `kilit_mesajlari` tablosu
+ * henüz oluşturulmamış bir kurulumda (migration çalıştırılmamış) sınıf
+ * gerçekten kilitleniyor, hemen ardından bu UPDATE "table doesn't exist"
+ * fırlatıyor ve dıştaki catch bloğu öğretmene KIRMIZI HATA gösteriyordu.
+ * Yani iş oldu ama ekranda olmadı yazıyordu — en kötü türden yanlış bilgi.
+ *
+ * Kural: kilidin kendisi ASIL İŞ, sayaç sadece süs. Süs, işi devirmez.
+ * Hata sessizce yutulmuyor, sunucu günlüğüne yazılıyor.
  */
 function mesajSayaciniArtir(PDO $pdo, int $ogretmenId, string $mesaj): void
 {
     if ($mesaj === '') {
         return;
     }
-    $pdo->prepare(
-        "UPDATE kilit_mesajlari
-            SET kullanim_sayisi = kullanim_sayisi + 1, son_kullanim = NOW()
-          WHERE ogretmen_id = ? AND mesaj = ?"
-    )->execute([$ogretmenId, $mesaj]);
+    try {
+        $pdo->prepare(
+            "UPDATE kilit_mesajlari
+                SET kullanim_sayisi = kullanim_sayisi + 1, son_kullanim = NOW()
+              WHERE ogretmen_id = ? AND mesaj = ?"
+        )->execute([$ogretmenId, $mesaj]);
+    } catch (Throwable $e) {
+        error_log('[mBlock] kilit mesaj sayacı güncellenemedi: ' . $e->getMessage());
+    }
 }
 
 try {
