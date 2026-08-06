@@ -189,9 +189,8 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
     <link href="<?= varlik('v2_gorev_sistemi/assets/css/ilerleme_cubugu.css', '../../') ?>" rel="stylesheet">
 </head>
 
- <body<?= $cezaDurumu['cezali'] ? ' class="ceza-modu"' : '' ?>
+ <body<?= $cezaDurumu['cezali'] ? ' class="ceza-modu"' : '' ?>>
 <?php $KILIT_KOK = '../../'; require __DIR__ . '/../../bilesenler/ogrenci_kilit_perdesi.php'; ?>
->
 
     <!-- ====================================================================
          [2026-08] İLERLEME ŞERİDİ — sayfanın en üstünde, boydan boya

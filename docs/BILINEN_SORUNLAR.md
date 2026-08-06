@@ -442,3 +442,36 @@ açabilirdi. **Silindi.**
 > olduğu dosyayı KENDİSİ require etmeli — "beni include eden sayfa zaten
 > yüklüyordur" varsayımı kırılgan. Partial başka bir sayfaya taşındığı anda
 > patlar.
+
+### Devamı: CSS'in ekrana metin olarak dökülmesi
+
+Kilit perdesi eklendikten sonra öğrenci ekranının tepesine ham CSS dökülüyordu.
+
+**Sebep:** `oynatici.php`'nin `<body>` etiketi düz değil, içinde PHP var:
+
+```php
+<body<?= $cezaDurumu['cezali'] ? ' class="ceza-modu"' : '' ?>>
+```
+
+Perdeyi ekleyen betik `<body[^>]*>` deseniyle arıyordu. `[^>]*` ilk `>`
+karakterinde durur — ve o `>` PHP bloğunun kapanışındaki (`?>`) `>` idi.
+Sonuç: perde satırı **etiketin ortasına** girdi.
+
+```php
+<body<?= ... ?>
+<?php require '...ogrenci_kilit_perdesi.php'; ?>   ← etiketin İÇİNDE
+>
+```
+
+Tarayıcı `<body` gördü, öznitelik bekledi, ilk `>` karakterinde etiketi kapattı.
+O `>` perdenin `<style>` etiketinin `>`'iydi. Böylece `<style>` yutuldu, içindeki
+CSS gövdeye **metin** olarak düştü. `<b>` gibi sonraki etiketler normal
+çalışıyordu — kafa karıştıran da buydu.
+
+**Eklenen denetim:** `<body>`, `<html>`, `<head>` etiketlerinin içine gövde
+içeriği (`<style>`, `<script>`, `<div>`…) girmiş mi diye tarar. PHP bloklarını
+atlayarak etiketin gerçek bitişini bulur.
+
+> ⚠️ **KURAL:** Bir sayfaya `<body>` sonrası içerik eklerken `<body[^>]*>`
+> deseniyle arama YAPMA. Etiket içinde `<?= ... ?>` varsa desen yanlış yerde
+> biter. Etiketin bitişini PHP bloklarını atlayarak bul.
