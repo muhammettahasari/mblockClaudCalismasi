@@ -205,6 +205,8 @@ $sahip_olunanlar = $envanter_sorgu->fetchAll(PDO::FETCH_COLUMN);
 </head>
 
 <body>
+<?php $KILIT_KOK = ''; require __DIR__ . '/bilesenler/ogrenci_kilit_perdesi.php'; ?>
+
 
     <div class="header">
        <div style="display: flex; gap: 15px;">

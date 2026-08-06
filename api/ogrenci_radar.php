@@ -36,6 +36,8 @@ $ogrenci_id = ogrenciZorunluApi();
 
 $cevap = [
     'durum'  => 'aktif',
+    // [2026-08] Öğretmen kilidi — bilesenler/ogrenci_kilit_perdesi.php dinler
+    'kilit'  => ['var' => false, 'mesaj' => null, 'saniye' => 0],
     'arena'  => ['acik' => false],
     'quiz'   => ['aktif' => false, 'oturum_id' => null],
     'duello' => [
@@ -64,6 +66,9 @@ try {
         "SELECT o.durum,
                 o.sinif_id,
                 COALESCE(sn.ogretmen_id, o.ogretmen_id) AS ogretmen_id,
+                o.ogretmen_kilidi,
+                o.kilit_mesaji,
+                TIMESTAMPDIFF(SECOND, o.kilit_zamani, NOW()) AS kilit_gecen,
                 ogr.arena_bitis, ogr.duello_bitis
            FROM ogrenciler o
       LEFT JOIN siniflar    sn  ON sn.id  = o.sinif_id
@@ -78,6 +83,18 @@ try {
     }
 
     $cevap['durum'] = $ogr['durum'] ?: 'aktif';
+
+    /* ---- Öğretmen kilidi ----
+       Kilitliyse öğrencinin ekranı donar. Diğer bildirimleri (düello daveti,
+       quiz baskını) yine de gönderiyoruz; perde zaten üstlerini kapatıyor ve
+       kilit açıldığı an öğrenci güncel durumu görüyor. */
+    if ((int) ($ogr['ogretmen_kilidi'] ?? 0) === 1) {
+        $cevap['kilit'] = [
+            'var'    => true,
+            'mesaj'  => $ogr['kilit_mesaji'] ?: null,
+            'saniye' => max(0, (int) ($ogr['kilit_gecen'] ?? 0)),
+        ];
+    }
 
     // Kilit açıldıysa hata sayacını sıfırla
     if ($cevap['durum'] !== 'kilitli') {

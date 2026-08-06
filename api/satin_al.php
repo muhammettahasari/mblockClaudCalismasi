@@ -27,6 +27,10 @@ require_once __DIR__ . '/../bilesenler/rpg_matris.php';
 
 $ogrenci_id = ogrenciZorunluApi();
 
+/* [2026-08] ÖĞRETMEN KİLİDİ — ders donduruldusa bu işlem yapılamaz.
+   Ekrandaki kilit perdesi sadece görsel; gerçek engel burada. */
+require_once __DIR__ . '/../bilesenler/ilerleme_yardimcilari.php';
+kilitliyseReddet($pdo, $ogrenci_id);
 $veri    = istekVerisi();
 $esya_id = isset($veri['esya_id']) ? (int) $veri['esya_id'] : 0;
 

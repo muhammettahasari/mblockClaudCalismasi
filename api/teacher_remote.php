@@ -41,7 +41,16 @@ try {
     if ($islem === 'liste') {
         $sinif_id = isset($_GET['sinif_id']) ? (int)$_GET['sinif_id'] : 0;
         
-        $sql = "SELECT o.*, s.sinif_adi FROM ogrenciler o LEFT JOIN siniflar s ON o.sinif_id = s.id WHERE o.ogretmen_id = ?";
+        /* [2026-08 HATA DÜZELTMESİ] Filtre eskiden `o.ogretmen_id = ?` idi.
+           O sütun kayıt anında yazılan DENORMALİZE bir kopya; öğrenci başka
+           sınıfa taşınınca ya da sınıf başka öğretmene devredilince
+           güncellenmiyor. Öğretmen kendi öğrencisini listede göremiyor,
+           dolayısıyla kilitleyemiyor da.
+           Gerçek zincir: ogretmenler -> siniflar -> ogrenciler */
+        $sql = "SELECT o.*, s.sinif_adi
+                  FROM ogrenciler o
+                  JOIN siniflar s ON s.id = o.sinif_id
+                 WHERE s.ogretmen_id = ?";
         $params = [$ogretmen_id];
 
         // Eğer belirli bir sınıf seçilmişse sorguya filtre ekle
@@ -49,13 +58,17 @@ try {
             $sql .= " AND o.sinif_id = ?";
             $params[] = $sinif_id;
         }
-        
+
         $sql .= " ORDER BY o.kalici_puan DESC";
         $sorgu = $pdo->prepare($sql);
         $sorgu->execute($params);
-        
-        // YENİ: Öğretmenin genel olarak onay bekleyen öğrencisi var mı kontrolü
-        $onayKontrol = $pdo->prepare("SELECT id FROM ogrenciler WHERE ogretmen_id = ? AND onay_durumu = 0 LIMIT 1");
+
+        // Öğretmenin genel olarak onay bekleyen öğrencisi var mı?
+        $onayKontrol = $pdo->prepare(
+            "SELECT o.id FROM ogrenciler o
+               JOIN siniflar s ON s.id = o.sinif_id
+              WHERE s.ogretmen_id = ? AND o.onay_durumu = 0 LIMIT 1"
+        );
         $onayKontrol->execute([$ogretmen_id]);
         $bekleyen_onay_var = $onayKontrol->rowCount() > 0;
         

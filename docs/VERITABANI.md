@@ -206,3 +206,22 @@ duello_ayarlari (tek satır, global)
 > `bilesenler/ilerleme_yardimcilari.php` üzerinden `v2_ogrenci_ilerleme`'den
 > hesaplanır. `mevcut_bolum + 1` mantığı kaldırıldı — öğrenci 1'e geri gönderilip
 > 1'i bitirdiğinde 2-3-4 zaten çözülüyse doğrudan 5'e döner.
+
+---
+
+## 🔒 Öğretmen Ders Kilidi (2026-08 eklendi)
+
+### `ogrenciler` (yeni sütunlar)
+`ogretmen_kilidi` tinyint(1) — öğretmen ekranı dondurdu mu (1=kilitli)
+`kilit_zamani` datetime — ne zaman kilitlendi
+`kilit_mesaji` varchar(255) — öğrenciye gösterilen not
+
+> ⚠️ **`durum = 'kilitli'` İLE KARIŞTIRMA — İKİSİ AYRI ŞEY**
+>
+> | Sütun | Anlamı | Kim açar |
+> |---|---|---|
+> | `durum = 'kilitli'` | Öğrenci bölüm şifresini **3 kez yanlış girdi** | Öğretmen "Kilidi Aç" |
+> | `ogretmen_kilidi = 1` | Öğretmen **dersi dondurdu** ("tahtaya bakın") | Öğretmen "▶️ Çöz" |
+>
+> Aynı sütunda tutulsaydı öğretmen sınıfı dondurup açtığında şifre yüzünden
+> kilitlenmiş öğrencinin cezası da farkında olmadan kalkardı.

@@ -32,6 +32,12 @@ require_once __DIR__ . '/v2_hakem.php';
 
 $ogrenci_id = ogrenciZorunluApi();
 
+/* [2026-08] ÖĞRETMEN KİLİDİ
+   Öğretmen dersi dondurduysa görev tamamlanamaz. Öğrencinin ekranındaki
+   kilit perdesi sadece görsel bir engel — konsolu bilen bir öğrenci onu
+   silebilir. Gerçek engel burada, sunucuda. */
+kilitliyseReddet($pdo, $ogrenci_id);
+
 $gelen       = istekVerisi();
 $gorev_id    = (int) ($gelen['gorev_id'] ?? 0);
 $ogrenciXml  = (string) ($gelen['cozum_xml'] ?? '');

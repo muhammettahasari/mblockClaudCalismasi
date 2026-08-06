@@ -204,8 +204,23 @@ if ($sure_doldu_mu) {
         </div>
         <p class="aciklama">
             Öğrencilerin puanı ve durumu 3 saniyede bir kendiliğinden güncellenir.
-            Kilitlenen öğrenciyi buradan uzaktan açabilirsin.
         </p>
+
+        <!-- ==================== DERS KİLİDİ ====================
+             [2026-08] "Herkes başını kaldırsın, tahtaya baksın" anı için.
+             Kilitli öğrencinin ekranında büyük bir kilit çıkar, arka plan
+             bulanıklaşır ve hiçbir ilerleme kaydedilemez. -->
+        <div class="ot-bilgi" style="display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap;">
+            <div>
+                <b>⏸️ Ders Kilidi</b> — Seçili sınıfın ekranlarını dondurup çözersin.
+                Öğrenci sayfayı yenilese, çıkıp girse bile kilit durur; sadece sen açabilirsin.
+                <br><span style="opacity:.85;">Tek tek kilitlemek için satırdaki ⏸️ düğmesini kullan.</span>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button class="ot-btn ot-btn-turuncu ot-btn-kucuk" onclick="sinifKilidi('sinif_kilitle')">⏸️ Sınıfı Kilitle</button>
+                <button class="ot-btn ot-btn-yesil ot-btn-kucuk"   onclick="sinifKilidi('sinif_ac')">▶️ Sınıfı Çöz</button>
+            </div>
+        </div>
 
         <div class="ot-tablo-sarmal">
             <table class="ot-tablo student-table">
@@ -244,20 +259,42 @@ if ($sure_doldu_mu) {
                             let sinifAdi = ogr.sinif_adi || 'Sınıfsız';
 
                             if (ogr.durum === 'kilitli') {
-                                durumBadge = `<span class="badge pulse" style="background:#ef4444; color:white;">🔒 Sistem Kilitli</span>`;
+                                durumBadge = `<span class="badge pulse" style="background:#ef4444; color:white;">🔒 Şifre Kilidi</span>`;
                                 actionButtons = `<button class="btn-action" style="background:#10b981;" onclick="uzaktanIslem('kilit_ac', ${ogr.id})">🔓 Kilidi Aç</button>`;
                             } else if (ogr.durum === 'onay_bekliyor') {
                                 durumBadge = `<span class="badge pulse" style="background:#f59e0b; color:white;">⏳ Onay Bekliyor</span>`;
                                 actionButtons = `<button class="btn-action" style="background:#10b981;" onclick="uzaktanIslem('onayla', ${ogr.id})">✅ Puanı Ver</button> <button class="btn-action" style="background:#ef4444;" onclick="uzaktanIslem('reddet_ac', ${ogr.id})">❌ Başa Sar</button>`;
                             }
 
+                            /* ================================================
+                               [2026-08] DERS KİLİDİ — şifre kilidinden AYRI
+
+                               ogr.durum === 'kilitli'   -> öğrenci bölüm
+                                   şifresini 3 kez yanlış girdi (yukarıdaki dal)
+                               ogr.ogretmen_kilidi == 1  -> öğretmen dersi
+                                   dondurdu (buradaki düğme)
+
+                               İkisi ayrı sütunda tutuluyor; biri diğerini ezmez.
+                               Bu yüzden ders kilidi düğmesi HER SATIRDA, diğer
+                               durumdan bağımsız olarak görünür.
+                               ================================================ */
+                            const dersKilitli = Number(ogr.ogretmen_kilidi) === 1;
+
+                            if (dersKilitli) {
+                                durumBadge += ` <span class="badge pulse" style="background:#7c3aed; color:white;">⏸️ Ders Kilidi</span>`;
+                            }
+
+                            const kilitBtn = dersKilitli
+                                ? `<button class="btn-action" style="background:#059669;" title="Bu öğrencinin ekranını çöz" onclick="dersKilidi('ac', ${ogr.id})">▶️ Çöz</button>`
+                                : `<button class="btn-action" style="background:#7c3aed;" title="Bu öğrencinin ekranını dondur" onclick="dersKilidi('kilitle', ${ogr.id})">⏸️ Kilitle</button>`;
+
                             html += `<tr>
                     <td><strong>${ogr.ad_soyad}</strong></td>
                     <td>${sinifAdi}</td>
-                    <td style="color:#10b981; font-weight:bold; font-size:16px;">${ogr.kalici_puan}</td>
-                    <td style="color:#f59e0b; font-weight:bold; font-size:16px;">${ogr.anlik_puan}</td>
+                    <td style="text-align:center; color:#059669; font-weight:900;">${ogr.kalici_puan}</td>
+                    <td style="text-align:center; color:#d97706; font-weight:900;">${ogr.anlik_puan}</td>
                     <td>${durumBadge}</td>
-                    <td>${actionButtons}</td>
+                    <td style="text-align:right; white-space:nowrap;">${kilitBtn} ${actionButtons === '-' ? '' : actionButtons}</td>
                 </tr>`;
                         });
 
@@ -272,6 +309,69 @@ if ($sure_doldu_mu) {
                         }
                     }
                 });
+        }
+
+        /* ====================================================================
+           [2026-08] DERS KİLİDİ — tek öğrenci
+
+           Öğretmen "herkes tahtaya baksın" dediğinde öğrencinin ekranı donar:
+           ortada büyük bir kilit, arka plan bulanık ve tıklanamaz. Öğrenci
+           sayfayı yenilese, çıkıp girse, hatta başka tarayıcı açsa bile kilit
+           durur — çünkü tarayıcıda değil VERİTABANINDA tutuluyor.
+           ================================================================== */
+        function dersKilidi(islem, ogrenciId) {
+            fetch('../api/ogrenci_kilit.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ islem: islem, ogrenci_id: ogrenciId })
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (!d.success) { alert('❌ ' + (d.mesaj || d.message || 'İşlem başarısız.')); return; }
+                ogrencileriCek();   // tablo hemen tazelensin
+            })
+            .catch(() => alert('❌ Sunucuya ulaşılamadı.'));
+        }
+
+        /* Tüm sınıfı kilitle / çöz.
+           Sınıf seçilmemişse (Tüm sınıflar) hangi sınıf olduğu belirsiz olur;
+           bu yüzden önce seçim isteniyor. */
+        function sinifKilidi(islem) {
+            const secim = document.getElementById('sinifSelect');
+            const sinifId = parseInt(secim.value, 10);
+
+            if (!sinifId) {
+                alert('Önce yukarıdan bir sınıf seç.\n\n"Tüm sınıflar" seçiliyken toplu kilit uygulanmaz — ' +
+                      'yanlışlıkla başka sınıfları dondurmamak için.');
+                secim.focus();
+                return;
+            }
+
+            const sinifAdi = secim.options[secim.selectedIndex].text;
+            const soru = (islem === 'sinif_kilitle')
+                ? `"${sinifAdi}" sınıfının TAMAMI kilitlenecek.\n\nÖğrencilerin ekranında kilit çıkacak ve sen açana kadar hiçbir ilerleme kaydedemeyecekler.\n\nDevam edilsin mi?`
+                : `"${sinifAdi}" sınıfının kilidi açılacak.\n\nDevam edilsin mi?`;
+
+            if (!confirm(soru)) return;
+
+            let mesaj = '';
+            if (islem === 'sinif_kilitle') {
+                mesaj = prompt('Öğrencilere gösterilecek not (isteğe bağlı):', 'Tahtaya bakın.') || '';
+            }
+
+            fetch('../api/ogrenci_kilit.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'same-origin',
+                body: JSON.stringify({ islem: islem, sinif_id: sinifId, mesaj: mesaj })
+            })
+            .then(r => r.json())
+            .then(d => {
+                alert((d.success ? '✅ ' : '❌ ') + (d.mesaj || d.message || ''));
+                if (d.success) ogrencileriCek();
+            })
+            .catch(() => alert('❌ Sunucuya ulaşılamadı.'));
         }
 
         function uzaktanIslem(islemTuru, ogrenciId) {

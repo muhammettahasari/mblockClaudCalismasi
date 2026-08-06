@@ -225,3 +225,32 @@ XAMPP/tek sunucu bir okulu (~300 öğrenci) rahat taşır. Binlerce eşzamanlı
 > ⚠️ Öğretmen sayfası `admin/ogrenci_ilerleme.php` de artık sabit sorgu kullanır.
 > Öğrencilerin bölüm haritaları sayfaya **gömülmez**; ✏️ kalemine basılınca
 > `ogrenci_ilerleme_sifirla.php` → `islem: 'harita'` ile tek öğrenci için çekilir.
+
+---
+
+## 🔒 Ders Kilidi (2026-08)
+
+| Dosya | Girdi | İşlev | Auth |
+|---|---|---|---|
+| `api/ogrenci_kilit.php` | JSON `{islem, ogrenci_id\|sinif_id, mesaj?}` | Tek öğrenci / tüm sınıf kilitle-aç, durum sorgusu | ✅ öğretmen + **kendi sınıfı** |
+
+İşlemler: `kilitle` · `ac` · `sinif_kilitle` · `sinif_ac` · `durum`
+
+**Kilit üç katmanda çalışır:**
+
+1. **Veritabanı** — `ogrenciler.ogretmen_kilidi`. Sayfa yenilense, öğrenci
+   çıkıp girse, başka tarayıcı açsa bile kilit durur. `localStorage`
+   KULLANILMADI; o temizlenebilir.
+2. **Perde** — `bilesenler/ogrenci_kilit_perdesi.php`. Sayfa açılırken PHP
+   tarafında sorgular; canlı açılma için radara abone olur (3 sn).
+3. **Sunucu zorlaması** — `kilitliyseReddet()` yazma yapan uç noktalarda
+   çağrılır ve **423 Locked** döner.
+
+> ⚠️ **PERDE TEK BAŞINA YETMEZ.** Konsolu bilen bir öğrenci perdeyi silebilir.
+> Yeni bir "öğrenci yazma" uç noktası eklerken `kilitliyseReddet($pdo, $id)`
+> çağırmayı unutma. Şu an korunanlar: `v2_gorev_tamamla.php`, `satin_al.php`,
+> `update_score.php`, `duello/istek_at.php`, `quiz_puan_guncelle.php`.
+
+> ⚠️ **SAHİPLİK:** `ogrenciler.ogretmen_id` **kullanılmaz**. Zincir
+> `ogretmenler → siniflar → ogrenciler`. Başka okulun öğrencisine istek
+> atılırsa 403 döner.

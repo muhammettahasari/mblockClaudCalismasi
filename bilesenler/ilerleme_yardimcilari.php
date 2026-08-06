@@ -479,6 +479,78 @@ function okunmamisSifirlamaBildirimi(PDO $pdo, int $ogrenciId): ?array
 
 
 /**
+ * ÖĞRETMEN KİLİDİ — öğrenci şu an dondurulmuş mu?
+ *
+ * [2026-08] Öğretmen ders sırasında "herkes tahtaya baksın" diyip sınıfın ya
+ * da tek bir öğrencinin ekranını dondurabiliyor. Bu fonksiyon o durumu okur.
+ *
+ * ⚠️ `ogrenciler.durum = 'kilitli'` İLE KARIŞTIRMA:
+ *   durum='kilitli'   -> öğrenci bölüm şifresini 3 kez yanlış girdi (ceza)
+ *   ogretmen_kilidi=1 -> öğretmen dersi dondurdu (BU FONKSİYON)
+ * İkisi ayrı sütunda; biri diğerini ezmez.
+ *
+ * @return array ['kilitli'=>bool, 'mesaj'=>?string, 'saniye'=>int]
+ *               saniye: kaç saniyedir kilitli (öğrenciye göstermek için)
+ */
+function ogrencininKilidi(PDO $pdo, int $ogrenciId): array
+{
+    $bos = ['kilitli' => false, 'mesaj' => null, 'saniye' => 0];
+
+    if ($ogrenciId <= 0) {
+        return $bos;
+    }
+
+    try {
+        $st = $pdo->prepare(
+            "SELECT ogretmen_kilidi, kilit_mesaji,
+                    TIMESTAMPDIFF(SECOND, kilit_zamani, NOW()) AS gecen
+               FROM ogrenciler WHERE id = ?"
+        );
+        $st->execute([$ogrenciId]);
+        $satir = $st->fetch(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        /* Migration henüz çalıştırılmadıysa sütun yok — kilit yokmuş gibi
+           davran ki sistem tamamen durmasın. */
+        error_log('[ogrencininKilidi] ' . $e->getMessage());
+        return $bos;
+    }
+
+    if (!$satir || (int) $satir['ogretmen_kilidi'] !== 1) {
+        return $bos;
+    }
+
+    return [
+        'kilitli' => true,
+        'mesaj'   => $satir['kilit_mesaji'] ?: null,
+        'saniye'  => max(0, (int) ($satir['gecen'] ?? 0)),
+    ];
+}
+
+
+/**
+ * API'ler için kısa yol: öğrenci kilitliyse isteği reddet.
+ * Yazma yapan her uç noktanın başında çağrılmalı.
+ *
+ * NEDEN GEREKLİ? Kilit perdesi sadece görsel bir engel; konsolu bilen bir
+ * öğrenci onu silebilir. Gerçek koruma burada, sunucuda.
+ */
+function kilitliyseReddet(PDO $pdo, int $ogrenciId): void
+{
+    $kilit = ogrencininKilidi($pdo, $ogrenciId);
+    if (!$kilit['kilitli']) {
+        return;
+    }
+
+    if (function_exists('apiHata')) {
+        apiHata('🔒 Öğretmenin ekranını kilitledi. Kilit açılana kadar işlem yapamazsın.', 423);
+    }
+
+    http_response_code(423);   // 423 Locked
+    exit;
+}
+
+
+/**
  * Öğretmenin bu öğrenciye müdahale yetkisi var mı?
  * Çok kiracılık kuralı: öğretmen SADECE kendi öğrencisini sıfırlayabilir.
  */

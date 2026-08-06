@@ -424,6 +424,8 @@ $sorular = $soru_stmt->fetchAll(PDO::FETCH_ASSOC);
 </head>
 
 <body>
+<?php $KILIT_KOK = ''; require __DIR__ . '/bilesenler/ogrenci_kilit_perdesi.php'; ?>
+
     <audio id="saatSesi" src="assets/sounds/saatsesi.mp3" loop></audio>
     <div class="arena-header">
         <div class="stat-box" style="color: #3b82f6;">👤 <?= $_SESSION['ogrenci_ad'] ?></div>

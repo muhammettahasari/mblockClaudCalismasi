@@ -259,6 +259,8 @@ if ($toplam_gorev > 0) {
 </head>
 
 <body>
+<?php $KILIT_KOK = ''; require __DIR__ . '/bilesenler/ogrenci_kilit_perdesi.php'; ?>
+
 
     <?php require_once 'bilesenler/ogrenci_modal.php'; ?>
 

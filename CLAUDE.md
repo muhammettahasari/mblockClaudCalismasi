@@ -50,7 +50,15 @@ Bu dört dosya 2026-08 revizyonunda eklendi. **Yeni PHP dosyası yazarken
 | `bilesenler/api_yanit.php` | `apiBasari()`, `apiHata()`, `apiJson()`, `apiIstisna()` — üç eski format anahtarını (`success`/`status`/`durum`) birlikte döndürür, eski JS'ler bozulmaz |
 | `bilesenler/rpg_matris.php` | `RPG_MATRIS`, `AVATAR_YUVALARI`, `statlariHesapla()`, `ogrencininGucu()`, `sinifGucListesi()` (tek sorgu), `gucOnbelleginiTemizle()`, `orduGucuOzeti()` |
 | `bilesenler/canavar_ayar.php` | `CANAVAR_SAVAS_GUNU` (18), `CANAVAR_ZAFER_ESIGI` (%50), `canavaraKalanGun()`, `canavarBuyumeYuzdesi()` |
-| `bilesenler/ilerleme_yardimcilari.php` | `bolumleriGetir()`, `ogrencininIlerlemesi()`, `ilerlemeHaritasi()`, `erisilebilirBolumler()`, `sonrakiGoreviBul()`, `sonrakiBolumuHesapla()`, `mevcutBolumuTazele()`, `ogrencininCezasi()`, `ogretmeninOgrencisiMi()` — **"öğrenci nerede?" sorusunun tek cevap mercii** |
+| `bilesenler/ilerleme_yardimcilari.php` | `bolumleriGetir()`, `ogrencininIlerlemesi()`, `ilerlemeHaritasi()`, `erisilebilirBolumler()`, `sonrakiGoreviBul()`, `sonrakiBolumuHesapla()`, `mevcutBolumuTazele()`, `ogrencininCezasi()`, `ogretmeninOgrencisiMi()`, `ogrencininKilidi()`, `kilitliyseReddet()` — **"öğrenci nerede?" sorusunun tek cevap mercii** |
+
+> 🔒 **[2026-08] DERS KİLİDİ.** Öğretmen sınıfın ya da tek öğrencinin ekranını
+> dondurabilir (`api/ogrenci_kilit.php`). Kilit veritabanında durur; sayfa
+> yenilense, öğrenci çıkıp girse bile kalkmaz.
+> **Yeni bir "öğrenci yazma" uç noktası yazarken `kilitliyseReddet($pdo, $id)`
+> çağır** — perde sadece görsel, konsoldan silinebilir.
+> ⚠️ `ogretmen_kilidi` ile `durum='kilitli'` AYRI ŞEY: ilki ders dondurma,
+> ikincisi şifreyi 3 kez yanlış girme cezası. Biri diğerini ezmez.
 
 **Standart API dosyası şablonu:**
 ```php

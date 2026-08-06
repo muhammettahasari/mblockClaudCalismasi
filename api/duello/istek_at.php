@@ -25,6 +25,11 @@ require_once __DIR__ . '/../../bilesenler/guvenlik.php';
 require_once __DIR__ . '/../../bilesenler/api_yanit.php';
 
 $meydan_okuyan = ogrenciZorunluApi();
+
+/* [2026-08] ÖĞRETMEN KİLİDİ — ders donduruldusa bu işlem yapılamaz.
+   Ekrandaki kilit perdesi sadece görsel; gerçek engel burada. */
+require_once __DIR__ . '/../../bilesenler/ilerleme_yardimcilari.php';
+kilitliyseReddet($pdo, $meydan_okuyan);
 $meydan_okunan = isset($_POST['hedef_id']) ? (int) $_POST['hedef_id'] : 0;
 
 if ($meydan_okunan <= 0) {

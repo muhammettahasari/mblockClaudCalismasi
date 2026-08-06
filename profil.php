@@ -524,6 +524,8 @@ gucuYenidenHesapla($pdo, $ogrenci_id);
 </head>
 
 <body>
+<?php $KILIT_KOK = ''; require __DIR__ . '/bilesenler/ogrenci_kilit_perdesi.php'; ?>
+
 
     <div class="header">
         <a href="ogrenci_paneli.php" class="btn-geri">⬅️ Maceraya Dön</a>

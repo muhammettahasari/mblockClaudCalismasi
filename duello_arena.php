@@ -149,6 +149,8 @@ if ((int) $arena['meydan_okuyan_id'] !== $ogrenci_id && (int) $arena['meydan_oku
 </head>
 
 <body>
+<?php $KILIT_KOK = ''; require __DIR__ . '/bilesenler/ogrenci_kilit_perdesi.php'; ?>
+
     <div id="geriSayimEkrani" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.95); z-index: 99999; display: flex; flex-direction: column; justify-content: center; align-items: center; backdrop-filter: blur(10px); transition: 0.3s;">
         <h1 style="color: #f59e0b; font-size: 40px; margin-bottom: 20px; text-shadow: 0 0 20px #f59e0b;">⚔️ SAVAŞA HAZIRLAN ⚔️</h1>
         <div id="sayacRakam" style="font-size: 150px; font-weight: bold; color: white; text-shadow: 0 0 30px #3b82f6;">3</div>
