@@ -35,7 +35,17 @@ Ortaokul öğrencilerine **mBlock / blok tabanlı kodlama** öğreten, oyunlaşt
 **Kayıt akışı:**
 Öğretmen kayıt olur → Süper Admin onaylar + **4 haneli PIN** üretir + üyelik süresi verir → Öğrenci o PIN ile sınıfını bulup kayıt olur → Öğretmen öğrenciyi onaylar (`onay_durumu=1`).
 
-**Oturum anahtarları:** `$_SESSION['ogrenci_id']`, `$_SESSION['ogretmen_id']`, `$_SESSION['super_admin_id']`, `ogretmen_pin`, `okul_adi`, `sinif_id`, `hata_sayaci`, `bolum_onay_bileti`
+**Oturum anahtarları:** `$_SESSION['ogrenci_id']`, `$_SESSION['ogretmen_id']`, `$_SESSION['super_admin_id']`, `ogretmen_pin`, `okul_adi`, `sinif_id`, `hata_sayaci`, `bolum_onay_bileti`, `ogrencinin_ogretmen_id`, `_rol_ogretmen`, `super_sifre_degismeli`
+
+> 🔑 **[2026-11] ROL AYRIMI — ÖĞRENCİ OTURUMUNA `ogretmen_id` YAZMA.**
+> Eski `student_login.php` öğrencinin oturumuna da `ogretmen_id` yazıyordu; öğretmen
+> kapıcıları sadece o anahtara baktığı için **her öğrenci öğretmen API'lerini
+> çağırabiliyordu** (sınıfın şifre listesi, öğrenci silme…). Artık:
+> · Giriş yapan her uç `girisRoluAyarla('ogrenci'|'ogretmen')` çağırır (kimlik yenilenir, öbür rol silinir).
+> · Öğretmen yetkisi `_rol_ogretmen === true` damgası ister; damgasız `ogretmen_id`
+>   `guvenliOturumBaslat()` içinde silinir.
+> · Öğrencinin öğretmeni lazımsa: `$_SESSION['ogrencinin_ogretmen_id']` (yetki için KULLANMA).
+> · Hiçbir dosya düz `session_start()` çağırmaz — hep `guvenliOturumBaslat()` / `*Zorunlu*()`.
 
 ---
 
@@ -70,7 +80,27 @@ Bu dört dosya 2026-08 revizyonunda eklendi. **Yeni PHP dosyası yazarken
 > sorduğu karışır ve tarayıcının "bu sayfa daha fazla iletişim kutusu
 > göstermesin" seçeneği işaretlenirse `prompt()` **sessizce `null` döner** —
 > yani soru hiç sorulmadan kod "iptal edildi" sanır.
-> Hazır desen: `bilesenler/kilit_modali.php`.
+> Hazır desen: **`js/onay_kutusu.js`** (her yerde) — `await onayKutusu('Silinsin mi?')`,
+> `await metinKutusu({mesaj, varsayilan})` (iptal → `null`), formlarda/bağlantılarda
+> JS yazmadan `data-onay="..."`. Ders kilidinin özel penceresi: `bilesenler/kilit_modali.php`.
+> [2026-11] Projedeki bütün `confirm()`/`prompt()` buna taşındı.
+
+> 🛡️ **[2026-11] GÜVENLİK ÇEKİRDEĞİNE EKLENENLER** (`bilesenler/guvenlik.php`):
+> · `istekKokeniDogrula()` — bütün `*Zorunlu*()` kapıcıları GET dışındaki isteklerde
+>   Origin/Referer başka siteyi gösteriyorsa 403 döner (CSRF kalkanı).
+>   **Değiştiren işlemleri GET ile yapma** (`?islem=sil&id=5` bağlantısı = CSRF).
+> · `girisDenemesiKontrol()` / `girisDenemesiKaydet()` — sayaç VERİTABANINDA
+>   (`giris_denemeleri`). Okulda bütün sınıf TEK IP'den çıkar: IP sınırı cömert, hesap sınırı sıkı.
+> · `metinSadelestir($m, $max)` — ad/kullanıcı adı gibi serbest metni kayıttan önce temizler.
+> · `yuklenenResimGecerliMi($tmp, $uzanti)` — her yüklemede uzantı beyaz listesi + bu kontrol.
+> · Varsayılan `super/123` ile girilince şifre değişene kadar başka sayfa açılmaz.
+> · JS'te `innerHTML`'e giden her sunucu verisi kaçırılır (`htmlKacir`, `kacir`, `kacirMetin`)
+>   — öğrenci kendi adını kendisi yazıyor.
+
+> 🎯 **[2026-11] QUIZ PUANI SUNUCUDA.** Doğru cevaplar sayfaya GÖNDERİLMEZ.
+> `quiz_arena.php` her soru açıldığında `api/quiz_cevap.php` → `basla`, cevapta → `cevap`
+> çağırır; doğruluk + süreye göre puan + saldırı sonucu sunucuda hesaplanır
+> (`bilesenler/quiz_hakem.php`). `quiz_puan_guncelle.php` artık YAZMAZ.
 
 **Standart API dosyası şablonu:**
 ```php
@@ -329,6 +359,10 @@ Tablo **canlı**dır (10 sn yoklama, `api/sinif_ilerleme_durumu.php`).
 - [ ] Dosya başına Türkçe açıklama bloğu eklendi mi?
 - [ ] `guvenlik.php` kapıcısı eklendi mi? (`*Zorunlu()` / `*ZorunluApi()`)
 - [ ] Kimlik oturumdan mı alınıyor (istekten DEĞİL)?
+- [ ] Değiştiren işlem POST mu? (GET ile silme/güncelleme yok)
+- [ ] Öğretmen sahipliği `siniflar.ogretmen_id` zinciriyle mi doğrulanıyor?
+- [ ] Dosya yükleme: uzantı beyaz listesi + `yuklenenResimGecerliMi()`?
+- [ ] JS'te sunucu verisi `innerHTML`'e kaçırılarak mı gidiyor?
 - [ ] Sorguya gömülen kullanıcı girdisi `beyazListe()`'den geçti mi?
 - [ ] Sınıf/öğretmen filtresi var mı? (başka okulun verisi sızmasın)
 - [ ] Ekrana basılan veri `temizle()`'den geçti mi?
@@ -352,5 +386,5 @@ git checkout .          # son commit'e temiz dönüş
 mysqldump -u root mblock_egitim > yedek.sql
 ```
 
-`v2_gorev_sistemi/TumdosyayapisiveVeritabaniyapisiVerir.py` → tüm dosya + DB yapısını xlsx'e döker
+`TumdosyayapisiveVeritabaniyapisiVerir.py` (kökte) → tüm dosya + DB yapısını xlsx'e döker
 (gerekli: `pip install pandas openpyxl mysql-connector-python`)

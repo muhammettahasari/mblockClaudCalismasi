@@ -212,6 +212,7 @@ $siniflar = $sinifSorgu->fetchAll();
             }
         }
     </style>
+    <script src="<?= varlik('js/onay_kutusu.js', '../') ?>"></script>
 </head>
 
 <body class="ot">
@@ -396,6 +397,14 @@ $siniflar = $sinifSorgu->fetchAll();
     </div>
 
     <script>
+        /* [2026-11] XSS kalkanı: sunucudan gelen her metin HTML'e basılmadan önce
+           buradan geçer (öğrenci kendi kaydını yaptığı için adına <img onerror=…>
+           yazabiliyordu; o kod öğretmenin oturumunda çalışırdı). */
+        function htmlKacir(x) {
+            return String(x == null ? '' : x)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
         function acModal(id) {
             document.getElementById(id).style.display = 'flex';
         }
@@ -498,11 +507,11 @@ $siniflar = $sinifSorgu->fetchAll();
 
             fetch('../api/get_passwords.php?sinif_id=' + sinif_id).then(res => res.json()).then(data => {
                 if (data.success && data.data.length > 0) {
-                    document.getElementById('pdfOkulSinifBaslik').innerText = `<?= htmlspecialchars($okul_adi) ?> - ${sinifAdi}`;
+                    document.getElementById('pdfOkulSinifBaslik').innerText = <?= json_encode((string) $okul_adi, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?> + ' - ' + sinifAdi;
                     const tbody = document.getElementById('pdfTabloGövdesi');
                     tbody.innerHTML = '';
                     data.data.forEach(ogr => {
-                        tbody.innerHTML += `<tr><td style="padding:8px; border:1px solid #cbd5e1;">${ogr.ad_soyad}</td><td style="padding:8px; border:1px solid #cbd5e1;">${ogr.kullanici_adi}</td><td style="padding:8px; border:1px solid #cbd5e1;">${ogr.sifre}</td></tr>`;
+                        tbody.innerHTML += `<tr><td style="padding:8px; border:1px solid #cbd5e1;">${htmlKacir(ogr.ad_soyad)}</td><td style="padding:8px; border:1px solid #cbd5e1;">${htmlKacir(ogr.kullanici_adi)}</td><td style="padding:8px; border:1px solid #cbd5e1;">${htmlKacir(ogr.sifre)}</td></tr>`;
                     });
                     const element = document.getElementById('pdfSablon');
                     element.style.display = 'block';
@@ -527,13 +536,13 @@ $siniflar = $sinifSorgu->fetchAll();
         let sinifSilInterval;
         let sinifSilTimeout;
 
-        function siniflariSilBaslat() {
+        async function siniflariSilBaslat() {
             const seciliSiniflar = Array.from(document.querySelectorAll('.sinif-sil-cb:checked')).map(cb => cb.value);
             if (seciliSiniflar.length === 0) {
                 alert("Lütfen silinecek en az bir sınıf seçin!");
                 return;
             }
-            if (!confirm("Seçili sınıfları ve içlerindeki tüm öğrencileri silmek istediğinize emin misiniz?")) return;
+            if (!await onayKutusu("Seçili sınıfları ve içlerindeki tüm öğrencileri silmek istediğinize emin misiniz?")) return;
 
             document.getElementById('sinifSilBtnGrup').style.display = 'none';
             document.getElementById('sinifSilSayacAlani').style.display = 'block';
@@ -600,19 +609,19 @@ $siniflar = $sinifSorgu->fetchAll();
                             onayAlani = `<span style="color:#10b981; font-weight:bold; display:block; text-align:center;">✔️ Onaylı</span>`;
                         }
 
-                        html += `<tr id="row_${ogr.id}" class="ogrenci-satir" data-orj-ad="${ogr.ad_soyad}" data-sinif-id="${ogr.sinif_id}">
+                        html += `<tr id="row_${ogr.id}" class="ogrenci-satir" data-orj-ad="${htmlKacir(ogr.ad_soyad)}" data-sinif-id="${parseInt(ogr.sinif_id, 10) || 0}">
                     <td>
-                        <strong class="view-mode ogr-ad-span">${ogr.ad_soyad}</strong>
-                        <input type="text" class="edit-mode edit-input" id="edit_ad_${ogr.id}" value="${ogr.ad_soyad}" style="display:none;">
+                        <strong class="view-mode ogr-ad-span">${htmlKacir(ogr.ad_soyad)}</strong>
+                        <input type="text" class="edit-mode edit-input" id="edit_ad_${ogr.id}" value="${htmlKacir(ogr.ad_soyad)}" style="display:none;">
                     </td>
-                    <td><span class="view-mode">${sinifAdi}</span></td>
+                    <td><span class="view-mode">${htmlKacir(sinifAdi)}</span></td>
                     <td>
-                        <span class="view-mode">${ogr.kullanici_adi}</span>
-                        <input type="text" class="edit-mode edit-input" id="edit_kadi_${ogr.id}" value="${ogr.kullanici_adi}" style="display:none;">
+                        <span class="view-mode">${htmlKacir(ogr.kullanici_adi)}</span>
+                        <input type="text" class="edit-mode edit-input" id="edit_kadi_${ogr.id}" value="${htmlKacir(ogr.kullanici_adi)}" style="display:none;">
                     </td>
                     <td>
-                        <span class="view-mode">${ogr.sifre}</span>
-                        <input type="text" class="edit-mode edit-input" id="edit_sifre_${ogr.id}" value="${ogr.sifre}" style="display:none;">
+                        <span class="view-mode">${htmlKacir(ogr.sifre)}</span>
+                        <input type="text" class="edit-mode edit-input" id="edit_sifre_${ogr.id}" value="${htmlKacir(ogr.sifre)}" style="display:none;">
                     </td>
                     <td>${onayAlani}</td>
                     <td>
@@ -643,7 +652,7 @@ $siniflar = $sinifSorgu->fetchAll();
 
         // KAYIT ONAYLAMA FONKSİYONU EKLENDİ
         function kayitOnayla(id) {
-            fetch(`../api/teacher_remote.php?islem=kayit_onayla&id=${id}`).then(res => res.json()).then(data => {
+            fetch(`../api/teacher_remote.php?islem=kayit_onayla&id=${id}`, { method: 'POST' }).then(res => res.json()).then(data => {
                 if (data.success) ogrencileriCek(true);
             });
         }
@@ -685,9 +694,9 @@ $siniflar = $sinifSorgu->fetchAll();
             ogrencileriCek(true);
         }
 
-        function ogrenciSil(id) {
-            if (!confirm("Öğrenciyi tamamen silmek istediğinize emin misiniz?")) return;
-            fetch(`../api/teacher_remote.php?islem=ogrenci_sil&id=${id}`).then(res => res.json()).then(data => {
+        async function ogrenciSil(id) {
+            if (!await onayKutusu("Öğrenciyi tamamen silmek istediğinize emin misiniz?")) return;
+            fetch(`../api/teacher_remote.php?islem=ogrenci_sil&id=${id}`, { method: 'POST' }).then(res => res.json()).then(data => {
                 if (data.success) ogrencileriCek(true);
             });
         }
@@ -776,7 +785,7 @@ $siniflar = $sinifSorgu->fetchAll();
             btn.disabled = true;
             btn.innerText = 'Oluşturuluyor...';
 
-            fetch(`../api/teacher_remote.php?islem=sinif_ekle&sinif_adi=${encodeURIComponent(sinifAdi)}`)
+            fetch('../api/teacher_remote.php?islem=sinif_ekle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ sinif_adi: sinifAdi }) })
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) {

@@ -141,6 +141,7 @@ $toplamV1 = count($v1_ham);
         .ozet div { background: #0f172a; border: 1px solid #334155; border-radius: 9px; padding: 9px 15px; font-size: 13px; }
         .ozet b { color: #a78bfa; font-size: 16px; }
     </style>
+    <script src="<?= varlik('js/onay_kutusu.js', '../../') ?>"></script>
 </head>
 <body>
 <?php require __DIR__ . '/../../bilesenler/super_gezinme.php'; ?>
@@ -378,14 +379,14 @@ function bolumSirala(id, yon) {
         .catch(() => alert('❌ Sunucuya ulaşılamadı.'));
 }
 
-function bolumSil(id, ad, icerikSayisi) {
+async function bolumSil(id, ad, icerikSayisi) {
     let uyari = '"' + ad + '" bölümü silinecek.';
     if (icerikSayisi > 0) {
         uyari += '\n\n⚠️ DİKKAT: Bu bölüme bağlı ' + icerikSayisi +
                  ' görev/soru da BİRLİKTE SİLİNİR ve geri alınamaz!';
     }
     uyari += '\n\nDevam edilsin mi?';
-    if (!confirm(uyari)) return;
+    if (!await onayKutusu(uyari)) return;
 
     yonetimApi({ islem: 'sil', tur: 'bolum', id: id })
         .then(d => { if (d.success) location.reload(); else hataGoster(d, 'Silinemedi.'); })
@@ -406,8 +407,8 @@ function v2Yayin(id, yayinda) {
         .then(d => { if (d.success) location.reload(); else hataGoster(d, 'İşlem başarısız'); });
 }
 
-function v2Sil(id, ad) {
-    if (!confirm('"' + ad + '" görevi kalıcı olarak silinecek.\n' +
+async function v2Sil(id, ad) {
+    if (!await onayKutusu('"' + ad + '" görevi kalıcı olarak silinecek.\n' +
                  'Öğrencilerin bu görevden aldığı puanlar hesaplarında kalır.\n\nEmin misiniz?')) return;
 
     v2Api({ islem: 'gorev_sil', gorev_id: id })
@@ -466,8 +467,8 @@ function v1Sirala(id, yon) {
         .catch(() => alert('❌ Sunucuya ulaşılamadı.'));
 }
 
-function v1Sil(id, ad) {
-    if (!confirm('"' + ad + '" (eski v1 görev) kalıcı olarak silinecek.\n\nEmin misiniz?')) return;
+async function v1Sil(id, ad) {
+    if (!await onayKutusu('"' + ad + '" (eski v1 görev) kalıcı olarak silinecek.\n\nEmin misiniz?')) return;
 
     yonetimApi({ islem: 'sil', tur: 'gorev', id: id })
         .then(d => {

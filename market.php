@@ -202,6 +202,7 @@ $sahip_olunanlar = $envanter_sorgu->fetchAll(PDO::FETCH_COLUMN);
             cursor: not-allowed;
         }
     </style>
+    <script src="<?= varlik('js/onay_kutusu.js', '') ?>"></script>
 </head>
 
 <body>
@@ -313,8 +314,8 @@ $sahip_olunanlar = $envanter_sorgu->fetchAll(PDO::FETCH_COLUMN);
         }
 
         // Satın Alma Motoru
-       function satinAl(esyaId, esyaAdi) {
-            if (!confirm(`"${esyaAdi}" adlı eşyayı satın almak istiyor musun?`)) return;
+       async function satinAl(esyaId, esyaAdi) {
+            if (!await onayKutusu(`"${esyaAdi}" adlı eşyayı satın almak istiyor musun?`)) return;
             fetch('api/satin_al.php', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },

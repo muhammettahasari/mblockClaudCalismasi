@@ -3,8 +3,14 @@
    Dosya Yolu: api/teacher_register.php
    İşlev: Yeni öğretmen kaydını alır (İl, İlçe ve Süre Talebi dahil)
    ========================================================== */
-require_once '../db.php';
+/* ----------------------------------------------------------
+   [2026-11] Serbest metin alanları metinSadelestir() ile temizlenir (Süper
+   Admin ekranında XSS kalkanı); aynı IP'den 10 dakikada en fazla 10 kayıt.
+   ========================================================== */
+require_once __DIR__ . '/../bilesenler/guvenlik.php';
+guvenliOturumBaslat();
 header('Content-Type: application/json; charset=utf-8');
+girisDenemesiKontrol('ogretmen_kayit|ip:' . istemciIp(), 10, 600);
 
 $veri = json_decode(file_get_contents("php://input"), true);
 
@@ -13,14 +19,14 @@ if (!$veri) {
     exit;
 }
 
-$ad = trim($veri['ad_soyad'] ?? '');
+$ad = metinSadelestir($veri['ad_soyad'] ?? '', 80);
 $email = trim($veri['email'] ?? '');
-$il = trim($veri['il'] ?? '');
-$ilce = trim($veri['ilce'] ?? '');
-$okul = trim($veri['okul_adi'] ?? '');
-$kullanici = trim($veri['kullanici_adi'] ?? '');
+$il = metinSadelestir($veri['il'] ?? '', 40);
+$ilce = metinSadelestir($veri['ilce'] ?? '', 40);
+$okul = metinSadelestir($veri['okul_adi'] ?? '', 120);
+$kullanici = metinSadelestir($veri['kullanici_adi'] ?? '', 40);
 $sifre = trim($veri['sifre'] ?? ''); 
-$tel = trim($veri['telefon'] ?? '');
+$tel = metinSadelestir($veri['telefon'] ?? '', 20);
 $kontenjan = (int)($veri['kontenjan'] ?? 0);
 $talep_ay = (int)($veri['talep_ay'] ?? 1);
 
@@ -47,6 +53,7 @@ try {
         $sorgu->execute([$ad, $email, $il, $ilce, $kullanici, $sifre, $okul, $tel, $kontenjan, $talep_ay]);
         // YENİ EKLENEN KOD BİTİŞİ
     
+    girisDenemesiKaydet('ogretmen_kayit|ip:' . istemciIp(), false, 10, 600);
     echo json_encode(["success" => true, "message" => "Kayıt başarılı!"]);
 } catch (PDOException $e) {
     echo json_encode(["success" => false, "message" => "Kayıt sırasında bir hata oluştu."]);

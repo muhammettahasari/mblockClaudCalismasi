@@ -20,6 +20,16 @@
  *
  * YENİ EKLENEN ÖZELLİKLER:
  *  - [2026-08] Dosya oluşturuldu; 3 katmanlı rol sistemi ve CSRF eklendi.
+ *  - [2026-11] ROL AYRIMI: öğrenci girişi oturuma 'ogretmen_id' yazıyordu ve
+ *    öğretmen kapıcıları SADECE o anahtara baktığı için her öğrenci öğretmen
+ *    API'lerini çağırabiliyordu. Artık öğretmen yetkisi '_rol' = 'ogretmen'
+ *    damgası ister; damgasız 'ogretmen_id' oturum açılırken silinir.
+ *    Girişler girisRoluAyarla() ile yapılır (kimlik yenilenir, öbür rol silinir).
+ *  - [2026-11] KÖKEN KONTROLÜ: kapıcılar GET dışındaki isteklerde Origin /
+ *    Referer başka bir siteyi gösteriyorsa isteği reddeder (CSRF kalkanı).
+ *  - [2026-11] Kaba kuvvet sayacı oturumdan VERİTABANINA taşındı
+ *    (giris_denemeleri tablosu). Oturumda tutulan sayaç, çerezi silen
+ *    saldırganı hiç durdurmuyordu.
  * ==================================================================== */
 
 require_once __DIR__ . '/../db.php';
@@ -48,6 +58,13 @@ function guvenliOturumBaslat(): void
 
     session_start();
 
+    // [2026-11] Rol damgası olmayan öğretmen kimliği geçersizdir.
+    // Eski student_login.php öğrencinin oturumuna da 'ogretmen_id' yazıyordu;
+    // o oturumlar hâlâ açıksa burada temizlenir.
+    if (!empty($_SESSION['ogretmen_id']) && ($_SESSION['_rol_ogretmen'] ?? false) !== true) {
+        unset($_SESSION['ogretmen_id'], $_SESSION['ogretmen_ad'], $_SESSION['ogretmen_pin']);
+    }
+
     // Oturum sabitleme (session fixation) saldırısına karşı periyodik kimlik yenileme
     if (!isset($_SESSION['_olusturulma'])) {
         $_SESSION['_olusturulma'] = time();
@@ -69,22 +86,92 @@ function oturumKimligiYenile(): void
     }
 }
 
+/**
+ * [2026-11] Başarılı bir girişten sonra çağrılır.
+ * Oturum kimliğini yeniler (session fixation) ve ÖBÜR rolün anahtarlarını
+ * siler — aynı tarayıcıda önce öğrenci sonra öğretmen girişi yapılırsa
+ * iki kimlik üst üste binmesin.
+ *
+ * @param string $rol 'ogrenci' | 'ogretmen'
+ */
+function girisRoluAyarla(string $rol): void
+{
+    guvenliOturumBaslat();
+    oturumKimligiYenile();
+
+    $ogrenciAnahtarlari  = ['ogrenci_id', 'ogrenci_ad', 'sinif_id', 'ogrencinin_ogretmen_id',
+                            'hata_sayaci', 'bolum_onay_bileti'];
+    $ogretmenAnahtarlari = ['ogretmen_id', 'ogretmen_ad', 'ogretmen_pin', 'okul_adi', '_rol_ogretmen'];
+
+    $silinecek = $rol === 'ogretmen' ? $ogrenciAnahtarlari : $ogretmenAnahtarlari;
+    foreach ($silinecek as $k) {
+        unset($_SESSION[$k]);
+    }
+    if ($rol === 'ogretmen') {
+        $_SESSION['_rol_ogretmen'] = true;
+    }
+}
+
+/**
+ * [2026-11] KÖKEN (ORIGIN) KONTROLÜ — CSRF'e karşı ikinci kalkan.
+ * GET/HEAD dışındaki isteklerde tarayıcının gönderdiği Origin (yoksa Referer)
+ * bizim sunucumuzu göstermiyorsa isteği durdurur. Başlık hiç yoksa
+ * (eski tarayıcı / gizlilik eklentisi) geçirir — SameSite çerez zaten var.
+ */
+function istekKokeniDogrula(bool $json = true): void
+{
+    $yontem = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+    if ($yontem === 'GET' || $yontem === 'HEAD' || $yontem === 'OPTIONS') {
+        return;
+    }
+
+    $kaynak = $_SERVER['HTTP_ORIGIN'] ?? ($_SERVER['HTTP_REFERER'] ?? '');
+    if ($kaynak === '' || $kaynak === 'null') {
+        return;
+    }
+
+    $p = parse_url($kaynak);
+    $kaynakHost = strtolower(($p['host'] ?? '') . (isset($p['port']) ? ':' . $p['port'] : ''));
+    $bizimHost  = strtolower($_SERVER['HTTP_HOST'] ?? '');
+
+    // Standart port yazılmış/yazılmamış farkını yok say
+    $sade = static fn(string $h): string => preg_replace('/:(80|443)$/', '', $h);
+
+    if ($kaynakHost === '' || $sade($kaynakHost) !== $sade($bizimHost)) {
+        if ($json) {
+            apiYetkisiz('İstek başka bir siteden geldiği için reddedildi.');
+        }
+        http_response_code(403);
+        exit('İstek başka bir siteden geldiği için reddedildi.');
+    }
+}
+
 /* --------------------------------------------------------------------
  * 3. SAYFA KAPICILARI (HTML sayfalar için — yönlendirir)
  * ------------------------------------------------------------------ */
 function superAdminZorunlu(): void
 {
     guvenliOturumBaslat();
+    istekKokeniDogrula(false);
     if (empty($_SESSION['super_admin_id'])) {
         $hedef = urlencode($_SERVER['REQUEST_URI'] ?? '');
         header('Location: /mblock_platform/admin/super_giris.php?donus=' . $hedef);
         exit;
+    }
+    // [2026-11] Varsayılan şifreyle girildiyse şifre değiştirme sayfası dışında hiçbir yer açılmaz
+    if (!empty($_SESSION['super_sifre_degismeli'])) {
+        $sayfa = basename($_SERVER['SCRIPT_NAME'] ?? '');
+        if (!in_array($sayfa, ['super_sifre_degistir.php', 'super_cikis.php'], true)) {
+            header('Location: /mblock_platform/admin/super_sifre_degistir.php?zorunlu=1');
+            exit;
+        }
     }
 }
 
 function ogretmenZorunlu(): void
 {
     guvenliOturumBaslat();
+    istekKokeniDogrula(false);
     if (empty($_SESSION['ogretmen_id'])) {
         header('Location: /mblock_platform/index.php');
         exit;
@@ -94,6 +181,7 @@ function ogretmenZorunlu(): void
 function ogrenciZorunlu(): void
 {
     guvenliOturumBaslat();
+    istekKokeniDogrula(false);
     if (empty($_SESSION['ogrenci_id'])) {
         header('Location: /mblock_platform/index.php');
         exit;
@@ -123,8 +211,12 @@ function apiYetkisiz(string $mesaj = 'Bu işlem için yetkiniz yok.'): void
 function superAdminZorunluApi(): int
 {
     guvenliOturumBaslat();
+    istekKokeniDogrula();
     if (empty($_SESSION['super_admin_id'])) {
         apiYetkisiz('Süper Admin girişi gerekli.');
+    }
+    if (!empty($_SESSION['super_sifre_degismeli'])) {
+        apiYetkisiz('Önce varsayılan Süper Admin şifresini değiştirin.');
     }
     return (int) $_SESSION['super_admin_id'];
 }
@@ -132,6 +224,7 @@ function superAdminZorunluApi(): int
 function ogretmenZorunluApi(): int
 {
     guvenliOturumBaslat();
+    istekKokeniDogrula();
     if (empty($_SESSION['ogretmen_id'])) {
         apiYetkisiz('Öğretmen girişi gerekli.');
     }
@@ -141,6 +234,7 @@ function ogretmenZorunluApi(): int
 function ogrenciZorunluApi(): int
 {
     guvenliOturumBaslat();
+    istekKokeniDogrula();
     if (empty($_SESSION['ogrenci_id'])) {
         apiYetkisiz('Oturumunuz sona ermiş. Lütfen tekrar giriş yapın.');
     }
@@ -151,6 +245,7 @@ function ogrenciZorunluApi(): int
 function yoneticiZorunluApi(): void
 {
     guvenliOturumBaslat();
+    istekKokeniDogrula();
     if (empty($_SESSION['ogretmen_id']) && empty($_SESSION['super_admin_id'])) {
         apiYetkisiz('Yönetici girişi gerekli.');
     }
@@ -218,37 +313,157 @@ function csrfDogrulaSayfa(string $geriLink = ''): void
 }
 
 /* --------------------------------------------------------------------
- * 6. KABA KUVVET (BRUTE FORCE) KİLİDİ
- * Aynı oturumdan arka arkaya hatalı şifre denemelerini yavaşlatır.
+ * 6. KABA KUVVET (BRUTE FORCE) KİLİDİ — [2026-11] veritabanında
+ * Sayaç 'giris_denemeleri' tablosunda tutulur (tablo yoksa kendisi kurar).
+ * Anahtar örnekleri: 'pin|ip:1.2.3.4', 'ogrenci|hesap:12|ali'
+ *
+ * Kullanımı:
+ *    girisDenemesiKontrol('ogrenci|hesap:' . $kimlik, 5, 300);   // kilitliyse burada durur
+ *    ... şifreyi kontrol et ...
+ *    girisDenemesiKaydet('ogrenci|hesap:' . $kimlik, $basarili, 5, 300);
+ *
+ * ⚠️ Okulda bütün sınıf TEK IP'den çıkar. IP anahtarlı sınırları
+ *    cömert tut, sıkı sınırı hesaba (kullanıcı adına) koy.
  * ------------------------------------------------------------------ */
+function istemciIp(): string
+{
+    return (string) ($_SERVER['REMOTE_ADDR'] ?? '0.0.0.0');
+}
+
+function girisDenemeTablosu(): ?PDO
+{
+    global $pdo;
+    static $hazir = false;
+    if (!$pdo instanceof PDO) {
+        return null;
+    }
+    if (!$hazir) {
+        try {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS `giris_denemeleri` (
+                `anahtar`     varchar(191) NOT NULL,
+                `sayi`        int(11)      NOT NULL DEFAULT 0,
+                `ilk_deneme`  datetime     NOT NULL,
+                `kilit_bitis` datetime     DEFAULT NULL,
+                PRIMARY KEY (`anahtar`),
+                KEY `idx_ilk_deneme` (`ilk_deneme`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } catch (PDOException $e) {
+            error_log('[guvenlik] giris_denemeleri kurulamadı: ' . $e->getMessage());
+            return null;
+        }
+        $hazir = true;
+    }
+    return $pdo;
+}
+
+/** @return int Kilit bitene kadar kalan saniye (0 = kilitli değil) */
+function girisKilitKalan(string $anahtar): int
+{
+    $db = girisDenemeTablosu();
+    if (!$db) {
+        return 0;
+    }
+    $st = $db->prepare("SELECT GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), kilit_bitis))
+                          FROM giris_denemeleri WHERE anahtar = ?");
+    $st->execute([mb_substr($anahtar, 0, 191)]);
+    return (int) $st->fetchColumn();
+}
+
 function girisDenemesiKontrol(string $anahtar, int $maxDeneme = 5, int $kilitSaniye = 300): void
 {
-    guvenliOturumBaslat();
-    $kayit = $_SESSION['_giris_' . $anahtar] ?? ['sayi' => 0, 'kilit' => 0];
-
-    if ($kayit['kilit'] > time()) {
-        $kalan = (int) ceil(($kayit['kilit'] - time()) / 60);
-        apiYetkisiz("Çok fazla hatalı deneme yaptınız. {$kalan} dakika sonra tekrar deneyin.");
+    $kalan = girisKilitKalan($anahtar);
+    if ($kalan > 0) {
+        $dk = (int) ceil($kalan / 60);
+        apiYetkisiz("Çok fazla hatalı deneme yapıldı. {$dk} dakika sonra tekrar deneyin.");
     }
 }
 
+/**
+ * Hatalı denemeyi sayar. $maxDeneme hata, ilk hatadan itibaren $kilitSaniye
+ * içinde birikirse anahtar $kilitSaniye boyunca kilitlenir.
+ */
 function girisDenemesiKaydet(string $anahtar, bool $basarili, int $maxDeneme = 5, int $kilitSaniye = 300): void
 {
-    guvenliOturumBaslat();
-    $k = '_giris_' . $anahtar;
-
-    if ($basarili) {
-        unset($_SESSION[$k]);
+    $db = girisDenemeTablosu();
+    if (!$db) {
         return;
     }
+    $anahtar = mb_substr($anahtar, 0, 191);
 
-    $kayit = $_SESSION[$k] ?? ['sayi' => 0, 'kilit' => 0];
-    $kayit['sayi']++;
-    if ($kayit['sayi'] >= $maxDeneme) {
-        $kayit['kilit'] = time() + $kilitSaniye;
-        $kayit['sayi']  = 0;
+    try {
+        if ($basarili) {
+            $db->prepare("DELETE FROM giris_denemeleri WHERE anahtar = ?")->execute([$anahtar]);
+            return;
+        }
+
+        // Süresi geçmiş pencereyi sıfırla, sonra say
+        $db->prepare(
+            "INSERT INTO giris_denemeleri (anahtar, sayi, ilk_deneme) VALUES (?, 1, NOW())
+             ON DUPLICATE KEY UPDATE
+               sayi       = IF(ilk_deneme < NOW() - INTERVAL ? SECOND AND (kilit_bitis IS NULL OR kilit_bitis < NOW()), 1, sayi + 1),
+               ilk_deneme = IF(ilk_deneme < NOW() - INTERVAL ? SECOND AND (kilit_bitis IS NULL OR kilit_bitis < NOW()), NOW(), ilk_deneme)"
+        )->execute([$anahtar, $kilitSaniye, $kilitSaniye]);
+
+        $db->prepare(
+            "UPDATE giris_denemeleri
+                SET kilit_bitis = NOW() + INTERVAL ? SECOND, sayi = 0, ilk_deneme = NOW()
+              WHERE anahtar = ? AND sayi >= ?"
+        )->execute([$kilitSaniye, $anahtar, $maxDeneme]);
+
+        // Ara sıra eski kayıtları süpür
+        if (random_int(1, 50) === 1) {
+            $db->exec("DELETE FROM giris_denemeleri
+                        WHERE ilk_deneme < NOW() - INTERVAL 1 DAY
+                          AND (kilit_bitis IS NULL OR kilit_bitis < NOW())");
+        }
+    } catch (PDOException $e) {
+        error_log('[guvenlik] girisDenemesiKaydet: ' . $e->getMessage());
     }
-    $_SESSION[$k] = $kayit;
+}
+
+/**
+ * [2026-11] YÜKLENEN DOSYA GERÇEKTEN RESİM Mİ?
+ * Uzantı kolay değiştirilir; asıl kontrol içeriğe bakılarak yapılır.
+ *  - jpg/png/gif/webp → getimagesize() bir resim boyutu döndürmeli
+ *  - svg              → XML olmalı, betik / olay özniteliği / dış bağlantı İÇERMEMELİ
+ *
+ * @param string $geciciYol $_FILES[...]['tmp_name']
+ * @param string $uzanti    küçük harf uzantı (beyaz listeden geçmiş olmalı)
+ */
+function yuklenenResimGecerliMi(string $geciciYol, string $uzanti, int $azamiBayt = 8388608): bool
+{
+    if (!is_uploaded_file($geciciYol) && !is_file($geciciYol)) {
+        return false;
+    }
+    $boyut = @filesize($geciciYol);
+    if ($boyut === false || $boyut <= 0 || $boyut > $azamiBayt) {
+        return false;
+    }
+
+    if ($uzanti === 'svg') {
+        $icerik = (string) @file_get_contents($geciciYol);
+        if (stripos($icerik, '<svg') === false) {
+            return false;
+        }
+        $yasak = '/<\s*script|<\s*foreignObject|<\s*iframe|<\s*embed|<\s*object|\son[a-z]+\s*=|javascript\s*:|<!ENTITY|xlink:href\s*=\s*["\']\s*(?!#|data:image\/)/i';
+        return !preg_match($yasak, $icerik);
+    }
+
+    $olcu = @getimagesize($geciciYol);
+    return $olcu !== false && ($olcu[0] ?? 0) > 0 && ($olcu[1] ?? 0) > 0;
+}
+
+/**
+ * Öğrenci adı / kullanıcı adı gibi serbest metinleri kayıttan ÖNCE sadeleştirir:
+ * HTML etiketlerini ve kontrol karakterlerini atar, boşlukları toplar, boyu keser.
+ * (Asıl XSS kalkanı yine ÇIKTIDA temizle()/textContent'tir; bu ikinci kat.)
+ */
+function metinSadelestir($deger, int $maxUzunluk = 100): string
+{
+    $m = strip_tags((string) $deger);
+    $m = preg_replace('/[\x00-\x1F\x7F<>"`]/u', '', $m) ?? '';
+    $m = trim(preg_replace('/\s+/u', ' ', $m) ?? '');
+    return mb_substr($m, 0, $maxUzunluk);
 }
 
 /* --------------------------------------------------------------------

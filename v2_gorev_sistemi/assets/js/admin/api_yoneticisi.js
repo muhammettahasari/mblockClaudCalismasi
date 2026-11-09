@@ -55,7 +55,7 @@ document.getElementById('btnGoreviKaydet').addEventListener('click', function ()
     };
 
     // 1. Metin editöründen hikayeyi al
-    window.v2Editor.save().then((editorVerisi) => {
+    window.v2Editor.save().then(async (editorVerisi) => {
 
         // 2. Blueprint motorundan blok haritalarını al
         const blueprintVerisi   = window.getBlueprintData();
@@ -78,7 +78,7 @@ document.getElementById('btnGoreviKaydet').addEventListener('click', function ()
                                ? kayitli.icerik.hikaye_metni.blocks.length : 0;
 
         if (gorev_id > 0 && eskiBlokSayisi > 0 && yeniBlokSayisi === 0) {
-            if (!confirm("⚠️ DİKKAT: Bu görevin kayıtlı metni vardı ama şu an editör BOŞ.\n\n"
+            if (!await onayKutusu("⚠️ DİKKAT: Bu görevin kayıtlı metni vardı ama şu an editör BOŞ.\n\n"
                        + "Kaydedersen görev metni SİLİNİR.\n\nYine de devam edilsin mi?")) {
                 btn.disabled = false;
                 btn.innerHTML = eskiYazi;
@@ -97,7 +97,7 @@ document.getElementById('btnGoreviKaydet').addEventListener('click', function ()
               })
             : Promise.resolve(null);
 
-        ipucuSozu.then(function (ipucuMetni) {
+        ipucuSozu.then(async function (ipucuMetni) {
         const ipucuBloklari = (typeof window.getIpucuBloklari === 'function')
             ? window.getIpucuBloklari() : '';
 
@@ -113,7 +113,7 @@ document.getElementById('btnGoreviKaydet').addEventListener('click', function ()
                 || (eskiIpucu.bloklar && String(eskiIpucu.bloklar).trim() !== ''));
 
         if (gorev_id > 0 && eskiIpucuDoluydu && !ipucuDolu) {
-            if (!confirm("⚠️ DİKKAT: Bu görevin 'Bilgi Al' içeriği vardı ama şu an BOŞ.\n\n"
+            if (!await onayKutusu("⚠️ DİKKAT: Bu görevin 'Bilgi Al' içeriği vardı ama şu an BOŞ.\n\n"
                        + "Kaydedersen silinir ve öğrenci bilgi alamaz.\n\nYine de devam edilsin mi?")) {
                 btn.disabled = false;
                 btn.innerHTML = eskiYazi;

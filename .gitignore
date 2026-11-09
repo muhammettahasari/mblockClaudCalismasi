@@ -29,6 +29,10 @@ v2_gorev_sistemi/admin/assets/images/kuklalar/*
 # Klasör yapısı korunsun diye:
 !img/quiz/.gitkeep
 !v2_gorev_sistemi/assets/images/kuklalar/.gitkeep
+# [2026-11] Yükleme klasörlerinin güvenlik kuralları repoda kalsın
+!img/quiz/.htaccess
+!v2_gorev_sistemi/assets/images/kuklalar/.htaccess
+!v2_gorev_sistemi/admin/assets/images/kuklalar/.htaccess
 
 # --- ARŞİV / GEÇİCİ ---------------------------------------------------------
 *.rar
@@ -57,3 +61,6 @@ cache/
 # --- BAĞIMLILIK -------------------------------------------------------------
 node_modules/
 vendor/
+
+# [2026-11] Silinmeye aday dosyalar
+_to_delete/

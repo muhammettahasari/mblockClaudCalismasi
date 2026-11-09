@@ -122,6 +122,20 @@ Diğer: `cinsiyet` enum(erkek/kiz), `genel_guc`, `can`, `enerji`, `ceviklik` (*b
 `id`, `oturum_id`, `ogrenci_id`, `puan`, `cozulen_soru_sayisi`, `kalkan_aktif`,
 güç hakları: `kilic_hakki`, `kalkan_hakki`, `glitch_hakki`, `saat_hakki` (her biri 1), `son_guncelleme`
 
+### `quiz_cevaplar` (2026-11 eklendi)
+`oyuncu_id` (= `quiz_ogrenci.id`), `soru_id` → PK ikilisi (aynı soru bir kez cevaplanır),
+`baslangic` datetime(3) (soru ekrana geldiği an, sunucu saati), `cevap`, `dogru`, `kazanilan`, `cevap_zamani`.
+`api/quiz_cevap.php` kullanır; tablo yoksa kod kendisi kurar.
+
+### `giris_denemeleri` (2026-11 eklendi)
+`anahtar` PK (ör. `pin|ip:1.2.3.4`, `ogrenci|sinif:5|ali`), `sayi`, `ilk_deneme`, `kilit_bitis`.
+Kaba kuvvet sayacı (`girisDenemesiKontrol/Kaydet`). Tablo yoksa kod kendisi kurar.
+
+> ⚠️ **[2026-11] `ogrenciler.ogretmen_id` tetikleyicilerle senkron.**
+> `migration_2026_11_guvenlik.sql` bayat değerleri düzeltir ve 3 tetikleyici kurar
+> (öğrenci ekleme / sınıf değiştirme / sınıf devri). Yetki sorgularında yine de
+> `siniflar.ogretmen_id` zincirini kullan.
+
 ### `quiz_savas_log`
 `id`, `oturum_id`, `saldiran_id`, `savunan_id`, `yetenek_turu` enum(`kilic`/`glitch`/`saat`),
 `durum` enum(`bekliyor`/`kalkan_kirdi`/`basarili`/`geri_tepti`),

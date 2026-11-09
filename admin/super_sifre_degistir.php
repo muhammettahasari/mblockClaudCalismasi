@@ -124,6 +124,12 @@ $varsayilanSifreUyarisi = superAdminVarsayilanSifreMi($pdo, $adminId);
         <a href="super_panel.php" class="geri">← Panele Dön</a>
     </div>
 
+    <?php if (!empty($_SESSION['super_sifre_degismeli'])): ?>
+        <div class="uyari hata">
+            🔐 Varsayılan şifreyle (<b>123</b>) giriş yaptınız. Güvenlik için devam etmeden önce
+            en az 8 karakterlik yeni bir şifre belirleyin. Şifre değişene kadar diğer paneller kapalı.
+        </div>
+    <?php endif; ?>
     <?php if ($mesaj !== ''): ?>
         <div class="uyari <?= $mesajTuru ?>">
             <?= $mesajTuru === 'basarili' ? '✅' : '❌' ?> <?= temizle($mesaj) ?>
@@ -148,11 +154,11 @@ $varsayilanSifreUyarisi = superAdminVarsayilanSifreMi($pdo, $adminId);
             </div>
             <div class="form-grup">
                 <label for="yeni_sifre">Yeni Şifre</label>
-                <input type="password" id="yeni_sifre" name="yeni_sifre" required autocomplete="new-password">
+                <input type="password" id="yeni_sifre" name="yeni_sifre" required minlength="8" autocomplete="new-password">
             </div>
             <div class="form-grup">
                 <label for="yeni_sifre_tekrar">Yeni Şifre (Tekrar)</label>
-                <input type="password" id="yeni_sifre_tekrar" name="yeni_sifre_tekrar" required autocomplete="new-password">
+                <input type="password" id="yeni_sifre_tekrar" name="yeni_sifre_tekrar" required minlength="8" autocomplete="new-password">
             </div>
 
             <button type="submit" class="btn btn-yesil">Şifreyi Güncelle</button>

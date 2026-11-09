@@ -1,19 +1,17 @@
 <?php
-session_start();
-require_once '../db.php';
+/* ==========================================================
+   Dosya Yolu: api/arena_durum_kontrol.php
+   Kullanıcı: Öğrenci
+   Halk dilinde: Öğrencinin sınıf arenası açık mı?
+   [2026-11] Kapıcı ogrenciZorunluApi(); öğretmen SINIFTAN türetilir.
+   ========================================================== */
+require_once __DIR__ . '/../bilesenler/guvenlik.php';
+$ogrenci_id = ogrenciZorunluApi();
 header('Content-Type: application/json');
-
-$ogrenci_id = $_SESSION['ogrenci_id'] ?? null;
-
-// Sadece giriş yapmış öğrenciler bu veriyi çekebilir
-if (!$ogrenci_id) {
-    echo json_encode(['success' => false]);
-    exit;
-}
 
 try {
     // Öğrencinin öğretmenini bul ve arena saatini kontrol et
-    $stmt = $pdo->prepare("SELECT ogr.arena_bitis FROM ogretmenler ogr JOIN ogrenciler o ON o.ogretmen_id = ogr.id WHERE o.id = ?");
+    $stmt = $pdo->prepare("SELECT ogr.arena_bitis FROM ogrenciler o JOIN siniflar s ON s.id = o.sinif_id JOIN ogretmenler ogr ON ogr.id = s.ogretmen_id WHERE o.id = ?");
     $stmt->execute([$ogrenci_id]);
     $arena_bitis = $stmt->fetchColumn();
 

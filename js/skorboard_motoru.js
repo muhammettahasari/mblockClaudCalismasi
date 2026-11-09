@@ -92,8 +92,8 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 // 5. Sınıf Arenası Saldırı Fonksiyonu
-function arenadaSaldir(hedefId, hedefAd) {
-    if (!confirm(hedefAd + ' adlı öğrenciye saldırmak istiyor musun? (Bedel: 20 Enerji)')) return;
+async function arenadaSaldir(hedefId, hedefAd) {
+    if (!await onayKutusu(hedefAd + ' adlı öğrenciye saldırmak istiyor musun? (Bedel: 20 Enerji)')) return;
 
     let formData = new FormData();
     formData.append('hedef_id', hedefId);

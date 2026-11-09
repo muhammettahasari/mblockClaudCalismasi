@@ -120,6 +120,8 @@ function superAdminGirisDene(PDO $pdo, string $kullanici, string $sifre): array
     // Oturumu tazeleyip kimliği yaz
     oturumKimligiYenile();
     $_SESSION['super_admin_id']  = (int) $admin['id'];
+    // [2026-11] Varsayılan '123' şifresiyle girildiyse önce şifre değiştirilmeli
+    $_SESSION['super_sifre_degismeli'] = hash_equals(SUPER_VARSAYILAN_SIFRE, $sifre);
     $_SESSION['super_admin_ad']  = $admin['ad_soyad'] ?: 'Süper Admin';
     $_SESSION['super_kullanici'] = $admin['kullanici_adi'];
 
@@ -134,8 +136,12 @@ function superAdminSifreDegistir(PDO $pdo, int $adminId, string $mevcut, string 
     if ($yeni !== $yeniTekrar) {
         return ['basarili' => false, 'mesaj' => 'Yeni şifreler birbiriyle eşleşmiyor.'];
     }
-    if (strlen($yeni) < 3) {
-        return ['basarili' => false, 'mesaj' => 'Yeni şifre en az 3 karakter olmalı.'];
+    // [2026-11] Süper Admin her şeyi yönetir (dosya yükleme dahil) — en az 8 karakter
+    if (mb_strlen($yeni) < 8) {
+        return ['basarili' => false, 'mesaj' => 'Yeni şifre en az 8 karakter olmalı.'];
+    }
+    if (hash_equals(SUPER_VARSAYILAN_SIFRE, $yeni) || hash_equals($mevcut, $yeni)) {
+        return ['basarili' => false, 'mesaj' => 'Yeni şifre eskisiyle ya da varsayılan şifreyle aynı olamaz.'];
     }
 
     $st = $pdo->prepare("SELECT sifre_hash FROM super_adminler WHERE id = ?");
@@ -149,6 +155,7 @@ function superAdminSifreDegistir(PDO $pdo, int $adminId, string $mevcut, string 
     $pdo->prepare("UPDATE super_adminler SET sifre_hash = ? WHERE id = ?")
         ->execute([password_hash($yeni, PASSWORD_DEFAULT), $adminId]);
 
+    unset($_SESSION['super_sifre_degismeli']);
     return ['basarili' => true, 'mesaj' => 'Şifreniz başarıyla değiştirildi.'];
 }
 

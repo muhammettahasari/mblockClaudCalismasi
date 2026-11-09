@@ -23,4 +23,5 @@
     window.MBLOCK_DUELLO_DINLE = true;
 </script>
 <script src="<?= varlik('js/ogrenci_radar.js', '') ?>"></script>
+<script src="<?= varlik('js/onay_kutusu.js', '') ?>"></script>
 <script src="<?= varlik('js/duello_motoru.js', '') ?>"></script>

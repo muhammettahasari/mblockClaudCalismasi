@@ -51,6 +51,10 @@ function kostumDosyasiKaydet(string $geciciYol, string $orijinalAd): ?string
     if (!in_array($uzanti, IZINLI_UZANTILAR, true)) {
         return null;
     }
+    // [2026-11] İçerik kontrolü: gerçekten resim mi, SVG'de betik var mı?
+    if (!yuklenenResimGecerliMi($geciciYol, $uzanti)) {
+        return null;
+    }
 
     if (!is_dir(KUKLA_KLASORU)) {
         mkdir(KUKLA_KLASORU, 0777, true);

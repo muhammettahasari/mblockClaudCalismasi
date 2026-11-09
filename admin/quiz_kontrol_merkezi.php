@@ -37,7 +37,10 @@ $siniflar = $sinifSorgu->fetchAll(PDO::FETCH_ASSOC);
  * 1. SAVAŞI BİTİR VE PODYUMU GÖSTER
  * Sadece BU öğretmenin aktif oturumu bitirilir.
  * ------------------------------------------------------------------ */
-if (isset($_GET['islem']) && $_GET['islem'] === 'quiz_bitir') {
+/* [2026-11] Artık POST + CSRF. Eskiden ?islem=quiz_bitir bağlantısı puanları
+   kalıcıya aktarıp quiz'i bitirmeye yetiyordu. */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['islem'] ?? '') === 'quiz_bitir') {
+    csrfDogrulaSayfa('quiz_kontrol_merkezi.php');
 
     $st = $pdo->prepare("SELECT * FROM quiz_oturum WHERE ogretmen_id = ? AND durum = 'aktif' ORDER BY id DESC LIMIT 1");
     $st->execute([$ogretmen_id]);
@@ -99,7 +102,8 @@ if (isset($_GET['islem']) && $_GET['islem'] === 'quiz_bitir') {
             @keyframes kupaSallan { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
             @keyframes flash { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
         </style>
-    </head>
+        <script src="<?= varlik('js/onay_kutusu.js', '../') ?>"></script>
+</head>
     <body>
         <h1>🏆 SAVAŞIN ŞAMPİYONLARI 🏆</h1>
         <audio autoplay src="../assets/sounds/quizbittiskorboard.mp3"></audio>
@@ -285,7 +289,11 @@ $toplamSoru = (int) $pdo->query("SELECT COUNT(*) FROM quiz_sorulari")->fetchColu
 
 // Öğrencilerin hangi bölüme kadar geldiği — öğretmene ipucu olsun
 $enYuksekBolum = 0;
-$st = $pdo->prepare("SELECT COALESCE(MAX(mevcut_bolum), 1) FROM ogrenciler WHERE ogretmen_id = ?");
+$st = $pdo->prepare(   // [2026-11] sahiplik zinciri: siniflar.ogretmen_id
+    "SELECT COALESCE(MAX(o.mevcut_bolum), 1)
+       FROM ogrenciler o JOIN siniflar s ON s.id = o.sinif_id
+      WHERE s.ogretmen_id = ?"
+);
 $st->execute([$ogretmen_id]);
 $enYuksekBolum = (int) $st->fetchColumn();
 ?>
@@ -330,6 +338,7 @@ $enYuksekBolum = (int) $st->fetchColumn();
         .geri-link:hover { color:#f8fafc; }
     </style>
     <link rel="stylesheet" href="../css/ogretmen_tema.css">
+    <script src="<?= varlik('js/onay_kutusu.js', '../') ?>"></script>
 </head>
 <body class="ot">
 <?php $OT_AKTIF = 'quiz'; require __DIR__ . '/../bilesenler/ogretmen_ust_bar.php'; ?>
@@ -353,7 +362,7 @@ $enYuksekBolum = (int) $st->fetchColumn();
                     sayfasından bir sınıf oluşturun.
                 </div>
             <?php else: ?>
-            <form action="quiz_kontrol_merkezi.php" method="POST">
+            <form action="quiz_kontrol_merkezi.php" method="POST" data-onay="Seçtiğiniz sınıfın ekranları kararacak ve arenaya çekilecekler. Başlatılsın mı?">
                 <?= csrfAlani() ?>
                 <input type="hidden" name="islem" value="quiz_baslat">
 
@@ -438,8 +447,7 @@ $enYuksekBolum = (int) $st->fetchColumn();
                     <?php endif; ?>
                 </div>
 
-                <button type="submit" class="btn-start"
-                        onclick="return confirm('Seçtiğiniz sınıfın ekranları kararacak ve arenaya çekilecekler. Başlatılsın mı?')">
+                <button type="submit" class="btn-start">
                     ⚔️ SAVAŞI (QUİZİ) BAŞLAT
                 </button>
             </form>
@@ -457,10 +465,12 @@ $enYuksekBolum = (int) $st->fetchColumn();
                         &nbsp; Sıralama saniyede bir güncelleniyor...
                     </p>
                 </div>
-                <a href="quiz_kontrol_merkezi.php?islem=quiz_bitir" class="btn-stop"
-                   onclick="return confirm('Savaşı bitirdiğiniz an kazananlar podyumu çıkar ve oyun sonlanır. Emin misiniz?')">
-                    🛑 SAVAŞI BİTİR
-                </a>
+                <form method="POST" action="quiz_kontrol_merkezi.php" style="display:inline"
+                      data-onay="Savaşı bitirdiğiniz an kazananlar podyumu çıkar ve oyun sonlanır. Emin misiniz?">
+                    <?= csrfAlani() ?>
+                    <input type="hidden" name="islem" value="quiz_bitir">
+                    <button type="submit" class="btn-stop" style="border:none;cursor:pointer;font:inherit">🛑 SAVAŞI BİTİR</button>
+                </form>
             </div>
 
             <div id="leaderboardArea">

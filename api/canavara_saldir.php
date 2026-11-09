@@ -1,15 +1,13 @@
 <?php
-session_start();
+/* ==========================================================
+   Dosya Yolu: api/canavara_saldir.php
+   Kullanıcı: Öğrenci (Ayın Canavarı)
+   Halk dilinde: Envanterden eşya feda edip canavara vurma.
+   [2026-11] Kapıcı ogrenciZorunluApi() (köken kontrolü dahil).
+   ========================================================== */
+require_once __DIR__ . '/../bilesenler/guvenlik.php';
+$ogrenci_id = ogrenciZorunluApi();
 header('Content-Type: application/json');
-
-// Oturum kontrolü
-if (!isset($_SESSION['ogrenci_id'])) {
-    echo json_encode(['status' => 'error', 'mesaj' => 'Oturum bulunamadı.']);
-    exit;
-}
-
-require_once '../db.php';
-$ogrenci_id = $_SESSION['ogrenci_id'];
 $islem = $_POST['islem'] ?? '';
 
 // --- İŞLEM 1: SİLAH SEÇİMİ İÇİN ENVANTERİ GETİR ---

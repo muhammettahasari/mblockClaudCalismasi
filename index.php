@@ -18,6 +18,7 @@ guvenliOturumBaslat();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>mBlock Platformu | Giriş Yap</title>
     <link rel="stylesheet" href="css/main_login.css">
+    <script src="<?= varlik('js/onay_kutusu.js', '') ?>"></script>
 </head>
 
 <body>
@@ -265,7 +266,7 @@ guvenliOturumBaslat();
                         // Sınıfları dropdown'a doldur
                         sinifSelect.innerHTML = '<option value="">Sınıfınızı Seçiniz...</option>';
                         data.siniflar.forEach(sinif => {
-                            sinifSelect.innerHTML += `<option value="${sinif.id}">${sinif.sinif_adi}</option>`;
+                            sinifSelect.add(new Option(sinif.sinif_adi, sinif.id));  // [2026-11] innerHTML yerine — XSS kalkanı
                         });
                     } else {
                         mesaj.style.color = "#ef4444";
@@ -373,7 +374,7 @@ guvenliOturumBaslat();
 
                         sinifSelect.innerHTML = '<option value="0">Sınıfınızı Seçiniz...</option>';
                         data.siniflar.forEach(sinif => {
-                            sinifSelect.innerHTML += `<option value="${sinif.id}">${sinif.sinif_adi}</option>`;
+                            sinifSelect.add(new Option(sinif.sinif_adi, sinif.id));  // [2026-11] innerHTML yerine — XSS kalkanı
                         });
 
                         btnKaydet.disabled = false;
@@ -580,9 +581,9 @@ guvenliOturumBaslat();
                 });
         });
         // YENİ EKLENEN KOD BAŞLANGICI: Şifremi Unuttum İşlemi
-    document.getElementById('btnSifremiUnuttum').addEventListener('click', function(e) {
+    document.getElementById('btnSifremiUnuttum').addEventListener('click', async function(e) {
         e.preventDefault();
-        let emailAdresi = prompt("Şifrenizi sıfırlamak için sisteme kayıtlı E-POSTA ADRESİNİZİ giriniz:");
+        let emailAdresi = await metinKutusu("Şifrenizi sıfırlamak için sisteme kayıtlı E-POSTA ADRESİNİZİ giriniz:");
         if (emailAdresi !== null && emailAdresi.trim() !== "") {
             fetch('api/password_reset.php', {
                 method: 'POST',

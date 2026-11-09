@@ -1,161 +1,171 @@
 <?php
 /* ==========================================================
    Dosya Yolu: api/teacher_remote.php
-   İşlev: Öğretmene özel canlı veri akışı, sınıf filtreleme ve uzaktan kontrol
+   Kullanıcı: Öğretmen (ogretmen_paneli.php, ogrenci_yonetimi.php)
+   Halk dilinde: Öğretmenin sınıf/öğrenci listesini getirir; öğrenci onaylama,
+   düzenleme, silme, sınıf ekleme/silme gibi uzaktan işlemleri yapar.
+
+   YENİ EKLENEN ÖZELLİKLER:
+   - [2026-11] Kapıcı ogretmenZorunluApi() (rol damgası + köken kontrolü).
+   - [2026-11] SAHİPLİK ZİNCİRİ: bütün yazma işlemleri artık
+     `ogrenciler.ogretmen_id` (bayat kopya) yerine
+     ogretmenler → siniflar → ogrenciler zinciriyle doğrulanır.
+   - [2026-11] DEĞİŞTİREN işlemler SADECE POST ile çalışır. Eskiden
+     ?islem=ogrenci_sil&id=5 gibi bir bağlantıya tıklatmak öğrenci
+     sildirmeye yetiyordu (CSRF).
+   - [2026-11] Ad / kullanıcı adı / sınıf adı metinSadelestir() ile temizlenir.
    ========================================================== */
-session_start();
-require_once '../db.php';
+require_once __DIR__ . '/../bilesenler/guvenlik.php';
+
+$ogretmen_id = ogretmenZorunluApi();
 header('Content-Type: application/json; charset=utf-8');
 
-// Güvenlik: Sadece giriş yapmış öğretmenler bu dosyayı kullanabilir
-$ogretmen_id = $_SESSION['ogretmen_id'] ?? 0;
-if (!$ogretmen_id) {
-    echo json_encode(["success" => false, "message" => "Yetkisiz erişim!"]);
+function tcCevap(array $veri): void
+{
+    echo json_encode($veri, JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-$islem = $_GET['islem'] ?? 'liste';
-$ogrenci_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$islem = (string) ($_GET['islem'] ?? 'liste');
+$govde = istekVerisi();
+$ogrenci_id = (int) ($_GET['id'] ?? ($govde['id'] ?? 0));
+
+$OKUMA_ISLEMLERI = ['liste', 'siniflari_getir'];
+$YAZMA_ISLEMLERI = ['sinif_ekle', 'kayit_onayla', 'kilit_ac', 'onayla', 'reddet_ac',
+                    'ogrenci_sil', 'ogrenci_duzenle', 'sinif_sil'];
+
+if (!in_array($islem, array_merge($OKUMA_ISLEMLERI, $YAZMA_ISLEMLERI), true)) {
+    tcCevap(["success" => false, "message" => "Bilinmeyen işlem."]);
+}
+if (in_array($islem, $YAZMA_ISLEMLERI, true) && ($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
+    http_response_code(405);
+    tcCevap(["success" => false, "message" => "Bu işlem sadece POST ile yapılabilir."]);
+}
+
+// "Bu öğrenci benim sınıflarımdan birinde mi?" — tek doğru zincir
+const BENIM_OGRENCIM = "sinif_id IN (SELECT id FROM siniflar WHERE ogretmen_id = ?)";
 
 try {
     // 1. YENİ SINIF OLUŞTURMA
     if ($islem === 'sinif_ekle') {
-        $sinif_adi = $_GET['sinif_adi'] ?? '';
-        if(!empty($sinif_adi)) {
-            $sorgu = $pdo->prepare("INSERT INTO siniflar (ogretmen_id, sinif_adi) VALUES (?, ?)");
-            $sorgu->execute([$ogretmen_id, $sinif_adi]);
-            echo json_encode(["success" => true]);
+        $sinif_adi = metinSadelestir($govde['sinif_adi'] ?? ($_GET['sinif_adi'] ?? ''), 50);
+        if ($sinif_adi === '') {
+            tcCevap(["success" => false, "message" => "Sınıf adı boş olamaz."]);
         }
-        exit;
+        $pdo->prepare("INSERT INTO siniflar (ogretmen_id, sinif_adi) VALUES (?, ?)")
+            ->execute([$ogretmen_id, $sinif_adi]);
+        tcCevap(["success" => true]);
     }
 
-    // 2. ÖĞRETMENİN SINIFLARINI GETİRME (Dropdown için)
+    // 2. ÖĞRETMENİN SINIFLARI (Dropdown için)
     if ($islem === 'siniflari_getir') {
         $sorgu = $pdo->prepare("SELECT id, sinif_adi FROM siniflar WHERE ogretmen_id = ? ORDER BY sinif_adi ASC");
         $sorgu->execute([$ogretmen_id]);
-        echo json_encode(["success" => true, "data" => $sorgu->fetchAll()]);
-        exit;
+        tcCevap(["success" => true, "data" => $sorgu->fetchAll()]);
     }
 
-    // 3. ÖĞRENCİ LİSTESİNİ GETİRME (Filtreli ve SADECE bu öğretmenin öğrencileri)
+    // 3. ÖĞRENCİ LİSTESİ (sadece bu öğretmenin sınıfları)
     if ($islem === 'liste') {
-        $sinif_id = isset($_GET['sinif_id']) ? (int)$_GET['sinif_id'] : 0;
-        
-        /* [2026-08 HATA DÜZELTMESİ] Filtre eskiden `o.ogretmen_id = ?` idi.
-           O sütun kayıt anında yazılan DENORMALİZE bir kopya; öğrenci başka
-           sınıfa taşınınca ya da sınıf başka öğretmene devredilince
-           güncellenmiyor. Öğretmen kendi öğrencisini listede göremiyor,
-           dolayısıyla kilitleyemiyor da.
-           Gerçek zincir: ogretmenler -> siniflar -> ogrenciler */
+        $sinif_id = (int) ($_GET['sinif_id'] ?? 0);
+
         $sql = "SELECT o.*, s.sinif_adi
                   FROM ogrenciler o
                   JOIN siniflar s ON s.id = o.sinif_id
                  WHERE s.ogretmen_id = ?";
         $params = [$ogretmen_id];
-
-        // Eğer belirli bir sınıf seçilmişse sorguya filtre ekle
         if ($sinif_id > 0) {
             $sql .= " AND o.sinif_id = ?";
             $params[] = $sinif_id;
         }
-
         $sql .= " ORDER BY o.kalici_puan DESC";
         $sorgu = $pdo->prepare($sql);
         $sorgu->execute($params);
 
-        // Öğretmenin genel olarak onay bekleyen öğrencisi var mı?
         $onayKontrol = $pdo->prepare(
             "SELECT o.id FROM ogrenciler o
                JOIN siniflar s ON s.id = o.sinif_id
               WHERE s.ogretmen_id = ? AND o.onay_durumu = 0 LIMIT 1"
         );
         $onayKontrol->execute([$ogretmen_id]);
-        $bekleyen_onay_var = $onayKontrol->rowCount() > 0;
-        
-        echo json_encode(["success" => true, "data" => $sorgu->fetchAll(), "bekleyen_onay_var" => $bekleyen_onay_var]);
-        exit;
-    } 
- elseif ($islem === 'kayit_onayla') {
-        $sorgu = $pdo->prepare("UPDATE ogrenciler SET onay_durumu = 1 WHERE id = ? AND ogretmen_id = ?");
-        $sorgu->execute([$ogrenci_id, $ogretmen_id]);
-        echo json_encode(["success" => true]);
-        exit;
-    }
-    
-    // YENİ EKLENEN: KİLİDİ AÇMA İŞLEMİ (Öğrenciyi tekrar Onay Bekliyor statüsüne alır)
-    elseif ($islem === 'kilit_ac') {
-        $sorgu = $pdo->prepare("UPDATE ogrenciler SET durum = 'onay_bekliyor' WHERE id = ? AND ogretmen_id = ?");
-        $sorgu->execute([$ogrenci_id, $ogretmen_id]);
-        echo json_encode(["success" => true]);
-        exit;
-    }
-    // 4. UZAKTAN ONAYLAMA İŞLEMİ
-    elseif ($islem === 'onayla') {
-        $sorgu = $pdo->prepare("UPDATE ogrenciler SET kalici_puan = kalici_puan + anlik_puan, anlik_puan = 0, durum = 'uzaktan_onaylandi' WHERE id = ? AND ogretmen_id = ?");
-        $sorgu->execute([$ogrenci_id, $ogretmen_id]);
-        echo json_encode(["success" => true]);
-    } 
-    
-    // 5. UZAKTAN REDDETME / KİLİT AÇMA İŞLEMİ
-    elseif ($islem === 'reddet_ac') {
-        $sorgu = $pdo->prepare("UPDATE ogrenciler SET anlik_puan = 0, durum = 'uzaktan_reddedildi' WHERE id = ? AND ogretmen_id = ?");
-        $sorgu->execute([$ogrenci_id, $ogretmen_id]);
-        echo json_encode(["success" => true]);
-    }
-    // YENİ EKLENEN: ÖĞRENCİ SİLME
-    elseif ($islem === 'ogrenci_sil') {
-        $sorgu = $pdo->prepare("DELETE FROM ogrenciler WHERE id = ? AND ogretmen_id = ?");
-        $sorgu->execute([$ogrenci_id, $ogretmen_id]);
-        echo json_encode(["success" => true]);
-        exit;
-    }
-    
-    // YENİ EKLENEN: ÖĞRENCİ DÜZENLEME (KALEM İKONU)
-    elseif ($islem === 'ogrenci_duzenle') {
-        $veri = json_decode(file_get_contents("php://input"), true);
-        $ad = trim($veri['ad_soyad'] ?? '');
-        $kadi = trim($veri['kullanici_adi'] ?? '');
-        $sifre = trim($veri['sifre'] ?? '');
 
-       
-     // Kendisi hariç SADECE BU OKULDA bu kullanıcı adını kullanan var mı?
-        $k_kontrol = $pdo->prepare("SELECT id FROM ogrenciler WHERE kullanici_adi = ? AND id != ? AND ogretmen_id = ?");
-        $k_kontrol->execute([$kadi, $ogrenci_id, $ogretmen_id]);
-        if($k_kontrol->rowCount() > 0) {
-            echo json_encode(["success" => false, "message" => "Bu kullanıcı adı zaten başka birinde kullanılıyor!"]);
-            exit;
+        tcCevap(["success" => true, "data" => $sorgu->fetchAll(),
+                 "bekleyen_onay_var" => (bool) $onayKontrol->fetch()]);
+    }
+
+    // --- Tek öğrenci üzerinde yazma işlemleri ---
+    $tekOgrenciSql = [
+        'kayit_onayla' => "UPDATE ogrenciler SET onay_durumu = 1",
+        'kilit_ac'     => "UPDATE ogrenciler SET durum = 'onay_bekliyor'",
+        'onayla'       => "UPDATE ogrenciler SET kalici_puan = kalici_puan + anlik_puan, anlik_puan = 0, durum = 'uzaktan_onaylandi'",
+        'reddet_ac'    => "UPDATE ogrenciler SET anlik_puan = 0, durum = 'uzaktan_reddedildi'",
+        'ogrenci_sil'  => "DELETE FROM ogrenciler",
+    ];
+    if (isset($tekOgrenciSql[$islem])) {
+        if ($ogrenci_id <= 0) {
+            tcCevap(["success" => false, "message" => "Öğrenci seçilmedi."]);
+        }
+        $st = $pdo->prepare($tekOgrenciSql[$islem] . " WHERE id = ? AND " . BENIM_OGRENCIM);
+        $st->execute([$ogrenci_id, $ogretmen_id]);
+        tcCevap(["success" => $st->rowCount() > 0 || $islem !== 'ogrenci_sil',
+                 "message" => $st->rowCount() > 0 ? '' : 'Öğrenci bulunamadı ya da sizin sınıfınızda değil.']);
+    }
+
+    // ÖĞRENCİ DÜZENLEME (kalem ikonu)
+    if ($islem === 'ogrenci_duzenle') {
+        $ad    = metinSadelestir($govde['ad_soyad'] ?? '', 60);
+        $kadi  = metinSadelestir($govde['kullanici_adi'] ?? '', 40);
+        $sifre = trim((string) ($govde['sifre'] ?? ''));
+
+        if ($ad === '' || $kadi === '' || $sifre === '') {
+            tcCevap(["success" => false, "message" => "Ad, kullanıcı adı ve şifre boş olamaz."]);
         }
 
-        $sorgu = $pdo->prepare("UPDATE ogrenciler SET ad_soyad = ?, kullanici_adi = ?, sifre = ? WHERE id = ? AND ogretmen_id = ?");
-        $sorgu->execute([$ad, $kadi, $sifre, $ogrenci_id, $ogretmen_id]);
-        echo json_encode(["success" => true]);
-        exit;
-    }
-    // YENİ EKLENEN: ÇOKLU SINIF VE İÇİNDEKİ ÖĞRENCİLERİ SİLME
-    elseif ($islem === 'sinif_sil') {
-        $veri = json_decode(file_get_contents("php://input"), true);
-        $sinif_id_listesi = $veri['sinif_id_listesi'] ?? [];
-
-        if (!empty($sinif_id_listesi)) {
-            // Güvenlik: Sadece bu öğretmene ait sınıfları sil
-            $inQuery = implode(',', array_fill(0, count($sinif_id_listesi), '?'));
-            $params = array_merge($sinif_id_listesi, [$ogretmen_id]);
-
-            // 1. Önce bu sınıflara ait öğrencileri kalıcı olarak sil
-            $ogrSorgu = $pdo->prepare("DELETE FROM ogrenciler WHERE sinif_id IN ($inQuery) AND ogretmen_id = ?");
-            $ogrSorgu->execute($params);
-
-            // 2. Sonra sınıfların kendisini sil
-            $sinifSorgu = $pdo->prepare("DELETE FROM siniflar WHERE id IN ($inQuery) AND ogretmen_id = ?");
-            $sinifSorgu->execute($params);
-
-            echo json_encode(["success" => true]);
-        } else {
-            echo json_encode(["success" => false, "message" => "Silinecek sınıf seçilmedi."]);
+        // Öğrenci benim mi?
+        $st = $pdo->prepare("SELECT id FROM ogrenciler WHERE id = ? AND " . BENIM_OGRENCIM);
+        $st->execute([$ogrenci_id, $ogretmen_id]);
+        if (!$st->fetch()) {
+            tcCevap(["success" => false, "message" => "Öğrenci bulunamadı ya da sizin sınıfınızda değil."]);
         }
-        exit;
+
+        // Kendisi hariç bu öğretmenin sınıflarında aynı kullanıcı adı var mı?
+        $k = $pdo->prepare("SELECT id FROM ogrenciler WHERE kullanici_adi = ? AND id != ? AND " . BENIM_OGRENCIM);
+        $k->execute([$kadi, $ogrenci_id, $ogretmen_id]);
+        if ($k->fetch()) {
+            tcCevap(["success" => false, "message" => "Bu kullanıcı adı zaten başka birinde kullanılıyor!"]);
+        }
+
+        $pdo->prepare("UPDATE ogrenciler SET ad_soyad = ?, kullanici_adi = ?, sifre = ? WHERE id = ? AND " . BENIM_OGRENCIM)
+            ->execute([$ad, $kadi, $sifre, $ogrenci_id, $ogretmen_id]);
+        tcCevap(["success" => true]);
+    }
+
+    // ÇOKLU SINIF VE İÇİNDEKİ ÖĞRENCİLERİ SİLME
+    if ($islem === 'sinif_sil') {
+        $liste = array_values(array_filter(array_map('intval', (array) ($govde['sinif_id_listesi'] ?? [])), fn($x) => $x > 0));
+        if (!$liste) {
+            tcCevap(["success" => false, "message" => "Silinecek sınıf seçilmedi."]);
+        }
+
+        // Sadece bu öğretmene ait olanları ayıkla
+        $yer = implode(',', array_fill(0, count($liste), '?'));
+        $st  = $pdo->prepare("SELECT id FROM siniflar WHERE id IN ($yer) AND ogretmen_id = ?");
+        $st->execute(array_merge($liste, [$ogretmen_id]));
+        $benimkiler = array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN));
+
+        if ($benimkiler) {
+            $yer = implode(',', array_fill(0, count($benimkiler), '?'));
+            $pdo->beginTransaction();
+            $pdo->prepare("DELETE FROM ogrenciler WHERE sinif_id IN ($yer)")->execute($benimkiler);
+            $pdo->prepare("DELETE FROM siniflar WHERE id IN ($yer) AND ogretmen_id = ?")
+                ->execute(array_merge($benimkiler, [$ogretmen_id]));
+            $pdo->commit();
+        }
+        tcCevap(["success" => true]);
     }
 } catch (PDOException $e) {
-    echo json_encode(["success" => false, "message" => "Veritabanı hatası!"]);
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log('[teacher_remote] ' . $e->getMessage());
+    tcCevap(["success" => false, "message" => "Veritabanı hatası!"]);
 }
-?>

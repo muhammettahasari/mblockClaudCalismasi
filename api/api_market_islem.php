@@ -13,6 +13,34 @@ header('Content-Type: application/json');
 
 $islem = $_POST['islem'] ?? $_GET['islem'] ?? '';
 
+/* [2026-11] Yükleme güvenliği.
+   Kategori dosya YOLUNA eklendiği için beyaz listeden geçer (eskiden
+   "../../" yazılarak proje dışına dosya bırakılabiliyordu); uzantı ve içerik
+   kontrol edilir (eskiden .php yüklenebiliyordu). */
+const MARKET_KATEGORILER = ['karakter', 'yuz', 'sac', 'kafa', 'zirh', 'sag_el', 'sol_el',
+                            'ayakkabi', 'binek', 'evcil_hayvan', 'saldiri_troll'];
+const MARKET_UZANTILAR   = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
+
+function marketResimKontrol(array $dosya): string
+{
+    $uzanti = strtolower(pathinfo($dosya['name'] ?? '', PATHINFO_EXTENSION));
+    if (!in_array($uzanti, MARKET_UZANTILAR, true) || !yuklenenResimGecerliMi($dosya['tmp_name'] ?? '', $uzanti)) {
+        echo json_encode(['success' => false, 'message' => 'Sadece resim yükleyebilirsiniz (png, jpg, gif, webp).'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    return $uzanti;
+}
+
+function marketKategoriKontrol($kategori): string
+{
+    $k = beyazListe((string) $kategori, MARKET_KATEGORILER);
+    if ($k === null) {
+        echo json_encode(['success' => false, 'message' => 'Geçersiz kategori.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    return $k;
+}
+
 // 1. EŞYALARI LİSTELEME (GELİŞMİŞ SIRALAMA EKLENDİ)
 if ($islem == 'listele') {
     $kategori = $_GET['kategori'] ?? 'hepsi';
@@ -60,7 +88,8 @@ if ($islem == 'ekle') {
     }
 
     $dosya = $_FILES['resim'];
-    $uzanti = strtolower(pathinfo($dosya['name'], PATHINFO_EXTENSION));
+    $kategori = marketKategoriKontrol($kategori);
+    $uzanti = marketResimKontrol($dosya);
     $orijinal_isim = pathinfo($dosya['name'], PATHINFO_FILENAME);
     
     $degisecekler = ['ç'=>'c','ğ'=>'g','ı'=>'i','i'=>'i','ö'=>'o','ş'=>'s','ü'=>'u','Ç'=>'C','Ğ'=>'G','İ'=>'I','Ö'=>'O','Ş'=>'S','Ü'=>'U'];
@@ -117,10 +146,11 @@ if ($islem == 'guncelle') {
     $puan = $_POST['puan'] ?? 50;
 
     if (!$id) { echo json_encode(['success' => false]); exit; }
+    $kategori = marketKategoriKontrol($kategori);
 
     if (isset($_FILES['resim']) && $_FILES['resim']['error'] == 0) {
         $dosya = $_FILES['resim'];
-        $uzanti = strtolower(pathinfo($dosya['name'], PATHINFO_EXTENSION));
+        $uzanti = marketResimKontrol($dosya);
         $orijinal_isim = preg_replace('/[^A-Za-z0-9\-]/', '_', strtr(pathinfo($dosya['name'], PATHINFO_FILENAME), ['ç'=>'c','ğ'=>'g','ı'=>'i','i'=>'i','ö'=>'o','ş'=>'s','ü'=>'u']));
         $yeni_dosya_adi = strtolower($orijinal_isim) . '_' . time() . '.' . $uzanti; 
         $hedef_klasor = "../img/esyalar/$kategori/";

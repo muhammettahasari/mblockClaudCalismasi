@@ -1,0 +1,36 @@
+# ============================================================================
+#  mBlock Akademi — Kök erişim kuralları
+#  [2026-11] Oluşturuldu.
+#
+#  NEDEN: Proje XAMPP'te htdocs altında duruyor; okul ağındaki herkes
+#  http://<sunucu>/mblock_platform/... adresine ulaşabiliyor. Bu dosya
+#  olmadan şunlar tarayıcıdan İNDİRİLEBİLİYORDU:
+#    - kurulum/yedek.sql (gerçek öğrenci adları + düz metin şifreler)
+#    - .git/ (bütün kaynak kodu ve geçmişi)
+#    - proje_analiz_raporu.xlsx, *.py, *.md, docs/
+#  ⚠️ XAMPP'te htdocs için "AllowOverride All" varsayılan açıktır; kapatıldıysa
+#     bu dosya çalışmaz (httpd.conf'ta kontrol edin).
+# ============================================================================
+
+Options -Indexes
+
+# Gizli dosya/klasörler (.git, .gitignore, .htaccess, .env ...)
+RedirectMatch 404 "(^|/)\.(?!well-known)"
+
+# Kaynak/yedek/belge dosyaları web'den açılmaz
+<FilesMatch "(?i)\.(sql|sqlite|bak|old|orig|swp|log|py|pyc|mjs|md|xlsx|xls|docx|csv|ini|sh|bat|ps1|txt)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order allow,deny
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+# Sadece "include" edilen parçalar — doğrudan çağrılmasın
+<FilesMatch "^(db|_tasarlayici_govde)\.php$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+</FilesMatch>

@@ -1,0 +1,8 @@
+# [2026-11] Bu klasör web'den erişilemez (kurulum betikleri, SQL dökümleri, belgeler).
+<IfModule mod_authz_core.c>
+    Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+</IfModule>

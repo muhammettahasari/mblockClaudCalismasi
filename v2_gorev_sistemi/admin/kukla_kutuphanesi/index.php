@@ -181,6 +181,7 @@ $acilacak = isset($_GET['ac']) ? (int) $_GET['ac'] : 0;
         .dugmeler { display: flex; gap: 10px; margin-top: 20px; }
         .dugmeler button { flex: 1; padding: 12px; border-radius: 9px; font-weight: bold; font-size: 14.5px; }
     </style>
+    <script src="<?= varlik('js/onay_kutusu.js', '../../../') ?>"></script>
 </head>
 <body>
 <?php require __DIR__ . '/../../../bilesenler/super_gezinme.php'; ?>
@@ -614,16 +615,16 @@ function kostumAdlandir(kutu) {
         .catch(() => alert('❌ Sunucuya ulaşılamadı.'));
 }
 
-function kostumSil(kostumId) {
-    if (!confirm('Bu kostüm ve görsel dosyası kalıcı olarak silinecek.\n\nEmin misin?')) return;
+async function kostumSil(kostumId) {
+    if (!await onayKutusu('Bu kostüm ve görsel dosyası kalıcı olarak silinecek.\n\nEmin misin?')) return;
 
     api({ islem: 'kostum_sil', kukla_id: aktifKukla, kostum_id: kostumId })
         .then(d => d.success ? location.reload() : alert('❌ ' + (d.mesaj || 'Silinemedi.')))
         .catch(() => alert('❌ Sunucuya ulaşılamadı.'));
 }
 
-function kuklaSil(id, ad) {
-    if (!confirm('"' + ad + '" kuklası ve TÜM kostüm dosyaları kalıcı olarak silinecek.\n' +
+async function kuklaSil(id, ad) {
+    if (!await onayKutusu('"' + ad + '" kuklası ve TÜM kostüm dosyaları kalıcı olarak silinecek.\n' +
                  'Bu kuklayı sahnesinde kullanan öğrencilerde görsel kırılabilir.\n\nEmin misin?')) return;
 
     api({ islem: 'kukla_sil', kukla_id: id })

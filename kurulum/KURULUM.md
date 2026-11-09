@@ -25,6 +25,12 @@ mysql -u root mblock_egitim < kurulum\yedek_migration_oncesi.sql
 mysql -u root mblock_egitim < kurulum\migration_2026_08_guvenlik.sql
 ```
 
+**[2026-11] Ardından:**
+```bash
+mysql -u root mblock_egitim < kurulum\migration_2026_11_guvenlik.sql
+```
+(`giris_denemeleri` tablosu + `ogrenciler.ogretmen_id` senkron tetikleyicileri; tekrar çalıştırılabilir.)
+
 **Yöntem B — phpMyAdmin:**
 `mblock_egitim` veritabanını seç → **SQL** sekmesi → dosyanın içeriğini yapıştır → Git.
 

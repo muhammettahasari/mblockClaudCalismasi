@@ -1,6 +1,6 @@
 # Bilinen Sorunlar — Durum Tablosu
 
-**Son güncelleme: 2026-08 revizyonu**
+**Son güncelleme: 2026-11 güvenlik turu** (bkz. en alttaki bölüm)
 Aşağıdaki numaralar ilk analiz raporundaki numaralarla aynıdır.
 
 ---
@@ -88,12 +88,13 @@ ortaokul öğrencileri şifrelerini unutuyor. Hash'lenirse bu özellik çalışm
 
 | Öncelik | İş | Not |
 |---|---|---|
-| Orta | `api/password_reset.php` içindeki `http://localhost/mblock_egitim` → `mblock_platform` olmalı | Sıfırlama linki 404 veriyor. Ayrıca XAMPP'te `mail()` varsayılan çalışmaz — SMTP gerekir. |
-| Orta | Quiz puanı hâlâ istemciden geliyor | Üst sınıra kırpılıyor ama tam sunucu otoritesi için quiz akışının (soru sırası + süre sunucuda) yeniden yazılması gerekir. |
-| Düşük | v1 ve v2 paralel çalışıyor | Geçiş tamamlanınca v1 (`gorevler` + ekran görüntüsü) emekliye ayrılabilir. |
-| Düşük | `api/api_market_islem.php` içindeki `senkronize_et` dosyaları diskte yeniden adlandırıyor | Güvenli sürümü `super_bakim.php`'de. Eski uç nokta admin korumalı ama kaldırılabilir. |
-| Düşük | `admin/gorev_ekle.php` / `gorev_duzenle.php` formlarında CSRF yok | Süper Admin korumalı oldukları için risk düşük. |
-
+| ~~Orta~~ | ~~`password_reset.php` adresi~~ | ✅ 2026-11 — adres otomatik; ama XAMPP'te `mail()` için SMTP ayarı hâlâ gerekli. Site internete açılınca dosyadaki `SITE_ADRESI`'ni doldurun. |
+| ~~Orta~~ | ~~Quiz puanı istemciden geliyor~~ | ✅ 2026-11 — `api/quiz_cevap.php` sunucu hakemi |
+| Düşük | v1 ve v2 paralel çalışıyor | Geçiş tamamlanınca v1 emekliye ayrılabilir. |
+| Düşük | `api/api_market_islem.php` → `senkronize_et` dosyaları diskte yeniden adlandırıyor | Güvenli sürümü `super_bakim.php`'de; uç Süper Admin korumalı. |
+| ~~Düşük~~ | ~~Görev formlarında CSRF yok~~ | ✅ 2026-11 — bütün kapıcılarda köken (Origin) kontrolü |
+| Düşük | Büyük dosyalar (`ogretmen_paneli.php` 1100, `quiz_arena.php` ~1000, Kostüm Atölyesi ~3100 satır) | Davranış değiştirmeden bölünebilir; test altyapısı olmadan riskli olduğu için ertelendi. |
+| Bilinçli | Öğrenci/öğretmen şifreleri düz metin (#2) | Değişmedi — kullanıcı kararı. |
 ---
 
 ## ✅ 2026-08 — Görev yönetimi sayfaları birleştirildi
@@ -548,3 +549,34 @@ satırlarını doğru şekilde ❌ işaretliyor.
 > **aynı özelliği** yaz. `height`'i `min-height` ile, kısaltmayı (`overflow`,
 > `margin`, `flex`) tek bir alt özellikle ezmeye çalışma. Şüphelenirsen
 > `kurulum/css_kademe.py` çalıştır.
+
+
+---
+
+## ✅ 2026-11 — Güvenlik turu (analiz + düzeltme)
+
+| # | Önem | Sorun | Çözüm |
+|---|---|---|---|
+| G1 | **KRİTİK** | `student_login.php` öğrencinin oturumuna `ogretmen_id` yazıyordu; öğretmen kapıcıları sadece bu anahtara baktığı için **her öğrenci öğretmen paneline girip sınıfın şifre listesini çekebiliyor, öğrenci silebiliyordu** | Rol damgası (`_rol_ogretmen`) + `girisRoluAyarla()`; eski oturumlar `guvenliOturumBaslat()` içinde temizlenir. Bütün düz `session_start()` kullanan API'ler kapıcıya bağlandı. |
+| G2 | **Yüksek** | Quiz: doğru cevaplar sayfaya gömülüydü (F12'de okunuyordu), puanı tarayıcı hesaplayıp mutlak değer olarak yazıyordu | `api/quiz_cevap.php` + `bilesenler/quiz_hakem.php`: cevap ve süreye göre puan sunucuda; `quiz_puan_guncelle.php` artık yazmıyor; `quiz_saldiri_sonuc.php` istemci değerine güvenmiyor |
+| G3 | **Yüksek** | Kalıcı XSS: öğrenci adı temizlenmeden kaydedilip öğretmen ekranında `innerHTML` ile basılıyordu (`ogrenci_yonetimi`, `ogretmen_paneli`, `quiz_arena`, sınıf adları `index.php`, kukla adları) | Girişte `metinSadelestir()`, çıktıda kaçırma |
+| G4 | **Yüksek** | `kurulum/yedek.sql` (gerçek adlar + şifreler), `.git/`, `docs/`, `*.xlsx/*.py/*.md` tarayıcıdan indirilebiliyordu | Kök `.htaccess` + `kurulum/`, `docs/` kapalı (Apache'de doğrulandı: 403/404) |
+| G5 | Orta | Giriş/PIN için kaba kuvvet sınırı yoktu (`girisDenemesiKontrol` yazılmış ama hiç çağrılmamıştı, üstelik oturumda sayıyordu) | Veritabanı sayaçlı sınır: PIN, öğrenci, öğretmen, kayıt, şifre sıfırlama |
+| G6 | Orta | Süper Admin yüklemelerinde uzantı kontrolü yoktu (`.php` yüklenebilirdi), market kategorisi dosya yoluna gömülüyordu | Uzantı beyaz listesi + `yuklenenResimGecerliMi()` + kategori beyaz listesi; yükleme klasörlerinde PHP kapalı, SVG'de betik engelli |
+| G7 | Orta | Varsayılan `super/123` değiştirilmeden kullanılabiliyordu | Bu şifreyle girilince şifre değişene kadar diğer sayfalar/API'ler kapalı; en az 8 karakter |
+| G8 | Orta | `teacher_time_request.php` girişsiz: kullanıcı adını bilen herkes bir öğretmeni `onay_bekliyor`'a düşürüp kilitleyebiliyordu | Kimlik oturumdan / şifresi doğrulanmış süresi dolmuş öğretmenin oturum notundan |
+| G9 | Orta | `student_register.php` öğretmen/sınıf kimliğini istekten alıyordu (PIN'siz, herhangi bir sınıfa kayıt); `teacher_add_student` / `teacher_bulk_add` sınıf sahipliğine bakmıyordu | PIN oturumu + sınıf sahipliği kontrolü |
+| G10 | Orta | GET ile yıkıcı işlemler (`teacher_remote ?islem=ogrenci_sil`, `quiz_kontrol_merkezi ?islem=quiz_bitir`, `super_quiz_yonetimi ?sil=`) ve öğretmen API'lerinde CSRF yok | Yazma işlemleri POST; formlarda CSRF anahtarı; bütün kapıcılarda köken kontrolü |
+| G11 | Orta | Yetki sorguları bayatlayabilen `ogrenciler.ogretmen_id` kopyasına bakıyordu | Bütün yetki/eşleşme sorguları `siniflar` zincirine çevrildi (son tur: `duello/istek_at`, `duello/duello_kontrol`, `ogretmen_radar`, `quiz_kontrol_merkezi`); `migration_2026_11_guvenlik.sql` kopyayı tetikleyicilerle senkron tutar. `quiz_oturum.ogretmen_id` ayrı şeydir (oturumun sahibi), o kullanılabilir |
+| G12 | Düşük | `password_reset.php` yanlış klasör adı; e-postanın kayıtlı olup olmadığını söylüyordu | Adres otomatik + Host başlığı sahteciliğine karşı güvenli liste; tek tip cevap |
+| G13 | Düşük | 29 `confirm()`/`prompt()` kaldı | `js/onay_kutusu.js` ortak pencere; hepsi taşındı |
+| G14 | Düşük | Artık dosyalar | Kopya `.py`, eski `.xlsx`, kullanılmayan `.mp3`, 0 baytlık `yedek_migration_oncesi.sql` → `_to_delete/` (web'e kapalı, git'te yok sayılır). `api/duello/` içindeki SQL notu → `kurulum/duello_temizle.sql` |
+
+**Kurulum notu:** `kurulum/migration_2026_11_guvenlik.sql` bir kez çalıştırılmalı.
+Güncellemeden sonra açık olan öğretmen oturumları bir kez giriş ekranına düşer (rol damgası yok).
+
+**Doğrulama (2026-11-09):** 112 PHP dosyası `php -l` ile, 23 JS dosyası ve PHP
+sayfalarındaki 46 gömülü `<script>` bloğu `node --check` ile hatasız.
+`onayKutusu`/`metinKutusu` çağıran her sayfa `js/onay_kutusu.js`'yi yüklüyor.
+Veritabanına karşı uçtan uca test YAPILMADI — migration'ı çalıştırdıktan sonra
+öğrenci girişi, öğretmen paneli, bir quiz ve bir düello elle denenmeli.

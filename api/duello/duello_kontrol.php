@@ -47,8 +47,9 @@ try {
         $pdo->prepare(
             "UPDATE quiz_duellolar d
                JOIN ogrenciler o ON o.id = d.meydan_okuyan_id
+               JOIN siniflar   s ON s.id = o.sinif_id      -- [2026-11] sahiplik zinciri
                 SET d.durum = 'reddedildi'
-              WHERE o.ogretmen_id = ? AND d.durum = 'bekliyor'"
+              WHERE s.ogretmen_id = ? AND d.durum = 'bekliyor'"
         )->execute([$ogretmen_id]);
 
         apiBasari([], '🔒 Düello anında kapatıldı! Öğrencilerin erişimi kesildi.');

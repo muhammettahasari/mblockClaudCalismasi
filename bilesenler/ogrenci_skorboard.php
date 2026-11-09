@@ -43,6 +43,7 @@
 
     <!-- [2026-08] Radar önce yüklenmeli; skorboard_motoru ona abone oluyor (#11) -->
     <script src="<?= varlik('js/ogrenci_radar.js', '') ?>"></script>
-    <script src="<?= varlik('js/skorboard_motoru.js', '') ?>"></script>
+    <script src="<?= varlik('js/onay_kutusu.js', '') ?>"></script>
+<script src="<?= varlik('js/skorboard_motoru.js', '') ?>"></script>
 
 </aside>

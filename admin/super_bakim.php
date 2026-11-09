@@ -202,6 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         th { color: #94a3b8; font-size: 12px; text-transform: uppercase; }
         code { background: #0f172a; padding: 2px 6px; border-radius: 4px; color: #fca5a5; font-size: 12px; }
     </style>
+    <script src="<?= varlik('js/onay_kutusu.js', '../') ?>"></script>
 </head>
 <body>
 <?php require __DIR__ . '/../bilesenler/super_gezinme.php'; ?>
@@ -224,7 +225,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Aşağıdaki kayıtların resim dosyası diskte yok. Silmek isterseniz işaretleyip onaylayın.
             <b>Silme işlemi geri alınamaz</b> — öğrencilerin envanterinden ve avatarlarından da kaldırılır.
         </p>
-        <form method="POST" onsubmit="return confirm('Seçili eşyalar kalıcı olarak silinecek. Emin misiniz?')">
+        <form method="POST" data-onay="Seçili eşyalar kalıcı olarak silinecek. Emin misiniz?">
             <?= csrfAlani() ?>
             <input type="hidden" name="islem" value="kayip_sil">
             <table>
@@ -293,7 +294,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             30 günden eski arena savaşlarını, quiz saldırı loglarını ve bitmiş düelloları siler.
             Veritabanını hafifletir; öğrencilerin puanına dokunmaz.
         </p>
-        <form method="POST" onsubmit="return confirm('30 günden eski loglar silinecek. Devam?')">
+        <form method="POST" data-onay="30 günden eski loglar silinecek. Devam?">
             <?= csrfAlani() ?>
             <input type="hidden" name="islem" value="log_temizle">
             <button type="submit" class="btn btn-turuncu">Eski Logları Sil</button>

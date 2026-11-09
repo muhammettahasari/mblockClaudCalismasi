@@ -284,4 +284,5 @@ body.kod-tam-ekran-acik { overflow: hidden; }
        kutusu (#toolbox) orada DOM'a ekleniyor. -->
 <script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/resim_blogu.js', $KOK_ONEK) ?>"></script>
 <script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/ipucu_alani.js', $KOK_ONEK) ?>"></script>
+<script src="<?= varlik('js/onay_kutusu.js', $KOK_ONEK) ?>"></script>
 <script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/api_yoneticisi.js', $KOK_ONEK) ?>"></script>

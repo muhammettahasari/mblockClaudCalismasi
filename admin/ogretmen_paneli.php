@@ -144,6 +144,7 @@ if ($sure_doldu_mu) {
             100% { transform: scale(1); }
         }
     </style>
+    <script src="<?= varlik('js/onay_kutusu.js', '../') ?>"></script>
 </head>
 
 <body class="ot">
@@ -477,7 +478,7 @@ if ($sure_doldu_mu) {
                                 : `<button class="btn-action" style="background:#7c3aed;" title="Bu öğrencinin ekranını dondur" onclick="dersKilidi('kilitle', ${ogr.id})">⏸️ Kilitle</button>`;
 
                             html += `<tr>
-                    <td><strong>${ogr.ad_soyad}</strong></td>
+                    <td><strong>${kacir(ogr.ad_soyad)}</strong></td>
                     <td>${sinifAdi}</td>
                     <td style="text-align:center; color:#059669; font-weight:900;">${ogr.kalici_puan}</td>
                     <td style="text-align:center; color:#d97706; font-weight:900;">${ogr.anlik_puan}</td>
@@ -549,7 +550,7 @@ if ($sure_doldu_mu) {
         }
 
         function uzaktanIslem(islemTuru, ogrenciId) {
-            fetch(`../api/teacher_remote.php?islem=${islemTuru}&id=${ogrenciId}`)
+            fetch(`../api/teacher_remote.php?islem=${encodeURIComponent(islemTuru)}&id=${ogrenciId}`, { method: 'POST' })
                 .then(res => res.json())
                 .then(data => {
                     if (data.success) ogrencileriCek();
@@ -899,8 +900,8 @@ if ($sure_doldu_mu) {
            (bilesenler/ogretmen_ust_bar.php -> otSureTalepEt).
            Bu fonksiyon geriye dönük uyumluluk için duruyor; eski bir yerden
            çağrılırsa yine çalışsın. */
-        function sureTalepFormuAc() {
-            let ay = prompt("Kaç aylık ek süre talep ediyorsunuz? (Örn: 1, 3, 6)", "1");
+        async function sureTalepFormuAc() {
+            let ay = await metinKutusu("Kaç aylık ek süre talep ediyorsunuz? (Örn: 1, 3, 6)", "1");
             if (ay !== null && ay.trim() !== "") {
                 fetch('../api/teacher_time_request.php', {
                         method: 'POST',
@@ -927,8 +928,8 @@ if ($sure_doldu_mu) {
             document.getElementById('arenaSureModal').style.display = 'flex';
         }
 
-        function arenaKapat() {
-            if (confirm("Arenayı kapatmak istediğinize emin misiniz?")) {
+        async function arenaKapat() {
+            if (await onayKutusu("Arenayı kapatmak istediğinize emin misiniz?")) {
                 arenaIstekGonder('kapat', null);
             }
         }
@@ -1012,9 +1013,9 @@ if ($sure_doldu_mu) {
         let btnDuelloToggle = document.getElementById('btnDuelloToggle');
         let duelloModal = document.getElementById('duelloModal');
 
-        function duelloToggle() {
+        async function duelloToggle() {
             if (duelloAktif) {
-                if (confirm("Arenayı hemen kapatmak istediğinize emin misiniz? Öğrencilerin erişimi anında kesilecek.")) {
+                if (await onayKutusu("Arenayı hemen kapatmak istediğinize emin misiniz? Öğrencilerin erişimi anında kesilecek.")) {
                     duelloIslemYap('kapat');
                 }
             } else {

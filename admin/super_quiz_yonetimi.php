@@ -12,8 +12,14 @@ superAdminZorunlu();
 function resimYukle($fileInputName)
 {
     if (isset($_FILES[$fileInputName]) && $_FILES[$fileInputName]['error'] === UPLOAD_ERR_OK) {
-        $ext = pathinfo($_FILES[$fileInputName]['name'], PATHINFO_EXTENSION);
-        $yeniAd = uniqid('quiz_') . '.' . $ext;
+        /* [2026-11] Uzantı beyaz listesi + içerik kontrolü. Eskiden uzantıya hiç
+           bakılmıyordu; .php dosyası yüklenip çalıştırılabilirdi. */
+        $ext = strtolower(pathinfo($_FILES[$fileInputName]['name'], PATHINFO_EXTENSION));
+        if (!in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'], true)
+            || !yuklenenResimGecerliMi($_FILES[$fileInputName]['tmp_name'], $ext)) {
+            return null;
+        }
+        $yeniAd = str_replace('.', '', uniqid('quiz_', true)) . '.' . $ext;
         $hedef = '../img/quiz/' . $yeniAd;
 
         if (move_uploaded_file($_FILES[$fileInputName]['tmp_name'], $hedef)) {
@@ -63,8 +69,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['islem'])) {
     exit;
 }
 
-if (isset($_GET['sil'])) {
-    $sil_id = (int)$_GET['sil'];
+/* [2026-11] Silme artık POST + CSRF anahtarıyla. Eskiden ?sil=ID adresine
+   gidilmesi soruyu silmeye yetiyordu (bir bağlantıya tıklatarak silme). */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['sil'])) {
+    csrfDogrulaSayfa('super_quiz_yonetimi.php');
+    $sil_id = (int)$_POST['sil'];
     $pdo->prepare("DELETE FROM quiz_sorulari WHERE id = ?")->execute([$sil_id]);
     header("Location: super_quiz_yonetimi.php");
     exit;
@@ -255,6 +264,7 @@ foreach ($tum_sorular as $soru) {
             margin-bottom: 10px;
         }
     </style>
+    <script src="<?= varlik('js/onay_kutusu.js', '../') ?>"></script>
 </head>
 
 <body>
@@ -288,8 +298,8 @@ foreach ($tum_sorular as $soru) {
                             <?php if ($soru['soru_medya']): ?> <span title="Görsel İçerir">🖼️</span> <?php endif; ?>
                         </div>
                         <div class="action-btns">
-                            <button class="btn btn-edit" onclick='modalAc("duzenle", <?= json_encode($soru) ?>)'>✏️ Düzenle</button>
-                            <button class="btn btn-delete" onclick="if(confirm('Bu soruyu silmek istediğinize emin misiniz?')) window.location.href='super_quiz_yonetimi.php?sil=<?= $soru['id'] ?>'">🗑️ Sil</button>
+                            <button class="btn btn-edit" onclick='modalAc("duzenle", <?= json_encode($soru, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>)'>✏️ Düzenle</button>
+                            <form method="POST" action="super_quiz_yonetimi.php" style="display:inline" data-onay="Bu soruyu silmek istediğinize emin misiniz?"><?= csrfAlani() ?><input type="hidden" name="sil" value="<?= (int) $soru['id'] ?>"><button type="submit" class="btn btn-delete">🗑️ Sil</button></form>
                         </div>
                     </div>
                 <?php endforeach; ?>

@@ -759,7 +759,8 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
         window.MBLOCK_TABAN = '../../';
         window.MBLOCK_DUELLO_DINLE = false;
     </script>
-    <script src="<?= varlik('js/duello_motoru.js', '../../') ?>"></script>
+    <script src="<?= varlik('js/onay_kutusu.js', '../../') ?>"></script>
+<script src="<?= varlik('js/duello_motoru.js', '../../') ?>"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.12.17/paper-full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://unpkg.com/blockly/blockly_compressed.js"></script>

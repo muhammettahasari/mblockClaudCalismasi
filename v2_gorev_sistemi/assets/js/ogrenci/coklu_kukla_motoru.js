@@ -212,6 +212,13 @@ window.arayuzdenGosterGizle = function(durum, tetikle = true) {
  * Halk Dilinde İşlevi: Sahnedeki kuklaları mevcut ekran boyutuna göre oranlayarak çizer.
  * YENİ ÖZELLİK: Oransal ölçekleme (Responsive Scaling) eklendi.
  */
+/* [2026-11] Kukla adı / resim yolu HTML'e basılmadan önce kaçırılır. */
+function kuklaHtmlKacir(x) {
+    return String(x == null ? '' : x)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 window.ekraniYenile = function() {
     let kapsayici = document.getElementById('kuklaListesiKapsayici');
     let html = '';
@@ -222,8 +229,8 @@ window.ekraniYenile = function() {
         html += `
             <div class="kukla-oge ${aktifSinifi}" data-id="${k.id}" onclick="kuklaSec('${k.id}')" oncontextmenu="sagTikMenuAc(event, '${k.id}')">
                 <div class="kukla-sil-ikon" onclick="event.stopPropagation(); kuklaSilIstegi('${k.id}')">✕</div>
-                <img src="${k.resimYolu}">
-                <div class="k-isim" title="${k.adi}">${k.adi}</div>
+                <img src="${kuklaHtmlKacir(k.resimYolu)}">
+                <div class="k-isim" title="${kuklaHtmlKacir(k.adi)}">${kuklaHtmlKacir(k.adi)}</div>
             </div>
         `;
     });
@@ -398,9 +405,9 @@ window.kuklaKopyalaMenu = function() {
     kuklaSec(yeni.id);
 };
 
-window.kuklaSilIstegi = function(id) {
+window.kuklaSilIstegi = async function(id) {
     let kukla = window.projeKuklalari.find(k => k.id === id);
-    if(confirm(`"${kukla.adi}" adlı kuklayı ve içindeki TÜM KODLARI silmek istediğinize emin misiniz?`)) {
+    if(await onayKutusu(`"${kukla.adi}" adlı kuklayı ve içindeki TÜM KODLARI silmek istediğinize emin misiniz?`)) {
         window.projeKuklalari = window.projeKuklalari.filter(k => k.id !== id);
         if(window.aktifKuklaId === id) {
             if(window.projeKuklalari.length > 0) {
@@ -433,8 +440,8 @@ window.kuklaSilMenu = function() { if(window.sagTikKuklaId) kuklaSilIstegi(windo
  * ========================================================================== */
 
 /** Boş (çizilmeye hazır) kukla oluşturur ve Kostüm Atölyesi'ni açar */
-window.bosKuklaOlustur = function () {
-    const ad = (prompt('Yeni kuklanın adı:', 'Kuklam ' + (window.projeKuklalari.length + 1)) || '').trim();
+window.bosKuklaOlustur = async function () {
+    const ad = (await metinKutusu('Yeni kuklanın adı:', 'Kuklam ' + (window.projeKuklalari.length + 1)) || '').trim();
     if (!ad) return;
 
     // Şeffaf 1x1 PNG — öğrenci atölyede üstüne çizecek
@@ -462,11 +469,11 @@ window.bosKuklaOlustur = function () {
 };
 
 /** Kuklanın adını değiştirir (yalnızca tarayıcıda) */
-window.kuklaYenidenAdlandir = function (id) {
+window.kuklaYenidenAdlandir = async function (id) {
     const kukla = window.projeKuklalari.find(k => k.id === id);
     if (!kukla) return;
 
-    const ad = (prompt('Kuklanın yeni adı:', kukla.adi) || '').trim();
+    const ad = (await metinKutusu('Kuklanın yeni adı:', kukla.adi) || '').trim();
     if (!ad || ad === kukla.adi) return;
 
     kukla.adi = ad;

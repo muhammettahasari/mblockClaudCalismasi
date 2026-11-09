@@ -1,3 +1,28 @@
-php_flag engine off
-RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .phps
-AddType text/plain .php .phtml .php3 .php4 .php5 .php7 .phps
+# [2026-11] Yükleme klasörü: buraya düşen hiçbir dosya PHP olarak ÇALIŞMAZ.
+# (Bir .php dosyası bir şekilde yüklense bile düz metin olarak görünür.)
+<IfModule mod_php.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php8.c>
+    php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+    php_flag engine off
+</IfModule>
+RemoveHandler .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .phar .cgi .pl
+RemoveType .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .phar
+AddType text/plain .php .phtml .php3 .php4 .php5 .php7 .php8 .phps .phar .cgi .pl
+<FilesMatch "(?i)\.(php\d?|phtml|phps|phar|cgi|pl|htaccess|html?|js)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+</FilesMatch>
+Options -Indexes -ExecCGI
+
+# SVG içinde betik çalışmasın
+<IfModule mod_headers.c>
+    <FilesMatch "(?i)\.svg$">
+        Header set Content-Security-Policy "default-src 'none'; style-src 'unsafe-inline'; img-src data:; sandbox"
+        Header set X-Content-Type-Options "nosniff"
+    </FilesMatch>
+</IfModule>

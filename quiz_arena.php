@@ -89,6 +89,30 @@ $soru_stmt = $pdo->prepare($soru_sql);
 $soru_stmt->execute($soru_params);
 $sorular = $soru_stmt->fetchAll(PDO::FETCH_ASSOC);
 
+/* [2026-11] DOĞRU CEVAP TARAYICIYA GÖNDERİLMEZ.
+   Eskiden bütün sorular dogru_cevap alanıyla birlikte sayfaya gömülüyordu;
+   öğrenci F12 ile bütün cevapları okuyabiliyordu. Cevabı artık
+   api/quiz_cevap.php sunucuda kontrol ediyor. */
+foreach ($sorular as &$__soru) {
+    unset($__soru['dogru_cevap']);
+}
+unset($__soru);
+
+/* [2026-11] Sayfa yenilenirse daha önce cevaplanan sorular tekrar gelmesin
+   (sunucu aynı soruya ikinci cevabı zaten kabul etmez). */
+require_once __DIR__ . '/bilesenler/quiz_hakem.php';
+try {
+    quizCevapTablosu($pdo);
+    $__st = $pdo->prepare("SELECT soru_id FROM quiz_cevaplar WHERE oyuncu_id = ? AND cevap IS NOT NULL");
+    $__st->execute([(int) $oyuncu['id']]);
+    $__cevaplanan = array_flip(array_map('intval', $__st->fetchAll(PDO::FETCH_COLUMN)));
+    if ($__cevaplanan) {
+        $sorular = array_values(array_filter($sorular, fn($q) => !isset($__cevaplanan[(int) $q['id']])));
+    }
+} catch (PDOException $e) {
+    error_log('[quiz_arena] cevaplanan sorular: ' . $e->getMessage());
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="tr">
@@ -421,6 +445,7 @@ $sorular = $soru_stmt->fetchAll(PDO::FETCH_ASSOC);
             animation: slideIn 0.5s ease-out;
         }
     </style>
+    <script src="<?= varlik('js/onay_kutusu.js', '') ?>"></script>
 </head>
 
 <body>
@@ -481,7 +506,8 @@ $sorular = $soru_stmt->fetchAll(PDO::FETCH_ASSOC);
         <p id="raporMetin" style="margin:0; font-size:14px; color:#cbd5e1;"></p>
     </div>
   <script>
-        const sorular = <?= json_encode($sorular) ?>;
+        const sorular = <?= json_encode($sorular, JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_UNICODE) ?>;
+        const QUIZ_OTURUM_ID = <?= (int) $oturum_id ?>;
         const maxSoru = sorular.length;
         let aktifSoruIndex = 0;
         let anlikPuan = <?= $oyuncu['puan'] ?>;
@@ -563,6 +589,17 @@ $sorular = $soru_stmt->fetchAll(PDO::FETCH_ASSOC);
             });
 
             baslatZamanlayici();
+
+            // [2026-11] Saati SUNUCUDA da başlat — puan sunucu saatiyle hesaplanır
+            quizHakem({ islem: 'basla', soru_id: soru.id }).catch(() => {});
+        }
+
+        /* [2026-11] Sunucu hakemine istek (api/quiz_cevap.php) */
+        function quizHakem(veri) {
+            const fd = new FormData();
+            fd.append('oturum_id', QUIZ_OTURUM_ID);
+            Object.keys(veri).forEach(k => { if (veri[k] !== null && veri[k] !== undefined) fd.append(k, veri[k]); });
+            return fetch('api/quiz_cevap.php', { method: 'POST', body: fd }).then(r => r.json());
         }
 
         // ----------------------------------------------------------------------
@@ -612,9 +649,9 @@ $sorular = $soru_stmt->fetchAll(PDO::FETCH_ASSOC);
                 if (data.var && !cevapVerildi) {
                     let saldiri = data.saldiri;
                     let yetenek = saldiri.yetenek_turu;
-                    let saldiran = saldiri.saldiran_ad;
+                    let saldiran = kacirMetin(saldiri.saldiran_ad);  // [2026-11] innerHTML'e gidiyor — kaçır
                     let durum = saldiri.durum;
-                    let kazanilanKalkanPuani = saldiri.savunan_puan_etkisi;
+                    let kazanilanKalkanPuani = parseInt(saldiri.savunan_puan_etkisi, 10) || 0;
                     
                     if (durum === 'kalkan_kirdi') {
                         bildirimGoster('🛡️ KALKANIN PARÇALANDI!', `<b>${saldiran}</b> sana kılıç attı ama kalkanın seni korudu! <b>+${kazanilanKalkanPuani} Puan</b> kazandın!`, '#10b981');
@@ -662,58 +699,52 @@ $sorular = $soru_stmt->fetchAll(PDO::FETCH_ASSOC);
         // ----------------------------------------------------------------------
         // 4. CEVAPLAMA MOTORU VE DİNAMİK PUANLAMA
         // ----------------------------------------------------------------------
+        /* [2026-11] Cevap artık SUNUCUDA kontrol edilir ve puanı sunucu hesaplar.
+           Tarayıcı doğru cevabı ancak cevap verildikten sonra öğrenir. */
         function cevapVer(secilenSik) {
             if(cevapVerildi) return;
             cevapVerildi = true;
             clearInterval(zamanlayici);
-            
+
             let ses = document.getElementById('saatSesi');
-            if(ses) ses.pause(); 
+            if(ses) ses.pause();
 
             let soru = sorular[aktifSoruIndex];
-            let dogruSik = soru.dogru_cevap;
-
             let secilenBtn = document.getElementById('btn_' + secilenSik);
-            let dogruBtn = document.getElementById('btn_' + dogruSik);
+            if (secilenBtn) { secilenBtn.style.borderColor = '#facc15'; }
 
-            let dogruBildi = (secilenSik === dogruSik);
-            let kazanilanPuan = 0;
-            
-            if (dogruBildi) {
-                if(secilenBtn) { secilenBtn.style.background = '#10b981'; secilenBtn.style.borderColor = '#059669'; }
-                
-                // DİNAMİK PUAN HESAPLAMASI (Max puana göre)
-                kazanilanPuan = Math.ceil((kalanSure / soruSuresi) * maxSoruPuani);
-                if(kazanilanPuan < 1) kazanilanPuan = 1;
-            } else {
-                if(secilenBtn) { secilenBtn.style.background = '#ef4444'; secilenBtn.style.borderColor = '#b91c1c'; }
-                if(dogruBtn) { dogruBtn.style.background = '#10b981'; } 
-            }
+            const saldiriVar = aktifSaldiriLogId !== null;
 
-            if (aktifSaldiriLogId !== null) {
-                let formData = new FormData();
-                formData.append('log_id', aktifSaldiriLogId);
-                formData.append('dogru_mu', dogruBildi ? 1 : 0);
-                formData.append('normal_puan', kazanilanPuan);
-
-                fetch('api/quiz_saldiri_sonuc.php', { method: 'POST', body: formData })
-                .then(res => res.json())
+            quizHakem({ islem: 'cevap', soru_id: soru.id, secim: secilenSik, log_id: aktifSaldiriLogId })
                 .then(data => {
-                    bildirimGoster(dogruBildi ? '🛡️ Savuşturuldu!' : '💥 Hasar Aldın!', data.mesaj, dogruBildi ? '#10b981' : '#ef4444');
-                    anlikPuan = parseInt(data.guncel_puan);
+                    if (!data || !data.success) {
+                        bildirimGoster('⚠️ Cevap kaydedilemedi', (data && (data.message || data.mesaj)) || 'Sunucuya ulaşılamadı.', '#ef4444');
+                        sonrakiSoruyaGec();
+                        return;
+                    }
+                    const dogruBildi = !!data.dogru;
+                    const dogruBtn = document.getElementById('btn_' + data.dogru_cevap);
+
+                    if (dogruBildi) {
+                        if(secilenBtn) { secilenBtn.style.background = '#10b981'; secilenBtn.style.borderColor = '#059669'; }
+                    } else {
+                        if(secilenBtn) { secilenBtn.style.background = '#ef4444'; secilenBtn.style.borderColor = '#b91c1c'; }
+                        if(dogruBtn) { dogruBtn.style.background = '#10b981'; }
+                    }
+
+                    if (saldiriVar && data.saldiri) {
+                        bildirimGoster(dogruBildi ? '🛡️ Savuşturuldu!' : '💥 Hasar Aldın!', data.saldiri.mesaj, dogruBildi ? '#10b981' : '#ef4444');
+                    }
+
+                    anlikPuan = parseInt(data.guncel_puan, 10) || 0;
                     uiPuan.innerText = anlikPuan;
                     saldiriEtkileriniTemizle();
                     sonrakiSoruyaGec();
+                })
+                .catch(() => {
+                    bildirimGoster('⚠️ Bağlantı sorunu', 'Cevabın gönderilemedi, sıradaki soruya geçiliyor.', '#ef4444');
+                    sonrakiSoruyaGec();
                 });
-            } 
-            else {
-                if (dogruBildi) {
-                    anlikPuan += kazanilanPuan;
-                    uiPuan.innerText = anlikPuan;
-                }
-                veritabaninaPuanGonder();
-                sonrakiSoruyaGec();
-            }
         }
 
         function saldiriEtkileriniTemizle() {
@@ -732,13 +763,9 @@ $sorular = $soru_stmt->fetchAll(PDO::FETCH_ASSOC);
             }, 2500);
         }
 
-        function veritabaninaPuanGonder() {
-            let formData = new FormData();
-            formData.append('oturum_id', <?= $oturum_id ?>);
-            formData.append('puan', anlikPuan);
-            formData.append('cozulen_soru', aktifSoruIndex + 1);
-            fetch('api/quiz_puan_guncelle.php', { method: 'POST', body: formData }).catch(e => console.log(e));
-        }
+        /* [2026-11] Puan artık sunucuda hesaplanıyor (api/quiz_cevap.php);
+           bu fonksiyon eski çağrılar bozulmasın diye boş duruyor. */
+        function veritabaninaPuanGonder() {}
 
         // ----------------------------------------------------------------------
         // 5. GÜÇ KULLANIMI VE HEDEF SEÇME MOTORU
@@ -762,7 +789,7 @@ $sorular = $soru_stmt->fetchAll(PDO::FETCH_ASSOC);
                 } else {
                     data.forEach(rakip => {
                         html += `<button class="hedef-btn" onclick="saldiriYap(${rakip.id})">
-                                    <span>${rakip.ad_soyad}</span>
+                                    <span>${kacirMetin(rakip.ad_soyad)}</span>
                                     <span style="color:#facc15;">${rakip.puan} Puan</span>
                                  </button>`;
                     });
@@ -795,9 +822,9 @@ $sorular = $soru_stmt->fetchAll(PDO::FETCH_ASSOC);
             });
         }
 
-        function gucKullan(gucTuru) {
+        async function gucKullan(gucTuru) {
             if(gucTuru === 'kalkan') {
-                if(!confirm('Kalkanı şimdi açmak istediğine emin misin? (Gelecek ilk saldırıyı engeller)')) return;
+                if(!await onayKutusu('Kalkanı şimdi açmak istediğine emin misin? (Gelecek ilk saldırıyı engeller)')) return;
                 saldiriYap(0);
             }
         }

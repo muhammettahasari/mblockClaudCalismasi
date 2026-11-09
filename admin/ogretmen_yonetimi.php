@@ -228,6 +228,7 @@ function kalanSureMetni(?string $bitisTarihi): array
             .ust h1 { font-size: 20px; }
         }
     </style>
+    <script src="<?= varlik('js/onay_kutusu.js', '../') ?>"></script>
 </head>
 <body>
 <?php require __DIR__ . '/../bilesenler/super_gezinme.php'; ?>
@@ -570,13 +571,13 @@ function islemYap(islemTuru, id) {
    Örn: 15 ay aldı, 3 ay kullandı, kalanın parasını istiyor -> 12 ay düş.
    Geçmişe taşarsa abonelik kapanır ama VERİ SİLİNMEZ.
    ========================================================================= */
-function sureAzalt(id) {
+async function sureAzalt(id) {
     const kutu = document.getElementById('ay_uzat_' + id);
     const ay   = kutu ? parseInt(kutu.value, 10) : 0;
 
     if (!ay || ay < 1) { alert('Düşülecek ay sayısını gir.'); if (kutu) kutu.focus(); return; }
 
-    if (!confirm(ay + ' ay düşülecek.\n\nBu işlem sadece bitiş tarihini geri çeker.\n' +
+    if (!await onayKutusu(ay + ' ay düşülecek.\n\nBu işlem sadece bitiş tarihini geri çeker.\n' +
                  'Öğretmenin PIN\'i, sınıfları, öğrencileri ve puanları SİLİNMEZ.\n\nDevam edilsin mi?')) return;
 
     apiCagir({ islem: 'sure_azalt', id: id, ay: ay })
@@ -597,8 +598,8 @@ function sureAzalt(id) {
    görevler hepsi gider. Bu düğme sadece bitiş tarihini düne çeker; öğretmen
    giriş yapamaz ama geri dönerse "+ Ay" ile kaldığı yerden devam eder.
    ========================================================================= */
-function aboneligiBitir(id, ad) {
-    if (!confirm('"' + ad + '" adlı öğretmenin ABONELİĞİ KAPATILACAK.\n\n' +
+async function aboneligiBitir(id, ad) {
+    if (!await onayKutusu('"' + ad + '" adlı öğretmenin ABONELİĞİ KAPATILACAK.\n\n' +
                  '• Öğretmen sisteme giriş yapamayacak\n' +
                  '• PIN, sınıflar, öğrenciler ve puanlar SİLİNMEYECEK\n' +
                  '• Parasını yatırıp dönerse "+ Ay" ile kaldığı yerden devam eder\n\n' +
@@ -618,8 +619,8 @@ function aboneligiBitir(id, ad) {
    Geri sayım iptal edilemez ama yanlışlıkla basmayı zorlaştırır ve ne
    olduğunu görsel olarak anlatır (satır solar, sonra kayarak kaybolur).
    ========================================================================= */
-function ogretmenSil(id, btn) {
-    if (!confirm('Bu öğretmeni ve tüm başvuru verilerini KALICI olarak silmek istediğine emin misin?')) return;
+async function ogretmenSil(id, btn) {
+    if (!await onayKutusu('Bu öğretmeni ve tüm başvuru verilerini KALICI olarak silmek istediğine emin misin?')) return;
 
     // Satır (tablo) ya da kart (bekleyen başvuru) — hangisiyse onu bul
     const kap = btn.closest('tr') || btn.closest('.basvuru');

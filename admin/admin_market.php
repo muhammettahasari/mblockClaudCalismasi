@@ -218,6 +218,7 @@ superAdminZorunlu();
             background-size: 250%;
         }
     </style>
+    <script src="<?= varlik('js/onay_kutusu.js', '../') ?>"></script>
 </head>
 
 <body>
@@ -569,13 +570,13 @@ superAdminZorunlu();
         let silmeZamanlayicilari = {};
 
         // --- 1. TOPLU SİLME İŞLEMLERİ ---
-        function topluSilBaslat() {
+        async function topluSilBaslat() {
             let idler = seciliIdleriAl();
             if (idler.length === 0) {
                 alert("Lütfen tablodan eşya seçin.");
                 return;
             }
-            if (!confirm(`Seçilen ${idler.length} eşya kalıcı olarak silinecek. Emin misiniz?`)) return;
+            if (!await onayKutusu(`Seçilen ${idler.length} eşya kalıcı olarak silinecek. Emin misiniz?`)) return;
 
             let btn = document.getElementById('btnTopluSil');
             let sayac = 3;
@@ -607,8 +608,8 @@ superAdminZorunlu();
         }
 
         // --- 2. TEKİL (SATIR İÇİ) SİLME İŞLEMLERİ ---
-        function tekilSilBaslat(id) {
-            if (!confirm("Bu eşyayı silmek istediğinize emin misiniz?")) return;
+        async function tekilSilBaslat(id) {
+            if (!await onayKutusu("Bu eşyayı silmek istediğinize emin misiniz?")) return;
             let btn = document.getElementById('btnSil_' + id);
             let sayac = 3;
             btn.classList.remove('btn-kirmizi');

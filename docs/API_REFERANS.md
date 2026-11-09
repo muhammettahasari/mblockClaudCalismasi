@@ -9,12 +9,12 @@
 
 | Dosya | Girdi | İşlev | Dönüş | Auth |
 |---|---|---|---|---|
-| `api/verify_pin.php` | JSON `{pin}` | PIN'den onaylı öğretmeni + sınıflarını bulur | `{success, ogretmen_id, ogretmen_ad, okul_adi, siniflar[]}` | yok (public) |
+| `api/verify_pin.php` | JSON `{pin}` | PIN'den onaylı öğretmeni + sınıflarını bulur; **[2026-11]** doğrulanan öğretmeni oturuma yazar, IP başına 10 dk'da 20 hatalı PIN | `{success, ogretmen_id, ogretmen_ad, okul_adi, siniflar[]}` | yok (public) |
 | `api/student_login.php` | JSON `{sinif_id, kullanici_adi, sifre}` | Öğrenci girişi; `onay_durumu=0` ise reddeder; **7 gün geçtiyse can/enerji=100** | `{success, message}` | – |
-| `api/student_register.php` | JSON `{ad_soyad, kullanici_adi, sifre, ogretmen_id, sinif_id}` | Kayıt (`onay_durumu=0`, can/enerji=100) | `{success, message}` | – |
+| `api/student_register.php` | JSON `{ad_soyad, kullanici_adi, sifre, sinif_id}` *(2026-11: öğretmen istekten değil verify_pin oturumundan; sınıf sahipliği kontrol)* | Kayıt (`onay_durumu=0`, can/enerji=100) | `{success, message}` | – |
 | `api/teacher_login.php` | JSON `{kullanici_adi, sifre}` | Öğretmen girişi; `durum` ve `bitis_tarihi` kontrolü | `{success, reason:'pending'\|'expired', message}` | – |
 | `api/teacher_register.php` | JSON (10 alan) | Öğretmen başvurusu → `onay_bekliyor` | `{success, message}` | – |
-| `api/teacher_time_request.php` | JSON `{kullanici_adi, ay}` | Süre uzatma talebi → `durum='onay_bekliyor'` | `{success}` | – |
+| `api/teacher_time_request.php` | JSON `{ay}` *(2026-11: kimlik oturumdan ya da süresi dolup şifreyi doğru girmiş öğretmenin oturum notundan)* | Süre uzatma talebi → `durum='onay_bekliyor'` | `{success}` | – |
 | `api/password_reset.php` | JSON `{email}` | 32-byte token üretir, `mail()` ile link atar (1 saat) | `{success, message}` | – |
 | `api/logout.php` | – | `session_destroy()` + `index.php`'ye redirect | HTTP 302 | – |
 
@@ -86,11 +86,12 @@
 | `api/quiz_durum_kontrol.php` | – | Global aktif oturum var mı → `{aktif, oturum_id}` (tüm panellerde polling) |
 | `api/quiz_arena_kontrol.php` | GET `oturum_id` | Oturum hâlâ aktif mi → `{durum}` |
 | `api/quiz_aktif_hedefler.php` | GET `oturum_id` | Kendisi hariç oyuncular (puana göre sıralı) |
-| `api/quiz_puan_guncelle.php` | POST `oturum_id, puan, cozulen_soru` | Puanı yazar → `"OK"` |
+| `api/quiz_cevap.php` | POST `oturum_id, islem=basla, soru_id` / `islem=cevap, soru_id, secim, [log_id]` | **[2026-11] Quiz hakemi.** `basla` sorunun sunucu saatini başlatır; `cevap` doğruluğu kontrol eder, puanı süreye göre SUNUCU hesaplar, bekleyen saldırıyı sonuçlandırır → `{dogru, dogru_cevap, kazanilan, guncel_puan, saldiri}` |
+| `api/quiz_puan_guncelle.php` | POST `oturum_id` | **[2026-11] Artık yazmaz**; güncel puanı döndürür (geriye dönük uyumluluk) |
 | `api/quiz_canli_tablo.php` | GET `oturum_id` | Öğretmen radarı için canlı sıralama |
 | `api/quiz_guc_kullan.php` | POST `oturum_id, guc_turu, hedef_id` | Hakkı 0'lar. `kalkan` → kendini korur. `kilic` + hedefte kalkan varsa → **kalkan kırılır, hedef +20, saldıran -20**. Diğerleri `quiz_savas_log`'a `bekliyor` olarak yazılır |
 | `api/quiz_saldiri_dinle.php` | GET `oturum_id` | Gelen saldırıyı çeker ve `savunan_gordu_mu=1` işaretler |
-| `api/quiz_saldiri_sonuc.php` | POST `log_id, dogru_mu, normal_puan` | Yanlış → savunan -20 / saldıran +20. Doğru + kılıç/glitch → savunan normal puan. Doğru + saat → **geri teper**: savunan +2×, saldıran -2× |
+| `api/quiz_saldiri_sonuc.php` | POST `log_id` *(2026-11: dogru_mu/normal_puan artık sunucudaki son cevaptan okunur)* | Yanlış → savunan -20 / saldıran +20. Doğru + kılıç/glitch → savunan normal puan. Doğru + saat → **geri teper**: savunan +2×, saldıran -2× |
 | `api/quiz_baskin.php` | *(include)* | ⚠️ PHP değil, **HTML overlay parçası** — `ogrenci_paneli.php`, `profil.php`, `market.php` içine include edilir ("SAVAŞ BAŞLADI" ekranı) |
 
 ---

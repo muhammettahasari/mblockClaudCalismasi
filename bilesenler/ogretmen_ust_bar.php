@@ -144,6 +144,7 @@ $ot_konum = (!isset($ot_sekmeler[$OT_AKTIF]) && isset($ot_konum_adlari[$OT_AKTIF
     </nav>
 </div>
 
+<script src="<?= varlik('js/onay_kutusu.js', $OT_KOK) ?>"></script>
 <script>
 /* PIN'i panoya kopyala — öğretmen sık sık sınıfa söylüyor */
 function otPinKopyala(oge) {
@@ -171,8 +172,8 @@ function otPinKopyala(oge) {
 /* Süre uzatma talebi — Süper Admin'e bildirim düşer.
    Sayfa kendi otSureTalepEt tanımını yaparsa o geçerli olur. */
 if (typeof window.otSureTalepEt !== 'function') {
-    window.otSureTalepEt = function () {
-        const ay = prompt('Kaç aylık süre uzatma talep ediyorsun?', '1');
+    window.otSureTalepEt = async function () {
+        const ay = await metinKutusu('Kaç aylık süre uzatma talep ediyorsun?', '1');
         if (ay === null) return;
 
         const sayi = parseInt(ay, 10);

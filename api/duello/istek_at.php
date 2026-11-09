@@ -42,9 +42,10 @@ if ($meydan_okunan === $meydan_okuyan) {
 try {
     // 1. Meydan okuyanın sınıfı + öğretmeninin düello penceresi
     $st = $pdo->prepare(
-        "SELECT o.sinif_id, o.ogretmen_id, ogr.duello_bitis
+        "SELECT o.sinif_id, s.ogretmen_id, ogr.duello_bitis
            FROM ogrenciler o
-           JOIN ogretmenler ogr ON ogr.id = o.ogretmen_id
+           JOIN siniflar    s   ON s.id   = o.sinif_id      -- [2026-11] sahiplik zinciri
+           JOIN ogretmenler ogr ON ogr.id = s.ogretmen_id
           WHERE o.id = ?"
     );
     $st->execute([$meydan_okuyan]);
@@ -59,8 +60,9 @@ try {
     }
 
     // 2. Hedef AYNI sınıfta mı?
-    $st = $pdo->prepare("SELECT id FROM ogrenciler WHERE id = ? AND sinif_id = ? AND ogretmen_id = ?");
-    $st->execute([$meydan_okunan, $ben['sinif_id'], $ben['ogretmen_id']]);
+    // [2026-11] Aynı sınıf = aynı öğretmen (sınıf tek öğretmene ait); kopya sütuna bakılmaz
+    $st = $pdo->prepare("SELECT id FROM ogrenciler WHERE id = ? AND sinif_id = ?");
+    $st->execute([$meydan_okunan, $ben['sinif_id']]);
 
     if (!$st->fetch()) {
         apiHata('Sadece kendi sınıfındaki arkadaşlarına meydan okuyabilirsin.');

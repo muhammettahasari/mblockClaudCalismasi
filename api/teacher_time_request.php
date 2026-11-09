@@ -1,35 +1,45 @@
 <?php
 /* ==========================================================
    Dosya Yolu: api/teacher_time_request.php
-   İşlev: Öğretmenin girdiği ay bilgisiyle süre talebini iletmesi
+   Kullanıcı: Öğretmen (panel üst barı) ya da süresi dolup kapıda kalan öğretmen (index.php)
+   Halk dilinde: Öğretmenin "X ay ek süre istiyorum" talebini Süper Admin'e iletir.
+
+   YENİ EKLENEN ÖZELLİKLER:
+   - [2026-11] Kapıda kalan öğretmen için kimlik artık kullanıcı adından DEĞİL,
+     teacher_login.php'nin şifreyi doğruladıktan sonra oturuma yazdığı
+     '_suresi_dolan_ogretmen_id' notundan alınır (15 dk geçerli).
+     Eskiden kullanıcı adını bilen herkes, herhangi bir öğretmeni
+     'onay_bekliyor' durumuna düşürüp girişini kilitleyebiliyordu.
+   - [2026-11] Ay sayısı 1–24 arasına kırpılır.
    ========================================================== */
-session_start();
-require_once '../db.php';
+require_once __DIR__ . '/../bilesenler/guvenlik.php';
+
+guvenliOturumBaslat();
+istekKokeniDogrula();
 header('Content-Type: application/json; charset=utf-8');
 
-$veri = json_decode(file_get_contents("php://input"), true);
-$kadi = trim($veri['kullanici_adi'] ?? '');
-$ay = (int)($veri['ay'] ?? 1); // Varsayılan 1 ay
-$ogretmen_id = $_SESSION['ogretmen_id'] ?? 0;
+$veri = istekVerisi();
+$ay   = max(1, min(24, (int) ($veri['ay'] ?? 1)));
 
-if (empty($kadi) && !$ogretmen_id) {
-    echo json_encode(['success' => false, 'message' => 'Geçersiz talep.']); 
+$ogretmen_id = (int) ($_SESSION['ogretmen_id'] ?? 0);
+if ($ogretmen_id <= 0) {
+    $kapidaki = (int) ($_SESSION['_suresi_dolan_ogretmen_id'] ?? 0);
+    if ($kapidaki > 0 && (time() - (int) ($_SESSION['_suresi_dolan_zaman'] ?? 0)) <= 900) {
+        $ogretmen_id = $kapidaki;
+    }
+}
+
+if ($ogretmen_id <= 0) {
+    echo json_encode(['success' => false, 'message' => 'Süre talebi için önce kullanıcı adı ve şifrenizle giriş yapmayı deneyin.'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 try {
-    if (!empty($kadi)) {
-        // Kapıda kalan öğretmen (Kullanıcı adıyla)
-        $sorgu = $pdo->prepare("UPDATE ogretmenler SET durum = 'onay_bekliyor', talep_edilen_ay = ? WHERE kullanici_adi = ?");
-        $sorgu->execute([$ay, $kadi]);
-    } else {
-        // İçerideki öğretmen (Session ID ile)
-        $sorgu = $pdo->prepare("UPDATE ogretmenler SET durum = 'onay_bekliyor', talep_edilen_ay = ? WHERE id = ?");
-        $sorgu->execute([$ay, $ogretmen_id]);
-    }
-    
+    $pdo->prepare("UPDATE ogretmenler SET durum = 'onay_bekliyor', talep_edilen_ay = ? WHERE id = ?")
+        ->execute([$ay, $ogretmen_id]);
+    unset($_SESSION['_suresi_dolan_ogretmen_id'], $_SESSION['_suresi_dolan_zaman']);
     echo json_encode(['success' => true]);
 } catch (Exception $e) {
-    echo json_encode(['success' => false, 'message' => 'Veritabanı hatası.']);
+    error_log('[teacher_time_request] ' . $e->getMessage());
+    echo json_encode(['success' => false, 'message' => 'Veritabanı hatası.'], JSON_UNESCAPED_UNICODE);
 }
-?>

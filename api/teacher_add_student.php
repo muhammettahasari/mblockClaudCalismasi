@@ -1,19 +1,31 @@
 <?php
-session_start();
-require_once '../db.php';
+/* ==========================================================
+   Dosya Yolu: api/teacher_add_student.php
+   Kullanıcı: Öğretmen (ogrenci_yonetimi.php)
+   Halk dilinde: Öğretmenin sınıfına tek öğrenci eklemesi (otomatik onaylı).
+   [2026-11] Kapıcı ogretmenZorunluApi(); sınıf GERÇEKTEN bu öğretmenin mi
+   kontrol edilir (eskiden başka öğretmenin sınıfına öğrenci eklenebiliyordu);
+   ad/kullanıcı adı metinSadelestir(); kullanıcı adı benzersizliği siniflar
+   zinciriyle.
+   ========================================================== */
+require_once __DIR__ . '/../bilesenler/guvenlik.php';
+$ogretmen_id = ogretmenZorunluApi();
 header('Content-Type: application/json; charset=utf-8');
 
-$ogretmen_id = $_SESSION['ogretmen_id'] ?? 0;
-if (!$ogretmen_id) { echo json_encode(['success' => false, 'message' => 'Yetkisiz erişim.']); exit; }
-
-$veri = json_decode(file_get_contents("php://input"), true);
+$veri = istekVerisi();
 $sinif_id = (int)($veri['sinif_id'] ?? 0);
-$orj_ad = trim($veri['ad_soyad'] ?? '');
-$orj_kadi = trim($veri['kullanici_adi'] ?? '');
+$orj_ad = metinSadelestir($veri['ad_soyad'] ?? '', 60);
+$orj_kadi = metinSadelestir($veri['kullanici_adi'] ?? '', 40);
 $sifre = trim($veri['sifre'] ?? '');
 
 if (!$sinif_id || empty($orj_ad) || empty($orj_kadi) || empty($sifre)) {
     echo json_encode(['success' => false, 'message' => 'Tüm alanları doldurunuz.']); exit;
+}
+
+$sahip = $pdo->prepare("SELECT id FROM siniflar WHERE id = ? AND ogretmen_id = ?");
+$sahip->execute([$sinif_id, $ogretmen_id]);
+if (!$sahip->fetch()) {
+    echo json_encode(['success' => false, 'message' => 'Bu sınıf size ait değil.'], JSON_UNESCAPED_UNICODE); exit;
 }
 
 $ad = $orj_ad;
@@ -35,7 +47,7 @@ while(true) {
 // Kullanıcı Adı Çakışması Kontrolü
 $sayac = 2;
 // YENİ: Sadece bu öğretmenin okulunda ara
-$kadi_kontrol = $pdo->prepare("SELECT id FROM ogrenciler WHERE kullanici_adi = ? AND ogretmen_id = ?");
+$kadi_kontrol = $pdo->prepare("SELECT o.id FROM ogrenciler o JOIN siniflar s ON s.id = o.sinif_id WHERE o.kullanici_adi = ? AND s.ogretmen_id = ?");
 while(true) {
     $kadi_kontrol->execute([$kadi, $ogretmen_id]);
     if ($kadi_kontrol->rowCount() == 0) break;

@@ -104,8 +104,8 @@
      * 1. MEYDAN OKUMA (saldıran taraf)
      * Skorboarddaki "⚔️ Düello" butonu bunu çağırır.
      * ============================================================== */
-    function meydanOku(hedefId, hedefAd) {
-        if (!confirm('⚔️ ' + hedefAd + ' adlı savaşçıya meydan okumak üzeresin! Emin misin?')) return;
+    async function meydanOku(hedefId, hedefAd) {
+        if (!await onayKutusu('⚔️ ' + hedefAd + ' adlı savaşçıya meydan okumak üzeresin! Emin misin?')) return;
 
         const veri = new FormData();
         veri.append('hedef_id', hedefId);

@@ -1,14 +1,13 @@
 <?php
-session_start();
-require_once '../db.php';
+/* ==========================================================
+   Dosya Yolu: api/arena_durum_degistir.php
+   Kullanıcı: Öğretmen (ogretmen_paneli.php)
+   Halk dilinde: Öğretmenin sınıf arenasını açıp kapatması.
+   [2026-11] Kapıcı ogretmenZorunluApi() (rol damgası + köken kontrolü).
+   ========================================================== */
+require_once __DIR__ . '/../bilesenler/guvenlik.php';
+$ogretmen_id = ogretmenZorunluApi();
 header('Content-Type: application/json');
-
-$ogretmen_id = $_SESSION['ogretmen_id'] ?? null;
-
-if (!$ogretmen_id) {
-    echo json_encode(['success' => false, 'mesaj' => 'Yetkisiz işlem!']);
-    exit;
-}
 
 // Javascript'ten gelen işlem türü ve süre bilgilerini alıyoruz
 $islem = $_POST['islem'] ?? null;
