@@ -580,3 +580,39 @@ sayfalarındaki 46 gömülü `<script>` bloğu `node --check` ile hatasız.
 `onayKutusu`/`metinKutusu` çağıran her sayfa `js/onay_kutusu.js`'yi yüklüyor.
 Veritabanına karşı uçtan uca test YAPILMADI — migration'ı çalıştırdıktan sonra
 öğrenci girişi, öğretmen paneli, bir quiz ve bir düello elle denenmeli.
+
+---
+
+## ✅ 2026-11 — mBlock motoru ve 200 görevlik müfredat
+
+| # | Sorun | Çözüm |
+|---|---|---|
+| M1 | 65 bloğun 37'sinin tercümesi yoktu ("gizlen", "x'i değiştir", "eğer-değilse", "sonraki kostüm", değişkenler...) — kullanan öğrencinin kodu çalışmıyordu | `kod_tercumani.js` baştan yazıldı; bütün bloklar + kalem + mesajlar + değişkenler |
+| M2 | Yeşil bayrak sadece SEÇİLİ kuklanın kodunu çalıştırıyordu | `sahne_motoru.js`: her kukla ayrı derlenir, hepsi birlikte çalışır |
+| M3 | Koordinatlar sol üst köşe pikseliydi, mBlock'taki (0,0)=orta, y yukarı sistemi değildi | mBlock koordinatları; panel de aynı değerleri gösterir |
+| M4 | Hakem: yuvaya "x konumu" gibi blok takılınca altındaki görünmez gölge sayıyı da karşılaştırıyordu → doğru çözüm reddedilebiliyordu | Gerçek blok varsa gölge yok sayılır |
+| M5 | Hakem "Merhaba!" ile "merhaba"yı, "10" ile "10.0"ı farklı sayıyordu | Metin ve sayı normalleştirme |
+| M6 | `oynatici.php` cevap anahtarını (`blueprint`) ve bilgi içeriğini sayfaya basıyordu — F12 ile cevap okunabiliyordu, "Bilgi Al" cezası atlanabiliyordu | İki alan sayfaya basılmadan siliniyor; JSON `</script>`'e karşı güvenli kodlanıyor |
+| M7 | Blockly sürüm belirtilmeden (`unpkg.com/blockly/`) yükleniyordu — yeni sürüm çıkınca sessizce bozulabilirdi | 13.4.0'a sabitlendi |
+| M8 | Tasarlayıcıda görev düzenleyip kaydetmek `icerik_json`'u baştan yazıyor, sahne (kuklalar/dekor) kayboluyordu | `gorev_api.php` bilinmeyen `sahne`/`mufredat` alanlarını korur |
+| M9 | "Değişken Oluştur" tarayıcının `prompt()` kutusunu açıyordu (CLAUDE.md kuralına aykırı) | `Blockly.dialog` → `metinKutusu/onayKutusu` |
+| M10 | Oturumsuz önizlemede ilerleme çubuğu 403 alsa da her 10 sn'de sormaya devam ediyordu | 401/403'te yoklama durur |
+| M11 | Pencere küçültülünce `requestAnimationFrame` gelmediği için bekleyen/süzülen betikler takılıyordu | 50 ms yedek saat |
+
+**Müfredat yüklemesi (2026-11-09):** Yüklemeden önce veritabanı içinde yedek alındı:
+`yedek_20261109_bolumler`, `yedek_20261109_v2_gorevler`, `yedek_20261109_ogrenciler`,
+`yedek_20261109_v2_ogrenci_ilerleme`. Her şey yolundaysa bu tablolar silinebilir.
+`migration_2026_11_guvenlik.sql` de aynı sırada çalıştırıldı (tetikleyiciler kurulu).
+
+**Doğrulama:** 200 görevin cevap anahtarı gerçek Blockly 13.4.0'a yüklenip geri okundu ve
+sunucudaki hakemden geçirildi: **200/200 kabul**. Her görevin çözümü sahne motorunda
+çalıştırıldı (tuş/tıklama olayları ve soru kutuları otomatik yanıtlandı): **200/200 hatasız**, her görevin olay dinleyicisi kuruldu. Renk algılama (yeşil bitiş, lav), kukla-kukla değme (Elma), skor değişkeni ve değişken menüsü ayrıca elle denendi.
+
+> Blockly 13 notu: değişken işlemleri `workspace.getVariableMap()` üzerinden yapılır (`workspace.getVariable/createVariable/getAllVariables` YOK).
+
+> ⚠️ **MySQL çökmesi (14:55):** Müfredat SQL'i İKİNCİ kez (aynı anda 20 görevlik büyük
+> UPDATE/INSERT parçalarıyla) çalıştırılırken XAMPP MariaDB beklenmedik şekilde kapandı.
+> Tablolar `CHECK TABLE` ile sağlam, veri eksiksiz. Sebep günlükten okunamadı
+> (`C:\xampp\mysql\data\mysql_error.log` — erişim izni yoktu). `mufredat_2026_11.sql`'i
+> tekrar çalıştırmanız gerekirse phpMyAdmin'in **İçe Aktar** sekmesinden dosya olarak
+> yükleyin ve öncesinde yedek alın.

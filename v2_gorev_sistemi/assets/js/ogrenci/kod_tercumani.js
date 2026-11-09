@@ -1,224 +1,186 @@
 /**
+ * ============================================================================
  * Dosya Yolu: v2_gorev_sistemi/assets/js/ogrenci/kod_tercumani.js
- * Kullanıcı Yetkisi ve Bağlı Olduğu Sayfa: Öğrenci -> Görev Oynatıcı Sayfası
- * Halk Dilinde İşlevi: Öğrencinin dizdiği yapboz bloklarını (Blockly), tarayıcının 
- * anlayabileceği gerçek JavaScript kodlarına çeviren "Tercüman" dosyasıdır.
+ * Kullanıcı: Öğrenci -> Görev Oynatıcı
+ *
+ * HALK DİLİNDE İŞLEVİ:
+ * Öğrencinin dizdiği yapboz bloklarını, sahne motorunun (sahne_motoru.js)
+ * anlayacağı JavaScript'e çeviren "tercüman".
+ *
+ * NASIL ÇALIŞIR:
+ *  - Her kuklanın kodu AYRI derlenir ve o kuklanın bağlamıyla (S) çalışır.
+ *    S.git(10) -> "bu kukla 10 adım gitsin".
+ *  - Şapka blokları (yeşil bayrak, tuş, tıklama, mesaj) kayıt olur:
+ *        S.olay('bayrak', null, async function (S) { ...gövde... });
+ *    İçteki S, olay tetiklendiğinde oluşturulan TAZE bağlamdır; "durdur"a
+ *    basılınca o bağlam geçersizleşir ve betik bir sonraki beklemede durur.
+ *  - Döngüler her turda bir kare bekler (await S.kare()). Böylece hareket
+ *    ekranda adım adım görünür ve "sürekli tekrarla" tarayıcıyı dondurmaz.
+ *  - D: bütün kuklaların ortak verisi (değişkenler, cevap, zamanlayıcı).
+ *
+ * YENİ EKLENEN ÖZELLİKLER:
+ *  - [2026-11] Baştan yazıldı. Eskiden 65 bloğun 37'sinin tercümesi yoktu
+ *    ("gizlen", "x'i değiştir", "eğer-değilse", "sonraki kostüm"... hiç
+ *    çalışmıyordu) ve kod sadece seçili kuklada çalışıyordu. Artık bütün
+ *    bloklar + değişkenler + kalem + mesajlar çalışıyor, her kukla kendi
+ *    kodunu çalıştırıyor.
+ * ============================================================================
  */
 
-let jsMotoru = null;
-if (typeof Blockly.JavaScript !== "undefined") {
-  jsMotoru = Blockly.JavaScript;
-} else if (typeof javascript !== "undefined") {
-  jsMotoru = javascript.javascriptGenerator;
-}
+(function () {
+    let G = null;
+    if (typeof javascript !== 'undefined' && javascript.javascriptGenerator) G = javascript.javascriptGenerator;
+    else if (typeof Blockly !== 'undefined' && Blockly.JavaScript) G = Blockly.JavaScript;
+    if (!G) { console.error('KRİTİK HATA: JavaScript çevirmen motoru bulunamadı!'); return; }
+    if (!G.forBlock) G.forBlock = G;
+    window.jsMotoru = G;   // hakem_motoru.js ve bilgi_al.js eski adla erişiyor
 
-if (jsMotoru) {
-  if (!jsMotoru.forBlock) jsMotoru.forBlock = jsMotoru;
+    const A = 0;           // ORDER_ATOMIC  — her ifadeyi zaten parantezle sarıyoruz
+    const YOK = 99;        // ORDER_NONE
 
-  // ==========================================
-  // 1. HAREKET BLOKLARI
-  // ==========================================
-  jsMotoru.forBlock["mblock_hareket_git"] = function (block) {
-    var adim = jsMotoru.valueToCode(block, "ADIM", jsMotoru.ORDER_ATOMIC) || "0";
-    return "window.kuklaHareketEt(" + adim + ");\n";
-  };
+    const v = (b, ad, yedek) => G.valueToCode(b, ad, YOK) || yedek;
+    const n = (b, ad, yedek) => 'S.n(' + v(b, ad, String(yedek === undefined ? 0 : yedek)) + ')';
+    const t = (b, ad, yedek) => v(b, ad, JSON.stringify(yedek === undefined ? '' : yedek));
+    const f = (b, ad) => JSON.stringify(String(b.getFieldValue(ad) == null ? '' : b.getFieldValue(ad)));
+    const ic = (b, ad) => G.statementToCode(b, ad);
+    const K = (kod) => kod + '\n';
+    const def = (tip, fn) => { G.forBlock[tip] = fn; };
 
-  jsMotoru.forBlock["mblock_hareket_don_sag"] = function (block) {
-    var derece = jsMotoru.valueToCode(block, "DERECE", jsMotoru.ORDER_ATOMIC) || "0";
-    return "window.kuklaDon(" + derece + ");\n";
-  };
+    // ---------------- HAREKET ----------------
+    def('mblock_hareket_git', b => K('S.git(' + n(b, 'ADIM', 10) + ');'));
+    def('mblock_hareket_don_sag', b => K('S.don(' + n(b, 'DERECE', 15) + ');'));
+    def('mblock_hareket_don_sol', b => K('S.don(-' + n(b, 'DERECE', 15) + ');'));
+    def('mblock_hareket_rastgele_git', b => K('S.hedefeGit(' + f(b, 'HEDEF') + ');'));
+    def('mblock_hareket_xy_git', b => K('S.xyGit(' + n(b, 'X') + ', ' + n(b, 'Y') + ');'));
+    def('mblock_hareket_suzul_rastgele', b => K('await S.hedefeSuzul(' + n(b, 'SURE', 1) + ', ' + f(b, 'HEDEF') + ');'));
+    def('mblock_hareket_suzul_xy', b => K('await S.suzul(' + n(b, 'SURE', 1) + ', ' + n(b, 'X') + ', ' + n(b, 'Y') + ');'));
+    def('mblock_hareket_yone_don', b => K('S.yonYap(' + n(b, 'YON', 90) + ');'));
+    def('mblock_hareket_hedefe_don', b => K('S.hedefeDon(' + f(b, 'HEDEF') + ');'));
+    def('mblock_hareket_x_degistir', b => K('S.xDegistir(' + n(b, 'X', 10) + ');'));
+    def('mblock_hareket_x_yap', b => K('S.xYap(' + n(b, 'X') + ');'));
+    def('mblock_hareket_y_degistir', b => K('S.yDegistir(' + n(b, 'Y', 10) + ');'));
+    def('mblock_hareket_y_yap', b => K('S.yYap(' + n(b, 'Y') + ');'));
+    def('mblock_hareket_kenardaysa_sek', () => K('S.kenardaSek();'));
+    def('mblock_hareket_donus_stili', b => K('S.donusStili(' + f(b, 'STIL') + ');'));
+    def('mblock_hareket_x_konumu', () => ['S.xKonumu()', A]);
+    def('mblock_hareket_y_konumu', () => ['S.yKonumu()', A]);
+    def('mblock_hareket_yonu', () => ['S.yonu()', A]);
 
-  jsMotoru.forBlock["mblock_hareket_don_sol"] = function (block) {
-    var derece = jsMotoru.valueToCode(block, "DERECE", jsMotoru.ORDER_ATOMIC) || "15";
-    return "window.kuklaDon(-" + derece + ");\n";
-  };
+    // ---------------- GÖRÜNÜM ----------------
+    def('mblock_gorunum_merhaba_de', b => K('S.de(' + t(b, 'MESAJ') + ');'));
+    def('mblock_gorunum_merhaba_de_sureli', b => K('await S.deSureli(' + t(b, 'MESAJ') + ', ' + n(b, 'SURE', 2) + ');'));
+    def('mblock_gorunum_dusun', b => K('S.dusun(' + t(b, 'MESAJ') + ');'));
+    def('mblock_gorunum_dusun_sureli', b => K('await S.dusunSureli(' + t(b, 'MESAJ') + ', ' + n(b, 'SURE', 2) + ');'));
+    def('mblock_gorunum_kiligina_gec', b => K('S.kostumYap(' + f(b, 'KILIK') + ');'));
+    def('mblock_gorunum_sonraki_kilik', () => K('S.sonrakiKostum();'));
+    def('mblock_gorunum_dekora_gec', b => K('S.dekorYap(' + f(b, 'DEKOR') + ');'));
+    def('mblock_gorunum_sonraki_dekor', () => K('S.sonrakiDekor();'));
+    def('mblock_gorunum_boyut_degistir', b => K('S.boyutDegistir(' + n(b, 'BOYUT', 10) + ');'));
+    def('mblock_gorunum_boyut_yap', b => K('S.boyutYap(' + n(b, 'BOYUT', 100) + ');'));
+    def('mblock_gorunum_renk_etkisi_degistir', b => K('S.efektDegistir(' + f(b, 'ETKI') + ', ' + n(b, 'DEGER', 25) + ');'));
+    def('mblock_gorunum_renk_etkisi_yap', b => K('S.efektYap(' + f(b, 'ETKI') + ', ' + n(b, 'DEGER', 0) + ');'));
+    def('mblock_gorunum_gorsel_temizle', () => K('S.efektTemizle();'));
+    def('mblock_gorunum_goster', () => K('S.goster();'));
+    def('mblock_gorunum_gizle', () => K('S.gizle();'));
+    def('mblock_gorunum_katmana_git', b => K('S.katmanaGit(' + f(b, 'KATMAN') + ');'));
+    def('mblock_gorunum_katman_degistir', b => K('S.katmanDegistir(' + f(b, 'YON') + ', ' + n(b, 'DEGER', 1) + ');'));
+    def('mblock_gorunum_kostum_no', b => ['S.kostumBilgi(' + f(b, 'TIP') + ')', A]);
+    def('mblock_gorunum_dekor_no', b => ['S.dekorBilgi(' + f(b, 'TIP') + ')', A]);
+    def('mblock_gorunum_buyukluk', () => ['S.buyukluk()', A]);
 
-  jsMotoru.forBlock["mblock_hareket_rastgele_git"] = function (block) {
-    return "window.kuklaRastgeleGit();\n";
-  };
+    // ---------------- SES ----------------
+    def('mblock_ses_cal_bitene_kadar', b => K('await S.sesCalBitene(' + f(b, 'SES') + ');'));
+    def('mblock_ses_cal', b => K('S.sesCal(' + f(b, 'SES') + ');'));
+    def('mblock_ses_nota_cal', b => K('await S.notaCal(' + f(b, 'NOTA') + ', ' + n(b, 'VURUS', 1) + ');'));
+    def('mblock_ses_durdur', () => K('S.sesleriDurdur();'));
 
-  jsMotoru.forBlock["mblock_hareket_xy_git"] = function (block) {
-    var x = jsMotoru.valueToCode(block, "X", jsMotoru.ORDER_ATOMIC) || "0";
-    var y = jsMotoru.valueToCode(block, "Y", jsMotoru.ORDER_ATOMIC) || "0";
-    return "window.kuklaKoordinataGit(" + x + ", " + y + ");\n";
-  };
+    // ---------------- OLAYLAR ----------------
+    def('mblock_olay_mesaj_yayinla', b => K('S.yayinla(' + f(b, 'MESAJ') + ');'));
+    // Şapkaların kendi kodu boş; gövdeyi scrub_ sarar.
+    ['mblock_olay_bayrak_tiklandiginda', 'mblock_olay_tus_basildiginda', 'mblock_olay_kukla_tiklandiginda', 'mblock_olay_mesaj_alindiginda']
+        .forEach(tip => def(tip, () => ''));
 
-  jsMotoru.forBlock["mblock_hareket_suzul_rastgele"] = function (block) {
-    var sure = jsMotoru.valueToCode(block, "SURE", jsMotoru.ORDER_ATOMIC) || "1";
-    return "window.kuklaSuzulRastgele(" + sure + ");\n";
-  };
-  // Görünüm Blokları****************************************************************************
-  //==============================================================================================
-jsMotoru.forBlock["mblock_gorunum_merhaba_de"] = function (block) {
-    var mesaj = jsMotoru.valueToCode(block, "MESAJ", jsMotoru.ORDER_ATOMIC) || '"(Sessizlik)"';
-    return "window.kuklaKonus(" + mesaj + ");\n";
-  };
+    // ---------------- KONTROL ----------------
+    def('mblock_kontrol_bekle', b => K('await S.bekle(' + n(b, 'SURE', 1) + ');'));
+    def('mblock_kontrol_tekrarla', b => {
+        const d = 'i_' + b.id.replace(/[^a-zA-Z0-9]/g, '');
+        return 'for (let ' + d + ' = 0, ' + d + 'n = ' + n(b, 'KEZ', 10) + '; ' + d + ' < ' + d + 'n; ' + d + '++) {\n'
+             + ic(b, 'YAP') + '  await S.kare();\n}\n';
+    });
+    def('mblock_kontrol_surekli', b => 'while (true) {\n' + ic(b, 'YAP') + '  await S.kare();\n}\n');
+    def('mblock_kontrol_eger_ise', b => 'if (' + v(b, 'SART', 'false') + ') {\n' + ic(b, 'YAP') + '}\n');
+    def('mblock_kontrol_eger_degilse', b => 'if (' + v(b, 'SART', 'false') + ') {\n' + ic(b, 'YAP') + '} else {\n' + ic(b, 'DEGILSEYAP') + '}\n');
+    def('mblock_kontrol_olana_kadar_tekrarla', b => 'while (!(' + v(b, 'SART', 'false') + ')) {\n' + ic(b, 'YAP') + '  await S.kare();\n}\n');
+    def('mblock_kontrol_olana_kadar_bekle', b => 'while (!(' + v(b, 'SART', 'false') + ')) { await S.kare(); }\n');
+    def('mblock_kontrol_durdur', b => (b.getFieldValue('TUR') === 'TUMU') ? 'S.hepsiniDurdur(); return;\n' : 'return;\n');
 
-  jsMotoru.forBlock["mblock_gorunum_merhaba_de_sureli"] = function (block) {
-    var mesaj = jsMotoru.valueToCode(block, "MESAJ", jsMotoru.ORDER_ATOMIC) || '""';
-    var sure = jsMotoru.valueToCode(block, "SURE", jsMotoru.ORDER_ATOMIC) || "2";
-    // SİHİRLİ DOKUNUŞ: Süreli olanlara await ekledik ki oyun o konuşma bitene kadar beklesin
-    return "await window.kuklaKonusSureli(" + mesaj + ", " + sure + ");\n";
-  };
+    // ---------------- ALGILAMA ----------------
+    def('mblock_algilama_kenara_degiyor_mu', () => ['S.degiyorMu("EDGE")', A]);
+    def('mblock_algilama_fareye_degiyor_mu', () => ['S.degiyorMu("MOUSE")', A]);
+    def('mblock_algilama_degiyor_mu', b => ['S.degiyorMu(' + f(b, 'HEDEF') + ')', A]);
+    def('mblock_algilama_renk_degiyor_mu', b => ['S.renkDegiyorMu(' + f(b, 'RENK') + ')', A]);
+    def('mblock_algilama_tusa_basili_mi', b => ['S.tusBasiliMi(' + f(b, 'TUS') + ')', A]);
+    def('mblock_algilama_tus_basili_mi', b => ['S.tusBasiliMi(' + f(b, 'TUS') + ')', A]);
+    def('mblock_algilama_fare_basili_mi', () => ['S.fareBasiliMi()', A]);
+    def('mblock_algilama_fare_x', () => ['S.fareX()', A]);
+    def('mblock_algilama_fare_y', () => ['S.fareY()', A]);
+    def('mblock_algilama_sor_bekle', b => K('await S.sor(' + t(b, 'SORU') + ');'));
+    def('mblock_algilama_cevap', () => ['D.cevap', A]);
+    def('mblock_algilama_zamanlayici', () => ['S.zamanlayici()', A]);
+    def('mblock_algilama_zamanlayici_sifirla', () => K('S.zamanlayiciSifirla();'));
 
-  jsMotoru.forBlock["mblock_gorunum_dusun"] = function (block) {
-    var mesaj = jsMotoru.valueToCode(block, "MESAJ", jsMotoru.ORDER_ATOMIC) || '"Hımm..."';
-    return "window.kuklaDusun(" + mesaj + ");\n";
-  };
+    // ---------------- İŞLEMLER ----------------
+    def('mblock_islem_aritmetik', b => {
+        const op = { ADD: '+', MINUS: '-', MULTIPLY: '*', DIVIDE: '/' }[b.getFieldValue('OP')] || '+';
+        return ['(' + n(b, 'A') + ' ' + op + ' ' + n(b, 'B') + ')', A];
+    });
+    def('mblock_islem_karsilastirma', b => ['S.karsilastir(' + v(b, 'A', '0') + ', ' + f(b, 'OP') + ', ' + v(b, 'B', '0') + ')', A]);
+    def('mblock_islem_rastgele', b => ['S.rastgele(' + n(b, 'MIN', 1) + ', ' + n(b, 'MAX', 10) + ')', A]);
+    def('mblock_islem_ve_veya', b => ['(' + v(b, 'A', 'false') + (b.getFieldValue('OP') === 'OR' ? ' || ' : ' && ') + v(b, 'B', 'false') + ')', A]);
+    def('mblock_islem_degil', b => ['(!(' + v(b, 'A', 'false') + '))', A]);
+    def('mblock_islem_birlestir', b => ['(String(' + t(b, 'A') + ') + String(' + t(b, 'B') + '))', A]);
+    def('mblock_islem_mod', b => ['S.mod(' + n(b, 'A') + ', ' + n(b, 'B') + ')', A]);
+    def('mblock_islem_yuvarla', b => ['Math.round(' + n(b, 'NUM') + ')', A]);
+    def('math_number', b => { const s = String(b.getFieldValue('NUM')); return [(s === '' || isNaN(Number(s))) ? '0' : String(Number(s)), A]; });
+    def('text', b => [JSON.stringify(String(b.getFieldValue('TEXT') || '')), A]);
 
-  jsMotoru.forBlock["mblock_gorunum_dusun_sureli"] = function (block) {
-    var mesaj = jsMotoru.valueToCode(block, "MESAJ", jsMotoru.ORDER_ATOMIC) || '"Hımm..."';
-    var sure = jsMotoru.valueToCode(block, "SURE", jsMotoru.ORDER_ATOMIC) || "2";
-    return "await window.kuklaDusunSureli(" + mesaj + ", " + sure + ");\n";
-  };
+    // ---------------- KALEM ----------------
+    def('mblock_kalem_temizle', () => K('S.kalemTemizle();'));
+    def('mblock_kalem_damga', () => K('S.damga();'));
+    def('mblock_kalem_bastir', () => K('S.kalemBastir();'));
+    def('mblock_kalem_kaldir', () => K('S.kalemKaldir();'));
+    def('mblock_kalem_renk_yap', b => K('S.kalemRenk(' + f(b, 'RENK') + ');'));
+    def('mblock_kalem_kalinlik_yap', b => K('S.kalemKalinlik(' + n(b, 'KALINLIK', 3) + ');'));
+    def('mblock_kalem_kalinlik_degistir', b => K('S.kalemKalinlikDegistir(' + n(b, 'KALINLIK', 1) + ');'));
 
-  // ==========================================
-  // 2. KONTROL & MANTIK BLOKLARI
-  // ==========================================
-  jsMotoru.forBlock["mblock_kontrol_tekrarla"] = function (block) {
-    var tekrarSayisi = jsMotoru.valueToCode(block, "KEZ", jsMotoru.ORDER_ATOMIC) || "0";
-    var icKodlar = jsMotoru.statementToCode(block, "YAP");
-    var degisken = "i_" + block.id.replace(/[^a-zA-Z0-9]/g, "");
-    return "for (let " + degisken + " = 0; " + degisken + " < " + tekrarSayisi + "; " + degisken + "++) {\n" + icKodlar + "}\n";
-  };
+    // ---------------- DEĞİŞKENLER (Blockly'nin hazır blokları) ----------------
+    const degAdi = b => { const a = b.getField('VAR'); return JSON.stringify(a ? a.getText() : 'değişken'); };
+    def('variables_get', b => ['D.al(' + degAdi(b) + ')', A]);
+    def('variables_set', b => K('D.ata(' + degAdi(b) + ', ' + v(b, 'VALUE', '0') + ');'));
+    def('math_change', b => K('D.ata(' + degAdi(b) + ', S.n(D.al(' + degAdi(b) + ')) + ' + n(b, 'DELTA', 1) + ');'));
 
-jsMotoru.forBlock["mblock_kontrol_surekli"] = function (block) {
-    var icKodlar = jsMotoru.statementToCode(block, "YAP");
-    // Motor çalışıyorsa döngüye devam et, ancak tarayıcı çökmesin diye her turda 16 milisaniye (60 FPS) nefes al
-    return "while (window.oyunMotoruCalisiyor) {\n" + icKodlar + "\n await window.oyunBekle(0.016);\n}\n";
-  };
+    // ---------------- ŞAPKALAR VE BAŞIBOŞ BLOKLAR ----------------
+    const SAPKA = {
+        mblock_olay_bayrak_tiklandiginda: () => "'bayrak', null",
+        mblock_olay_kukla_tiklandiginda: () => "'tikla', null",
+        mblock_olay_tus_basildiginda: b => "'tus', " + f(b, 'TUS'),
+        mblock_olay_mesaj_alindiginda: b => "'mesaj', " + f(b, 'MESAJ')
+    };
 
-  jsMotoru.forBlock["mblock_kontrol_eger_ise"] = function (block) {
-    var sarti = jsMotoru.valueToCode(block, "SART", jsMotoru.ORDER_ATOMIC) || "false";
-    var icKodlar = jsMotoru.statementToCode(block, "YAP");
-    return "if (" + sarti + ") {\n" + icKodlar + "}\n";
-  };
-
-  
-  jsMotoru.forBlock["mblock_kontrol_bekle"] = function (block) {
-    var sure = jsMotoru.valueToCode(block, "SURE", jsMotoru.ORDER_ATOMIC) || "1";
-    // Sadece konsola yazmak yerine, gerçek zamanlı olarak motoru belirtilen saniye kadar bekletir
-    return "await window.oyunBekle(" + sure + ");\n";
-  };
-
-  // ==========================================
-  // 3. ALGILAMA BLOKLARI (SENSING)
-  // ==========================================
-  jsMotoru.forBlock["mblock_algilama_kenara_degiyor_mu"] = function (block) {
-    return ["window.kenaraDegiyorMu()", jsMotoru.ORDER_ATOMIC];
-  };
-
-  jsMotoru.forBlock["mblock_algilama_fareye_degiyor_mu"] = function (block) {
-    return ["window.fareyeDegiyorMu()", jsMotoru.ORDER_ATOMIC];
-  };
-
-  jsMotoru.forBlock["mblock_algilama_tusa_basili_mi"] = function (block) {
-    var tus = block.getFieldValue("TUS") || "SPACE";
-    return ["window.tusaBasiliMi('" + tus + "')", jsMotoru.ORDER_ATOMIC];
-  };
-// Başlangıç: 5. ALGILAMA BLOKLARI bölümünün içine, diğer algılama kodlarının hemen altına EKLE
-  
-  jsMotoru.forBlock["mblock_algilama_degiyor_mu"] = function (block) {
-    // Açılır menüdeki seçimi almayı dener. Eğer menü adını bilmiyorsak varsayılan olarak fareyi algılar.
-    var secilen = block.getFieldValue("HEDEF") || block.getFieldValue("NESNE") || block.getFieldValue("SECIM") || "fare";
-    
-    if (secilen.includes("kenar")) {
-        return ["window.kenaraDegiyorMu()", jsMotoru.ORDER_ATOMIC];
-    } else {
-        return ["window.fareyeDegiyorMu()", jsMotoru.ORDER_ATOMIC];
-    }
-  };
-  // Bitiş
-
-  // ==========================================
-  // 6. İŞLEMLER VE MATEMATİK BLOKLARI
-  // ==========================================
-jsMotoru.forBlock["mblock_islem_aritmetik"] = function (block) {
-    var a = jsMotoru.valueToCode(block, "A", jsMotoru.ORDER_ATOMIC) || "0";
-    var b = jsMotoru.valueToCode(block, "B", jsMotoru.ORDER_ATOMIC) || "0";
-    var op = block.getFieldValue("OP");
-    // GÜVENLİK AĞI: Eğer menü okuyamazsa çökmek yerine varsayılan olarak Toplama (+) yapsın
-    var operator = {"ADD": "+", "MINUS": "-", "MULTIPLY": "*", "DIVIDE": "/"}[op] || "+"; 
-    return [a + " " + operator + " " + b, jsMotoru.ORDER_ARITHMETIC];
-  };
-
-  // Başlangıç: assets/js/ogrenci/kod_tercumani.js içindeki eski `jsMotoru.forBlock["mblock_islem_karsilastirma"]` kodunun yerine yapıştır.
-jsMotoru.forBlock["mblock_islem_karsilastirma"] = function (block) {
-    var a = jsMotoru.valueToCode(block, "A", jsMotoru.ORDER_ATOMIC) || "0";
-    var b = jsMotoru.valueToCode(block, "B", jsMotoru.ORDER_ATOMIC) || "0";
-    var op = block.getFieldValue("OP");
-    // GÜVENLİK AĞI: Eğer menü okuyamazsa çökmek yerine varsayılan olarak Eşittir (==) yapsın
-    var operator = {"GT": ">", "LT": "<", "EQ": "==", "LTE": "<=", "GTE": ">="}[op] || "=="; 
-    return [a + " " + operator + " " + b, jsMotoru.ORDER_RELATIONAL];
-  };
-// Bitiş
-
-  jsMotoru.forBlock["mblock_islem_rastgele"] = function (block) {
-    var min = jsMotoru.valueToCode(block, "MIN", jsMotoru.ORDER_ATOMIC) || "1";
-    var max = jsMotoru.valueToCode(block, "MAX", jsMotoru.ORDER_ATOMIC) || "10";
-    return ["Math.floor(Math.random() * (" + max + " - " + min + " + 1)) + Number(" + min + ")", jsMotoru.ORDER_FUNCTION_CALL];
-  };
-
-jsMotoru.forBlock["mblock_islem_ve_veya"] = function (block) {
-    var a = jsMotoru.valueToCode(block, "A", jsMotoru.ORDER_LOGICAL_AND) || "false";
-    var b = jsMotoru.valueToCode(block, "B", jsMotoru.ORDER_LOGICAL_AND) || "false";
-    var op = block.getFieldValue("OP");
-    // GÜVENLİK AĞI: Eğer menü okuyamazsa çökmek yerine varsayılan olarak VE (&&) yapsın
-    var operator = {"AND": "&&", "OR": "||"}[op] || "&&"; 
-    var order = op === "AND" ? jsMotoru.ORDER_LOGICAL_AND : jsMotoru.ORDER_LOGICAL_OR;
-    return [a + " " + operator + " " + b, order];
-  };
-  jsMotoru.forBlock["mblock_islem_birlestir"] = function (block) {
-    var a = jsMotoru.valueToCode(block, "A", jsMotoru.ORDER_ATOMIC) || '""';
-    var b = jsMotoru.valueToCode(block, "B", jsMotoru.ORDER_ATOMIC) || '""';
-    return ["String(" + a + ") + String(" + b + ")", jsMotoru.ORDER_ADDITION];
-  };
-
-  jsMotoru.forBlock["mblock_islem_mod"] = function (block) {
-    var a = jsMotoru.valueToCode(block, "A", jsMotoru.ORDER_ATOMIC) || "0";
-    var b = jsMotoru.valueToCode(block, "B", jsMotoru.ORDER_ATOMIC) || "0";
-    return [a + " % " + b, jsMotoru.ORDER_MODULUS];
-  };
-
-  jsMotoru.forBlock["mblock_islem_yuvarla"] = function (block) {
-    var a = jsMotoru.valueToCode(block, "NUM", jsMotoru.ORDER_ATOMIC) || "0";
-    return ["Math.round(" + a + ")", jsMotoru.ORDER_FUNCTION_CALL];
-  };
-
-  
-  // ========================================================================
-  // 4. SİHİRLİ SARMALAYICI (SCRUB) - DİSİPLİN MERKEZİ
-  // ========================================================================
-  jsMotoru.scrub_ = function (block, code, opt_thisOnly) {
-    let nextCode = "";
-    if (!opt_thisOnly && block.nextConnection && block.nextConnection.targetBlock()) {
-      nextCode = jsMotoru.blockToCode(block.nextConnection.targetBlock());
-    }
-
- if (block.type === "mblock_olay_tus_basildiginda") {
-      let tus = block.getFieldValue("TUS") || "SPACE";
-      return `window.oyunaTusEkle("${tus}", async function() {\n${nextCode}\n});\n`;
-    }
-    if (block.type === "mblock_olay_bayrak_tiklandiginda") {
-      return `window.oyunaBayrakEkle(async function() {\n${nextCode}\n});\n`;
-    }
-    if (block.type === "mblock_olay_kukla_tiklandiginda") {
-      return `window.oyunaKuklaEkle(async function() {\n${nextCode}\n});\n`;
-    }
-
-    // Başıboş blokları engelle ama Test Tıklamasına (sinamaModuAktif) izin ver
-    if (!block.getParent() && !window.sinamaModuAktif) {
-      return ""; 
-    }
-
-    return code + nextCode;
-  };
-
-  // Şapka bloklarının gövdesini boş bırakıyoruz çünkü scrub_ her şeyi hallediyor.
-  jsMotoru.forBlock["mblock_olay_bayrak_tiklandiginda"] = function () { return ""; };
-  jsMotoru.forBlock["mblock_olay_tus_basildiginda"] = function () { return ""; };
-  jsMotoru.forBlock["mblock_olay_kukla_tiklandiginda"] = function () { return ""; };
-
-} else {
-  console.error("KRİTİK HATA: JavaScript çevirmen motoru bulunamadı!");
-}
+    G.scrub_ = function (block, code, thisOnly) {
+        let sonraki = '';
+        if (!thisOnly && block.nextConnection && block.nextConnection.targetBlock()) {
+            sonraki = G.blockToCode(block.nextConnection.targetBlock());
+        }
+        if (SAPKA[block.type]) {
+            return 'S.olay(' + SAPKA[block.type](block) + ', async function (S) {\n' + sonraki + '});\n';
+        }
+        // Hiçbir yere bağlı olmayan bloklar çalışmaz (mBlock'ta da öyle).
+        // Tek blok denemesi (bloğa tıklama) ise sinamaModuAktif ile izinli.
+        if (!block.getParent() && !window.sinamaModuAktif) return '';
+        return code + sonraki;
+    };
+    // Blockly'nin "var x;" bildirimlerini üretmesini engelle (değişkenler D'de yaşar)
+    const eskiInit = G.init;
+    G.init = function (ws) { eskiInit.call(this, ws); try { if (this.definitions_) delete this.definitions_['variables']; } catch (e) {} };
+})();

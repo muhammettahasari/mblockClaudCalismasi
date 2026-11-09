@@ -78,140 +78,134 @@ window.modalArayuzunuOlustur = function(seciliGrup) {
 
 // ==========================================
 // --- ÇOKLU KUKLA YÖNETİM MOTORU ---
+// [2026-11] Koordinatlar artık mBlock'taki gibi: orta (0,0), y yukarı,
+// yön 90 = sağ. Çizim, sürükleme ve kod çalıştırma sahne_motoru.js'te (MBM).
 // ==========================================
 window.addEventListener('load', () => {
-    if(window.projeKuklalari.length === 0) {
-        let varsayilanResim = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='50' height='50'><text y='40' font-size='40'>👩‍🚀</text></svg>";
-        
+    const paket = (typeof SUNUCUDAN_GELEN_GOREV !== 'undefined' && SUNUCUDAN_GELEN_GOREV) || {};
+    if (window.MBM) window.MBM.gorevSahnesiniKur(paket.sahne || null);
+
+    if (window.projeKuklalari.length === 0) {
+        let varsayilanResim = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='60' height='60'><text y='48' font-size='46'>👩‍🚀</text></svg>";
         window.projeKuklalari.push({
-            id: "kukla_varsayilan",
-            adi: "Astronot",
-            x: 50, y: 90, boyut: 100, yon: 0, goster: true,
+            id: "kukla_varsayilan", adi: "Astronot",
+            x: 0, y: 0, boyut: 100, yon: 90, goster: true, kostumIndex: 0, donusStili: 'HER',
             resimYolu: varsayilanResim,
-            kostumler: [
-                { id: "k_varsayilan_1", adi: "kostüm 1", resimYolu: varsayilanResim }
-            ], // Varsayılan kuklaya da kostüm dizisini verdik
+            kostumler: [{ id: "k_varsayilan_1", adi: "kostüm1", resimYolu: varsayilanResim }],
             kodXml: '<xml xmlns="https://developers.google.com/blockly/xml"></xml>'
         });
-        setTimeout(() => { kuklaSec('kukla_varsayilan'); }, 800); 
+        if (window.MBM) { window.MBM.anlikGoruntuAl(); window.MBM.gorevBaslangic = window.MBM.anlik; }
     }
+    setTimeout(() => { kuklaSec(window.projeKuklalari[0].id); }, 50);
 });
 
 window.sahnedeKuklayiDegistir = function(kuklaDataStr) {
     let kuklaDB = JSON.parse(decodeURIComponent(kuklaDataStr));
     let kostumler = JSON.parse(kuklaDB.kostumler_json);
-    
-    // ÇÖZÜM: Veritabanındaki TÜM kostümleri döngüye sokup öğrenci paneline uygun (../) yollarla hazırlıyoruz
-    let atolyeKostumleri = kostumler.map(k => {
-        return {
-            id: k.id,
-            adi: k.adi,
-            resimYolu: "../" + k.yol, 
-            cizimData: k.cizimData || null
-        };
-    });
-    
+    let atolyeKostumleri = kostumler.map(k => ({ id: k.id, adi: k.adi, resimYolu: "../" + k.yol, cizimData: k.cizimData || null }));
     let yeniKukla = {
-        id: "kukla_" + Date.now(),
-        adi: kuklaDB.kukla_adi,
-        x: 100, y: 100, boyut: 100, yon: 0, goster: true,
-        resimYolu: atolyeKostumleri[0].resimYolu, // Sahnede ilk kostüm görünür
-        kostumler: atolyeKostumleri, // İŞTE EKSİK OLAN SATIR! Artık tüm kostümler hafızada.
+        id: "kukla_" + Date.now(), adi: kuklaDB.kukla_adi,
+        x: 0, y: 0, boyut: 100, yon: 90, goster: true, kostumIndex: 0, donusStili: 'HER',
+        resimYolu: atolyeKostumleri[0].resimYolu,
+        kostumler: atolyeKostumleri,
         kodXml: '<xml xmlns="https://developers.google.com/blockly/xml"></xml>'
     };
-
     window.projeKuklalari.push(yeniKukla);
+    if (window.MBM) window.MBM.anlikGoruntuAl();
     kuklaPenceresiniKapat();
-    kuklaSec(yeniKukla.id); 
+    kuklaSec(yeniKukla.id);
 };
 
 window.kuklaSec = function(hedefId) {
-    // [2026-08] Aynı kuklaya tekrar tıklamak kodu boşuna temizlemesin
     if (window.aktifKuklaId === hedefId) return;
 
-    if(window.ogrenciWorkspace && window.aktifKuklaId) {
+    if (window.ogrenciWorkspace && window.aktifKuklaId) {
         let eskiKukla = window.projeKuklalari.find(k => k.id === window.aktifKuklaId);
-        if(eskiKukla) {
-            let dom = Blockly.Xml.workspaceToDom(window.ogrenciWorkspace);
-            eskiKukla.kodXml = Blockly.Xml.domToText(dom);
-        }
+        if (eskiKukla) eskiKukla.kodXml = Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(window.ogrenciWorkspace));
     }
 
     let seciliKukla = window.projeKuklalari.find(k => k.id === hedefId);
+    if (!seciliKukla) return;
 
-    /* [2026-08] KOD KAYBI ÖNLENDİ:
-       Sayfa açılışında 800 ms sonra kuklaSec('kukla_varsayilan') çalışıyor ve
-       workspace'i temizliyordu. Öğrenci o ilk saniyede blok eklediyse kodu
-       siliniyordu. Ayrıca aktifKuklaId henüz null olduğu için kod hiçbir
-       kuklaya da kaydedilmiyordu — tamamen kayboluyordu.
-       Artık: hedef kuklanın kodu boşsa ve ekranda blok varsa, o bloklar
-       silinmek yerine hedef kuklaya devredilir. */
-    if (window.ogrenciWorkspace && seciliKukla && !window.aktifKuklaId) {
+    /* [2026-08] KOD KAYBI ÖNLENDİ: ilk seçimde ekranda blok varsa hedef kuklaya devret */
+    if (window.ogrenciWorkspace && !window.aktifKuklaId) {
         const ekrandakiBlok = window.ogrenciWorkspace.getAllBlocks(false).length;
-        const hedefKoduBos  = !seciliKukla.kodXml
-                              || seciliKukla.kodXml.indexOf('<block') === -1;
-
+        const hedefKoduBos = !seciliKukla.kodXml || seciliKukla.kodXml.indexOf('<block') === -1;
         if (ekrandakiBlok > 0 && hedefKoduBos) {
-            seciliKukla.kodXml = Blockly.Xml.domToText(
-                Blockly.Xml.workspaceToDom(window.ogrenciWorkspace)
-            );
+            seciliKukla.kodXml = Blockly.Xml.domToText(Blockly.Xml.workspaceToDom(window.ogrenciWorkspace));
         }
     }
 
     window.aktifKuklaId = hedefId;
 
-    if(window.ogrenciWorkspace && seciliKukla) {
+    if (window.ogrenciWorkspace) {
         window.ogrenciWorkspace.clear();
-        if (seciliKukla.kodXml && seciliKukla.kodXml !== "") {
+        if (seciliKukla.kodXml) {
             try {
-                let parser = new DOMParser();
-                let xmlDoc = parser.parseFromString(seciliKukla.kodXml, "text/xml");
-                Blockly.Xml.domToWorkspace(xmlDoc.documentElement, window.ogrenciWorkspace);
-            } catch(e) { console.error("Kod yükleme hatası:", e); }
+                Blockly.Xml.domToWorkspace(Blockly.utils.xml.textToDom(seciliKukla.kodXml), window.ogrenciWorkspace);
+            } catch (e) { console.error("Kod yükleme hatası:", e); }
         }
+        // Görevin hazır değişkenleri (clear() onları da siliyor)
+        if (typeof window.gorevDegiskenleriniKur === 'function') window.gorevDegiskenleriniKur(window.ogrenciWorkspace);
+        // Kostüm menüsü yeni kuklanın kostümlerini göstersin
+        try { window.ogrenciWorkspace.getToolbox() && window.ogrenciWorkspace.getToolbox().refreshSelection(); } catch (e) {}
     }
-
-    document.getElementById('panelKuklaAdi').value = seciliKukla.adi;
-    document.getElementById('panelX').value = seciliKukla.x;
-    document.getElementById('panelY').value = seciliKukla.y;
-    document.getElementById('panelBoyut').value = seciliKukla.boyut;
-    document.getElementById('panelYon').value = seciliKukla.yon;
-    arayuzdenGosterGizle(seciliKukla.goster, false);
-
+    kuklaPaneliniGuncelle();
     ekraniYenile();
 };
 
-window.arayuzdenAktifKuklayiGuncelle = function() {
-    if(!window.aktifKuklaId) return;
-    let seciliKukla = window.projeKuklalari.find(k => k.id === window.aktifKuklaId);
-    
-    seciliKukla.adi = document.getElementById('panelKuklaAdi').value;
-    seciliKukla.x = parseInt(document.getElementById('panelX').value) || 0;
-    seciliKukla.y = parseInt(document.getElementById('panelY').value) || 0;
-    seciliKukla.boyut = parseInt(document.getElementById('panelBoyut').value) || 100;
-    seciliKukla.yon = parseInt(document.getElementById('panelYon').value) || 0;
+/** Panel kutularını aktif kuklanın değerleriyle doldurur */
+window.kuklaPaneliniGuncelle = function() {
+    let k = window.projeKuklalari.find(x => x.id === window.aktifKuklaId);
+    if (!k) return;
+    document.getElementById('panelKuklaAdi').value = k.adi;
+    document.getElementById('panelX').value = Math.round(k.x);
+    document.getElementById('panelY').value = Math.round(k.y);
+    document.getElementById('panelBoyut').value = Math.round(k.boyut);
+    document.getElementById('panelYon').value = Math.round(k.yon);
+    arayuzdenGosterGizle(k.goster, false);
+};
 
+/** Kod çalışırken panel canlı güncellensin (kutuya yazılıyorsa dokunma) */
+window.kuklaPaneliCanli = function() {
+    const odak = document.activeElement;
+    if (odak && odak.closest && odak.closest('.kukla-paneli')) return;
+    let k = window.projeKuklalari.find(x => x.id === window.aktifKuklaId);
+    if (!k) return;
+    const yaz = (id, deger) => { const el = document.getElementById(id); if (el && String(el.value) !== String(deger)) el.value = deger; };
+    yaz('panelX', Math.round(k.x)); yaz('panelY', Math.round(k.y));
+    yaz('panelBoyut', Math.round(k.boyut)); yaz('panelYon', Math.round(k.yon));
+    const bg = document.getElementById('btnGoster');
+    if (bg && bg.classList.contains('aktif') !== !!k.goster) arayuzdenGosterGizle(k.goster, false);
+};
+
+window.arayuzdenAktifKuklayiGuncelle = function() {
+    if (!window.aktifKuklaId) return;
+    let k = window.projeKuklalari.find(x => x.id === window.aktifKuklaId);
+    if (!k) return;
+    k.adi = document.getElementById('panelKuklaAdi').value;
+    k.x = parseInt(document.getElementById('panelX').value) || 0;
+    k.y = parseInt(document.getElementById('panelY').value) || 0;
+    k.boyut = parseInt(document.getElementById('panelBoyut').value) || 100;
+    let yon = parseInt(document.getElementById('panelYon').value);
+    k.yon = isNaN(yon) ? 90 : yon;
+    if (window.MBM) window.MBM.anlikGoruntuAl();
     ekraniYenile();
 };
 
 window.arayuzdenGosterGizle = function(durum, tetikle = true) {
     let btnGoster = document.getElementById('btnGoster');
     let btnGizle = document.getElementById('btnGizle');
-    if(durum) { btnGoster.classList.add('aktif'); btnGizle.classList.remove('aktif'); } 
+    if (durum) { btnGoster.classList.add('aktif'); btnGizle.classList.remove('aktif'); }
     else { btnGizle.classList.add('aktif'); btnGoster.classList.remove('aktif'); }
-
-    if(tetikle && window.aktifKuklaId) {
+    if (tetikle && window.aktifKuklaId) {
         let secili = window.projeKuklalari.find(k => k.id === window.aktifKuklaId);
         secili.goster = durum;
+        if (window.MBM) window.MBM.anlikGoruntuAl();
         ekraniYenile();
     }
 };
 
-/**
- * Fonksiyon: ekraniYenile
- * Halk Dilinde İşlevi: Sahnedeki kuklaları mevcut ekran boyutuna göre oranlayarak çizer.
- * YENİ ÖZELLİK: Oransal ölçekleme (Responsive Scaling) eklendi.
- */
 /* [2026-11] Kukla adı / resim yolu HTML'e basılmadan önce kaçırılır. */
 function kuklaHtmlKacir(x) {
     return String(x == null ? '' : x)
@@ -219,156 +213,26 @@ function kuklaHtmlKacir(x) {
         .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
+/** Alttaki kukla listesini çizer; sahnedeki çizimi MBM yapar */
 window.ekraniYenile = function() {
     let kapsayici = document.getElementById('kuklaListesiKapsayici');
     let html = '';
-    
-    // Alt Listeyi Çiz (Burası sabit kalabilir)
     window.projeKuklalari.forEach(k => {
         let aktifSinifi = k.id === window.aktifKuklaId ? 'aktif' : '';
+        const liste = (k.kostumler && k.kostumler.length) ? k.kostumler : [{ resimYolu: k.resimYolu }];
+        const resim = (liste[Math.min(liste.length - 1, k.kostumIndex | 0)] || liste[0]).resimYolu;
         html += `
-            <div class="kukla-oge ${aktifSinifi}" data-id="${k.id}" onclick="kuklaSec('${k.id}')" oncontextmenu="sagTikMenuAc(event, '${k.id}')">
-                <div class="kukla-sil-ikon" onclick="event.stopPropagation(); kuklaSilIstegi('${k.id}')">✕</div>
-                <img src="${kuklaHtmlKacir(k.resimYolu)}">
+            <div class="kukla-oge ${aktifSinifi}" data-id="${kuklaHtmlKacir(k.id)}" onclick="kuklaSec('${kuklaHtmlKacir(k.id)}')" oncontextmenu="sagTikMenuAc(event, '${kuklaHtmlKacir(k.id)}')">
+                <div class="kukla-sil-ikon" onclick="event.stopPropagation(); kuklaSilIstegi('${kuklaHtmlKacir(k.id)}')">✕</div>
+                <img src="${kuklaHtmlKacir(resim)}">
                 <div class="k-isim" title="${kuklaHtmlKacir(k.adi)}">${kuklaHtmlKacir(k.adi)}</div>
-            </div>
-        `;
+            </div>`;
     });
     html += `<button class="btn-yeni-kukla" onclick="kuklaPenceresiniAc()" title="Kütüphaneden Yeni Kukla Ekle"><span>+</span> Ekle</button>`;
     kapsayici.innerHTML = html;
-
-    // --- ORANSAL HESAPLAMA ---
-    let sahne = document.querySelector('.oyun-sahnesi');
-    let referansGenislik = 480; // Standart mBlock/Scratch genişliği
-    let oran = sahne.clientWidth / referansGenislik; 
-
-    window.projeKuklalari.forEach(k => {
-        let img = document.querySelector(`.dinamik-kukla[data-id="${k.id}"]`);
-        
-        if(!img) {
-            img = document.createElement('img');
-            img.className = 'dinamik-kukla';
-            img.setAttribute('data-id', k.id);
-            img.setAttribute('draggable', 'false');
-            img.style.position = 'absolute';
-            sahne.appendChild(img);
-        }
-        
-        img.src = k.resimYolu;
-        img.style.display = k.goster ? 'block' : 'none';
-        
-        // ÇÖZÜM: Konum ve boyutu oranla çarpıyoruz
-        img.style.left = (k.x * oran) + 'px';
-        img.style.top = (k.y * oran) + 'px';
-        img.style.width = (k.boyut * oran) + 'px';
-        
-        img.style.transform = `rotate(${k.yon}deg)`;
-        img.style.cursor = window.suruklenenKuklaId === k.id ? 'grabbing' : 'grab';
-        
-        if(k.id === window.aktifKuklaId) {
-            img.id = 'aktifKukla';
-            img.style.filter = "drop-shadow(0px 0px 8px rgba(59, 130, 246, 0.8))";
-            img.style.zIndex = "100"; 
-        } else {
-            if(img.id === 'aktifKukla') img.removeAttribute('id'); 
-            img.style.filter = "none";
-            img.style.zIndex = "10";
-        }
-    });
-
-    document.querySelectorAll('.dinamik-kukla').forEach(el => {
-        let id = el.getAttribute('data-id');
-        if(!window.projeKuklalari.find(k => k.id === id)) { el.remove(); }
-    });
+    if (window.MBM) window.MBM.ciz();
 };
-// ==========================================
-// --- SÜRÜKLE BIRAK MOTORU ---
-// ==========================================
-window.suruklenenKuklaId = null;
-window.baslangicX = 0; window.baslangicY = 0;
-let oyunSahnesiAlani = document.querySelector('.oyun-sahnesi');
 
-oyunSahnesiAlani.addEventListener('mousedown', function(e) {
-    if(e.target.classList.contains('dinamik-kukla')) {
-        e.preventDefault(); 
-        window.suruklenenKuklaId = e.target.getAttribute('data-id');
-        if(window.aktifKuklaId !== window.suruklenenKuklaId) {
-            kuklaSec(window.suruklenenKuklaId);
-        }
-        let rect = e.target.getBoundingClientRect();
-        window.baslangicX = e.clientX - rect.left;
-        window.baslangicY = e.clientY - rect.top;
-        e.target.style.cursor = 'grabbing';
-    }
-});
-
-/**
- * YENİ ÖZELLİK: Sürükleme sırasında ekran oranını hesaba katarak koordinat kaydeder.
- * YENİ EKLENEN ÖZELLİKLER: Oransal ters hesaplama.
- */
-window.addEventListener('mousemove', function(e) {
-    if(window.suruklenenKuklaId) {
-        let sahne = document.querySelector('.oyun-sahnesi');
-        let sahneRect = sahne.getBoundingClientRect();
-        let oran = sahne.clientWidth / 480; // Mevcut büyüme oranı
-
-        // Gerçek piksel farkını hesapla
-        let fizikselX = e.clientX - sahneRect.left - window.baslangicX;
-        let fizikselY = e.clientY - sahneRect.top - window.baslangicY;
-        
-        let kukla = window.projeKuklalari.find(k => k.id === window.suruklenenKuklaId);
-        if(kukla) {
-            // ÇÖZÜM: Fiziksel konumu orana bölerek mantıksal (sabit) koordinata çevir
-            kukla.x = Math.round(fizikselX / oran);
-            kukla.y = Math.round(fizikselY / oran);
-            
-            let img = document.querySelector(`.dinamik-kukla[data-id="${window.suruklenenKuklaId}"]`);
-            if(img) {
-                img.style.left = (kukla.x * oran) + 'px';
-                img.style.top = (kukla.y * oran) + 'px';
-            }
-            
-            if(window.aktifKuklaId === window.suruklenenKuklaId) {
-                document.getElementById('panelX').value = kukla.x;
-                document.getElementById('panelY').value = kukla.y;
-            }
-        }
-    }
-});
-window.addEventListener('mouseup', function(e) {
-    if(window.suruklenenKuklaId) {
-        let img = document.querySelector(`.dinamik-kukla[data-id="${window.suruklenenKuklaId}"]`);
-        if(img) img.style.cursor = 'grab';
-        window.suruklenenKuklaId = null; 
-    }
-});
-
-// KOD ÇALIŞTIRMA SENKRONİZASYONU (Sihirli Köprü - Oransal Düzeltme)
-setInterval(() => {
-    let aktifImg = document.getElementById('aktifKukla');
-    let sahne = document.querySelector('.oyun-sahnesi');
-    if(aktifImg && window.aktifKuklaId && sahne) {
-        let k = window.projeKuklalari.find(x => x.id === window.aktifKuklaId);
-        if(k) {
-            let oran = sahne.clientWidth / 480; // Büyüme oranını hesapla
-            let domX = parseInt(aktifImg.style.left);
-            let domY = parseInt(aktifImg.style.top);
-            
-            // Fiziksel pikseli orana bölerek "Mantıksal Koordinata" geri çevir (Roketleme bug'ı çözüldü)
-            let gercekX = Math.round(domX / oran);
-            let gercekY = Math.round(domY / oran);
-
-            if(!isNaN(gercekX) && gercekX !== k.x) { 
-                k.x = gercekX; 
-                document.getElementById('panelX').value = k.x; 
-            }
-            if(!isNaN(gercekY) && gercekY !== k.y) { 
-                k.y = gercekY; 
-                document.getElementById('panelY').value = k.y; 
-            }
-        }
-    }
-}, 50);
 // ==========================================
 // --- SAĞ TIK MENÜSÜ İŞLEMLERİ ---
 // ==========================================
@@ -398,10 +262,11 @@ window.kuklaKopyalaMenu = function() {
     let yeni = JSON.parse(JSON.stringify(kaynak));
     yeni.id = "kukla_" + Date.now();
     yeni.adi = kaynak.adi + " (Kopya)";
-    yeni.x += 30; 
-    yeni.y += 30;
+    yeni.x += 30;
+    yeni.y -= 30;
 
     window.projeKuklalari.push(yeni);
+    if (window.MBM) window.MBM.anlikGoruntuAl();
     kuklaSec(yeni.id);
 };
 
@@ -450,7 +315,7 @@ window.bosKuklaOlustur = async function () {
     const yeni = {
         id: 'kukla_' + Date.now(),
         adi: ad,
-        x: 100, y: 100, boyut: 100, yon: 0, goster: true,
+        x: 0, y: 0, boyut: 100, yon: 90, goster: true, kostumIndex: 0, donusStili: 'HER',
         resimYolu: bosResim,
         kostumler: [{ id: 'k_bos_' + Date.now(), adi: 'costume1', resimYolu: bosResim, cizimData: null }],
         kodXml: '<xml xmlns="https://developers.google.com/blockly/xml"></xml>',

@@ -51,7 +51,37 @@ body { display: flex; height: 100vh; margin: 0; font-family: 'Segoe UI', sans-se
 .sag-tik-oge { padding: 12px 15px; font-size: 14px; font-weight: 600; color: #475569; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
 .sag-tik-oge:hover { background: #f1f5f9; }
 .sag-tik-oge.sil:hover { background: #fee2e2; color: #dc2626; }
-.dinamik-kukla { position: absolute; transition: transform 0.1s ease; user-select: none; }
+/* [2026-11] SAHNE MOTORU KATMANLARI (sahne_motoru.js)
+   alttan üste: dekor -> kalem çizimleri -> kuklalar -> değişken göstergeleri */
+.mbm-dekor { position: absolute; inset: 0; background-size: 100% 100%; background-repeat: no-repeat; background-position: center; z-index: 0; }
+.mbm-kalem { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+.mbm-katman { position: absolute; inset: 0; z-index: 2; }
+.dinamik-kukla { position: absolute; user-select: none; -webkit-user-drag: none; cursor: grab; max-width: none; transform-origin: center center; }
+.dinamik-kukla:active { cursor: grabbing; }
+.mbm-balon { position: absolute; transform: translate(-8px, -100%); max-width: 46%; background: #fff; color: #1e293b; border: 2.5px solid #334155;
+    border-radius: 16px; padding: 7px 12px; font: 700 clamp(11px, 1.6vw, 16px)/1.35 'Segoe UI', sans-serif; box-shadow: 0 4px 10px rgba(0,0,0,.15);
+    pointer-events: none; word-wrap: break-word; animation: mbmBalon .18s ease-out; }
+.mbm-balon::after { content: ''; position: absolute; left: 14px; bottom: -11px; width: 14px; height: 14px; background: #fff;
+    border-right: 2.5px solid #334155; border-bottom: 2.5px solid #334155; transform: rotate(45deg); }
+.mbm-balon.dusunce { border-radius: 26px; border-style: dashed; }
+.mbm-balon.dusunce::after { border-radius: 50%; width: 10px; height: 10px; bottom: -16px; transform: none; border: 2.5px solid #334155; }
+@keyframes mbmBalon { from { opacity: 0; transform: translate(-8px, -90%) scale(.9); } to { opacity: 1; transform: translate(-8px, -100%) scale(1); } }
+.mbm-monitorler { position: absolute; top: 6px; left: 6px; z-index: 600; display: flex; flex-direction: column; gap: 4px; pointer-events: none; }
+.mbm-monitor { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.92); border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 2px 4px 2px 8px; font: 700 12px 'Segoe UI', sans-serif; color: #334155; }
+.mbm-monitor b { background: #ff8c1a; color: #fff; border-radius: 6px; padding: 1px 8px; min-width: 18px; text-align: center; }
+.mbm-sor { position: absolute; left: 3%; right: 3%; bottom: 3%; z-index: 700; display: flex; gap: 6px; background: #fff; border: 2.5px solid #5cb1d6; border-radius: 14px; padding: 6px; box-shadow: 0 6px 18px rgba(0,0,0,.2); }
+.mbm-sor input { flex: 1; border: none; outline: none; font: 600 16px 'Segoe UI', sans-serif; padding: 6px 8px; }
+.mbm-sor button { border: none; background: #5cb1d6; color: #fff; font-weight: 900; border-radius: 10px; width: 40px; cursor: pointer; font-size: 18px; }
+.oyun-sahnesi.calisiyor { border-color: #10b981; box-shadow: 0 0 0 3px rgba(16,185,129,.25); }
+#btnYesilBayrak.calisiyor { box-shadow: 0 0 0 4px rgba(16,185,129,.35); }
+
+/* [2026-11] Çocuklar için daha büyük ve anlaşılır sahne düğmeleri */
+.sahne-kontrolleri .kontrol-btn { width: 44px; height: 40px; border-radius: 10px; }
+.sahne-kontrolleri .kontrol-btn svg { transform: scale(1.25); }
+.btn-basa-don { background: #fff; border: 1.5px solid #cbd5e1; border-radius: 10px; height: 40px; padding: 0 12px; font-weight: 800; color: #475569; cursor: pointer; font-size: 13px; }
+.btn-basa-don:hover { background: #f1f5f9; }
+.fare-koordinat { font: 700 12px 'Segoe UI', monospace; color: #64748b; background: #f1f5f9; border-radius: 8px; padding: 4px 9px; min-width: 120px; text-align: center; }
+.panel-grup label small { font-weight: 600; color: #94a3b8; }
 
 .kukla-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.8); z-index: 1000000; display: none; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
 .kukla-modal { background: #f8fafc; width: 90%; max-width: 900px; height: 85vh; border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); animation: modalAcilis 0.3s ease-out; }

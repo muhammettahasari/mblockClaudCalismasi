@@ -158,9 +158,21 @@ Kaba kuvvet sayacı (`girisDenemesiKontrol/Kaydet`). Tablo yoksa kod kendisi kur
 ```json
 {
   "hikaye_metni": { /* Editor.js blokları */ },
-  "blueprint": { "ana_cozum": "<xml>...</xml>", "alternatif_cozumler": ["<xml>…"] }
+  "blueprint": { "ana_cozum": "<xml>...</xml>", "alternatif_cozumler": ["<xml>…"] },
+  "izin_verilen_bloklar": ["mblock_hareket_git", "...", "DEGISKENLER"],
+  "ipucu": { "metin": { /* Editor.js */ }, "bloklar": "<xml>…</xml>" },
+  "sahne": {                                   // [2026-11] görevin kendi sahnesi
+    "dekorlar":  [{ "adi": "dekor1", "yol": "v2_gorev_sistemi/assets/images/mufredat/d/g001_1.svg" }],
+    "kuklalar":  [{ "adi": "Robo", "x": -150, "y": -40, "boyut": 70, "yon": 90, "donus_stili": "HER",
+                    "goster": true, "kostumler": [{ "adi": "kostüm1", "yol": "…/k/robot_03_1.svg" }] }],
+    "degiskenler": ["skor"]
+  },
+  "mufredat": { "kod": "M001", "bolum": 1, "sira": 1, "kukla_kodlari": { "Robo": "<xml>…</xml>" } }
 }
 ```
+
+> `x/y` mBlock koordinatıdır (orta 0,0; y yukarı). `blueprint` ve `ipucu` öğrenci sayfasına
+> **gönderilmez** (oynatici.php siler). `mufredat.kod` müfredat SQL'inin eşleşme anahtarıdır.
 
 ### `v2_kukla_kutuphanesi`
 `id`, `kukla_adi`, `grup_adi`, `kostumler_json`

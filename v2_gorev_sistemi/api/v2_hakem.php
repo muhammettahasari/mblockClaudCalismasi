@@ -132,7 +132,9 @@ function blokSadelestir(DOMElement $blok): array
         switch ($cocuk->localName) {
             case 'field':
                 // Örn: <field name="NUM">10</field>
-                $sonuc['f'][$cocuk->getAttribute('name')] = trim($cocuk->textContent);
+                $sonuc['f'][$cocuk->getAttribute('name')] = alanDegeriSadelestir(
+                    (string) $cocuk->getAttribute('name'), (string) $cocuk->textContent
+                );
                 break;
 
             case 'value':      // Sayı / metin yuvası
@@ -143,6 +145,15 @@ function blokSadelestir(DOMElement $blok): array
                         && ($ic->localName === 'block' || $ic->localName === 'shadow')) {
                         $icBloklar[] = blokSadelestir($ic);
                     }
+                }
+                /* [2026-11] Yuvaya gerçek bir blok takılıysa (ör. "x konumu"),
+                   Blockly onun ALTINDA görünmeyen eski sayıyı (gölge) da kaydeder.
+                   O sayı ekranda görünmez, öğrenci değiştiremez; karşılaştırmaya
+                   girerse doğru çözüm "değer tutmuyor" diye reddedilirdi. */
+                $gercekVar = false;
+                foreach ($icBloklar as $ib) { if (empty($ib['s'])) { $gercekVar = true; break; } }
+                if ($gercekVar) {
+                    $icBloklar = array_values(array_filter($icBloklar, static fn($ib) => empty($ib['s'])));
                 }
                 if ($icBloklar) {
                     $sonuc['g'][$cocuk->getAttribute('name')] = $icBloklar;
@@ -392,6 +403,30 @@ function blokEsit(?array $a, ?array $b): bool
 }
 
 /**
+ * [2026-11] Alan (field) değerini karşılaştırmaya hazırlar.
+ *  - Sayılar: "10", "10.0", " 10 " hepsi "10" olur.
+ *  - Öğrencinin ELLE YAZDIĞI metinler (TEXT, MESAJ): büyük/küçük harf,
+ *    fazla boşluk ve noktalama (.,!?'"…) farkı yok sayılır. 10 yaşındaki bir
+ *    çocuk "Merhaba!" yerine "merhaba" yazdı diye görevi kaybetmemeli.
+ *  - Açılır menü değerleri (yön, tuş, kostüm...) olduğu gibi kalır.
+ */
+function alanDegeriSadelestir(string $alan, string $deger): string
+{
+    $deger = trim(preg_replace('/\s+/u', ' ', $deger));
+    if ($deger !== '' && is_numeric($deger)) {
+        $s = (float) $deger;
+        return (floor($s) == $s && abs($s) < 1e15) ? (string) (int) $s : rtrim(rtrim(number_format($s, 6, '.', ''), '0'), '.');
+    }
+    if (in_array($alan, ['TEXT', 'MESAJ'], true)) {
+        $deger = str_replace(['I', 'İ'], ['ı', 'i'], $deger);
+        $deger = mb_strtolower($deger, 'UTF-8');
+        $deger = preg_replace('/[\p{P}]+/u', '', $deger);
+        $deger = trim(preg_replace('/\s+/u', ' ', $deger));
+    }
+    return $deger;
+}
+
+/**
  * [2026-08] Blok tiplerinin öğrenciye gösterilecek Türkçe adları.
  * "Eksik blok var" demek yerine "Eksik: 'Merhaba! de' bloğu" diyebilmek için.
  */
@@ -402,6 +437,8 @@ function blokAdi(string $tip): string
         'mblock_olay_bayrak_tiklandiginda'   => '🏳️ Yeşil bayrak tıklandığında',
         'mblock_olay_tus_basildiginda'       => '⌨️ Tuşa basıldığında',
         'mblock_olay_kukla_tiklandiginda'    => '🖱️ Kuklaya tıklandığında',
+        'mblock_olay_mesaj_alindiginda'      => '📩 mesajını aldığımda',
+        'mblock_olay_mesaj_yayinla'          => '📢 mesajını yayınla',
         // Hareket
         'mblock_hareket_git'                 => '👣 adım git',
         'mblock_hareket_don_sag'             => '↻ sağa dön',
@@ -417,6 +454,10 @@ function blokAdi(string $tip): string
         'mblock_hareket_x_degistir'          => "x'i değiştir",
         'mblock_hareket_y_degistir'          => "y'yi değiştir",
         'mblock_hareket_kenardaysa_sek'      => '🪃 kenara gelince sek',
+        'mblock_hareket_donus_stili'         => '🔄 dönüş stilini yap',
+        'mblock_hareket_x_konumu'            => 'x konumu',
+        'mblock_hareket_y_konumu'            => 'y konumu',
+        'mblock_hareket_yonu'                => 'yönü',
         // Görünüm
         'mblock_gorunum_merhaba_de'          => '💬 ... de',
         'mblock_gorunum_merhaba_de_sureli'   => '💬 ... saniye boyunca de',
@@ -430,6 +471,14 @@ function blokAdi(string $tip): string
         'mblock_gorunum_boyut_degistir'      => '📏 boyutu değiştir',
         'mblock_gorunum_sonraki_dekor'       => '🖼️ sonraki dekor',
         'mblock_gorunum_dekora_gec'          => '🖼️ dekora geç',
+        'mblock_gorunum_renk_etkisi_degistir'=> '🌈 etkisini arttır',
+        'mblock_gorunum_renk_etkisi_yap'     => '🌈 etkisi olsun',
+        'mblock_gorunum_gorsel_temizle'      => '🧽 görsel etkileri temizle',
+        'mblock_gorunum_katmana_git'         => '🗂️ katmana git',
+        'mblock_gorunum_katman_degistir'     => '🗂️ katman ileri/geri',
+        'mblock_gorunum_kostum_no'           => 'kostüm sayısı/ismi',
+        'mblock_gorunum_dekor_no'            => 'dekor sayısı/ismi',
+        'mblock_gorunum_buyukluk'            => 'büyüklük',
         // Kontrol
         'mblock_kontrol_bekle'               => '⏳ saniye bekle',
         'mblock_kontrol_tekrarla'            => '🔁 kez tekrarla',
@@ -437,8 +486,45 @@ function blokAdi(string $tip): string
         'mblock_kontrol_eger_ise'            => '❓ eğer ... ise',
         'mblock_kontrol_eger_degilse'        => '❓ eğer ... değilse',
         'mblock_kontrol_olana_kadar_tekrarla'=> '🔁 ... olana kadar tekrarla',
+        'mblock_kontrol_olana_kadar_bekle'   => '⏳ ... olana kadar bekle',
+        'mblock_kontrol_durdur'              => '⛔ durdur',
+        // Algılama
+        'mblock_algilama_degiyor_mu'         => '👉 değiyor mu?',
+        'mblock_algilama_renk_degiyor_mu'    => '🎨 rengine değiyor mu?',
+        'mblock_algilama_sor_bekle'          => '❔ sor ve bekle',
+        'mblock_algilama_cevap'              => 'cevap',
+        'mblock_algilama_tus_basili_mi'      => '⌨️ tuşu basılı mı?',
+        'mblock_algilama_fare_basili_mi'     => '🖱️ fareye basılı mı?',
+        'mblock_algilama_fare_x'             => "farenin x'i",
+        'mblock_algilama_fare_y'             => "farenin y'si",
+        'mblock_algilama_zamanlayici'        => '⏱️ zamanlayıcı',
+        'mblock_algilama_zamanlayici_sifirla'=> '⏱️ zamanlayıcıyı sıfırla',
+        // İşlemler
+        'mblock_islem_aritmetik'             => '➕ işlem (+ - * /)',
+        'mblock_islem_karsilastirma'         => '⚖️ karşılaştırma (= < >)',
+        'mblock_islem_rastgele'              => '🎲 rastgele sayı',
+        'mblock_islem_ve_veya'               => 've / veya',
+        'mblock_islem_degil'                 => 'değil',
+        'mblock_islem_birlestir'             => '🔗 birleştir',
+        'mblock_islem_mod'                   => 'mod',
+        'mblock_islem_yuvarla'               => 'yuvarla',
+        // Kalem
+        'mblock_kalem_temizle'               => '✏️ tümünü temizle',
+        'mblock_kalem_damga'                 => '✏️ damga bas',
+        'mblock_kalem_bastir'                => '✏️ kalemi bastır',
+        'mblock_kalem_kaldir'                => '✏️ kalemi kaldır',
+        'mblock_kalem_renk_yap'              => '✏️ kalem rengini yap',
+        'mblock_kalem_kalinlik_yap'          => '✏️ kalem kalınlığını yap',
+        'mblock_kalem_kalinlik_degistir'     => '✏️ kalem kalınlığını değiştir',
+        // Değişkenler
+        'variables_set'                      => '🟧 değişkeni ... yap',
+        'variables_get'                      => '🟧 değişken',
+        'math_change'                        => '🟧 değişkeni ... değiştir',
         // Ses
         'mblock_ses_cal_bitene_kadar'        => '🔊 sesi bitene kadar çal',
+        'mblock_ses_cal'                     => '🔊 sesini çal',
+        'mblock_ses_nota_cal'                => '🎵 nota çal',
+        'mblock_ses_durdur'                  => '🔇 tüm sesleri durdur',
         // Değerler
         'math_number'                        => 'sayı',
         'text'                               => 'metin',

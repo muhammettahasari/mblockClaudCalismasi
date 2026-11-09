@@ -106,7 +106,21 @@ try {
                 apiHata('Lütfen bölüm seçin.');
             }
 
-            $icerik_json = json_encode($gelen['icerik'] ?? [], JSON_UNESCAPED_UNICODE);
+            /* [2026-11] Tasarlayıcının bilmediği alanları KORU.
+               Müfredat görevlerinde icerik_json içinde "sahne" (dekor + kuklalar)
+               var; tasarlayıcı bu alanı göndermiyor. Eskiden güncelleme bütün
+               içeriği baştan yazdığı için görevi düzenleyip kaydeden admin
+               kuklaları ve dekoru farkında olmadan siliyordu. */
+            $yeniIcerik = is_array($gelen['icerik'] ?? null) ? $gelen['icerik'] : [];
+            $st = $pdo->prepare("SELECT icerik_json FROM v2_gorevler WHERE id = ?");
+            $st->execute([$gorev_id]);
+            $eskiIcerik = json_decode((string) $st->fetchColumn(), true) ?: [];
+            foreach ($eskiIcerik as $anahtar => $deger) {
+                if (!array_key_exists($anahtar, $yeniIcerik) && in_array($anahtar, ['sahne', 'mufredat'], true)) {
+                    $yeniIcerik[$anahtar] = $deger;
+                }
+            }
+            $icerik_json = json_encode($yeniIcerik, JSON_UNESCAPED_UNICODE);
 
             $pdo->prepare(
                 "UPDATE v2_gorevler

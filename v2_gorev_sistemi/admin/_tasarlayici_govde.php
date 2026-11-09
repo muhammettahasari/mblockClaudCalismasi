@@ -260,9 +260,9 @@ body.kod-tam-ekran-acik { overflow: hidden; }
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/editorjs@latest"></script>
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/header@latest"></script>
 <script src="https://cdn.jsdelivr.net/npm/@editorjs/list@latest"></script>
-<script src="https://unpkg.com/blockly/blockly_compressed.js"></script>
-<script src="https://unpkg.com/blockly/blocks_compressed.js"></script>
-<script src="https://unpkg.com/blockly/msg/tr.js"></script>
+<script src="https://unpkg.com/blockly@13.4.0/blockly_compressed.js"></script>
+<script src="https://unpkg.com/blockly@13.4.0/blocks_compressed.js"></script>
+<script src="https://unpkg.com/blockly@13.4.0/msg/tr.js"></script>
 
 <script>
     /* Resim yükleme uç noktası — ipucu_alani.js bunu kullanır.

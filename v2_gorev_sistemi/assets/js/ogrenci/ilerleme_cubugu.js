@@ -531,7 +531,16 @@
                 aktif_gorev_id: window.v2AktifGorevId || 0
             })
         })
-        .then(function (r) { return r.json(); })
+        .then(function (r) {
+            /* [2026-11] Oturum yoksa (Süper Admin önizlemesi, süresi dolmuş
+               oturum) sunucu 401/403 döner. Her 10 sn'de boşuna sormaya devam
+               etmek yerine yoklamayı bırak. */
+            if (r.status === 401 || r.status === 403) {
+                if (zamanlayici) { clearInterval(zamanlayici); zamanlayici = null; }
+                return {};
+            }
+            return r.json();
+        })
         .then(function (s) {
             var v = s.veri || s.data || s;
             if (!v || !v.harita) return;

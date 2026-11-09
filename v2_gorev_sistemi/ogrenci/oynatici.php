@@ -147,9 +147,14 @@ if (!$gorev) {
     )->fetch(PDO::FETCH_ASSOC) ?: null;
 }
 
-$gorevPaketi = $gorev
-    ? $gorev['icerik_json']
-    : '{"hikaye_metni": {}, "blueprint": {"ana_cozum": "", "alternatif_cozumler": []}}';
+/* [2026-11] CEVAP ANAHTARI TARAYICIYA GÖNDERİLMEZ.
+   Eskiden icerik_json olduğu gibi sayfaya basılıyordu; F12'yi açan öğrenci
+   blueprint.ana_cozum'dan cevabı, ipucu'ndan da bilgiyi CEZASIZ okuyabiliyordu.
+   Hakem sunucuda (v2_hakem.php), bilgi kartı da v2_ipucu.php'den geliyor;
+   tarayıcının bu iki alana ihtiyacı yok. */
+$gorevIcerik = $gorev ? (json_decode((string) $gorev['icerik_json'], true) ?: []) : ['hikaye_metni' => new stdClass()];
+unset($gorevIcerik['blueprint'], $gorevIcerik['ipucu']);
+$gorevPaketi = json_encode($gorevIcerik, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP);
 
 $baslik      = $gorev ? $gorev['gorev_adi'] : 'Görev Bulunamadı';
 $aktifGorevId = $gorev ? (int) $gorev['id'] : 0;
@@ -302,7 +307,11 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
                     </svg></button>
             </div>
 
+            <!-- [2026-11] Farenin sahnedeki x/y'si: çocuk "x: 100 y: 50'ye git" derken
+                 hedefi kolayca bulsun -->
+            <span class="fare-koordinat" id="fareKoordinat" title="Farenin sahnedeki konumu">🖱️ x: 0 &nbsp; y: 0</span>
             <div class="sahne-kontrolleri" style="margin-top: 0;">
+                <button type="button" class="btn-basa-don" onclick="window.MBM && MBM.basaDon()" title="Kuklaları görevin başındaki yerine koy">↺ Başa Dön</button>
                 <button id="btnDurdur" class="kontrol-btn durdur-btn" title="Durdur" onclick="window.oyunuDurdur()"><svg width="14" height="14" viewBox="0 0 24 24" fill="white">
                         <rect x="5" y="5" width="14" height="14" rx="2"></rect>
                     </svg></button>
@@ -337,10 +346,10 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
                     <button class="btn-ipucu" style="padding: 6px 10px; font-size: 12px; border-radius: 6px; background: #8b5cf6;" onclick="kostumAtolyesiniAc()">🎨 Kostümler</button>
                 </div>
             </div>
-            <div class="panel-grup"><label>X</label><input type="number" id="panelX" value="0" oninput="arayuzdenAktifKuklayiGuncelle()"></div>
-            <div class="panel-grup"><label>Y</label><input type="number" id="panelY" value="0" oninput="arayuzdenAktifKuklayiGuncelle()"></div>
+            <div class="panel-grup"><label title="Sola doğru eksi, sağa doğru artı (-240 … 240)">X</label><input type="number" id="panelX" value="0" oninput="arayuzdenAktifKuklayiGuncelle()"></div>
+            <div class="panel-grup"><label title="Aşağı doğru eksi, yukarı doğru artı (-180 … 180)">Y</label><input type="number" id="panelY" value="0" oninput="arayuzdenAktifKuklayiGuncelle()"></div>
             <div class="panel-grup"><label>Boyut</label><input type="number" id="panelBoyut" value="100" oninput="arayuzdenAktifKuklayiGuncelle()"></div>
-            <div class="panel-grup"><label>Yön</label><input type="number" id="panelYon" value="0" oninput="arayuzdenAktifKuklayiGuncelle()"></div>
+            <div class="panel-grup"><label title="90 = sağa, -90 = sola, 0 = yukarı, 180 = aşağı bakar">Yön <small>(90 = sağ)</small></label><input type="number" id="panelYon" value="0" oninput="arayuzdenAktifKuklayiGuncelle()"></div>
             <div class="panel-grup"><label>Göster</label>
                 <div class="panel-butonlar">
                     <button id="btnGoster" class="aktif" onclick="arayuzdenGosterGizle(true)">👁️</button>
@@ -763,15 +772,19 @@ foreach ($ilerlemeVerisi['bolumler'] as $b) {
 <script src="<?= varlik('js/duello_motoru.js', '../../') ?>"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paper.js/0.12.17/paper-full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://unpkg.com/blockly/blockly_compressed.js"></script>
-    <script src="https://unpkg.com/blockly/blocks_compressed.js"></script>
-    <script src="https://unpkg.com/blockly/javascript_compressed.js"></script>
-    <script src="https://unpkg.com/blockly/msg/tr.js"></script>
+    <script src="https://unpkg.com/blockly@13.4.0/blockly_compressed.js"></script>
+    <script src="https://unpkg.com/blockly@13.4.0/blocks_compressed.js"></script>
+    <script src="https://unpkg.com/blockly@13.4.0/javascript_compressed.js"></script>
+    <script src="https://unpkg.com/blockly@13.4.0/msg/tr.js"></script>
 
     <script src="<?= varlik('v2_gorev_sistemi/assets/js/admin/mblock_bloklari.js', '../../') ?>"></script>
     <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/kod_tercumani.js', '../../') ?>"></script>
     <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/oyun_sahnesi.js', '../../') ?>"></script>
     <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/hakem_motoru.js', '../../') ?>"></script>
+    <!-- [2026-11] mBlock sahne motoru: çoklu kukla, kalem, ses, mesajlar.
+         hakem_motoru.js'ten SONRA gelmeli (yeşil bayrak / durdur köprüleri burada). -->
+    <script>window.MBM_KOK = '../../';</script>
+    <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/sahne_motoru.js', '../../') ?>"></script>
     <!-- [2026-08] "💡 Bilgi Al" penceresi. hakem_motoru.js'ten SONRA gelmeli:
          window.ipucuGoster'ın tek sahibi bu dosya. -->
     <script src="<?= varlik('v2_gorev_sistemi/assets/js/ogrenci/bilgi_al.js', '../../') ?>"></script>

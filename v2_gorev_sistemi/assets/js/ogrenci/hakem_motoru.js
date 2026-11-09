@@ -7,6 +7,7 @@
  * YENİ EKLENEN ÖZELLİKLER:
  * - [Bugün] 800ms saatli bombası (derlemeZamanlayici) testleri öldürmesin diye düzeltildi.
  * - [Bugün] Oyun çalışırken arka plan derlemesinin oyunu kesmesi engellendi.
+ * - [2026-11] Derleme ve çalıştırma sahne_motoru.js dosyasına taşındı.
  * - [2026-08] GERÇEK HAKEM EKLENDİ (Bilinen Sorunlar #17):
  *     Bu dosya adı "hakem" olmasına rağmen aslında hiç kontrol yapmıyordu,
  *     sadece kodu çalıştırıyordu. Üstelik oynatici.php'deki
@@ -19,125 +20,9 @@
  *     öğrenci konsoldan "kazandım" diyerek bedava puan alabilirdi.
  */
 
-window.derlemeZamanlayici = null; // Kronometreyi artık global yaptık ki her yerden durdurabilelim
-window.sinamaModuAktif = false; 
-
-window.canliDerleyiciyiBaslat = function(workspace) {
-    workspace.addChangeListener(function(event) {
-        
-        // 1. TIKLAMA (SNIPPET TESTING) DEDEKTÖRÜ
-        let isClick = (event.type === Blockly.Events.CLICK) || (event.type === Blockly.Events.UI && event.element === 'click');
-        
-        if (isClick && event.blockId) {
-            let tiklananBlok = workspace.getBlockById(event.blockId);
-            
-            if (tiklananBlok) {
-                // KESİN ÇÖZÜM 1: Öğrenci test için tıkladıysa, bekleyen 800ms bombasını iptal et!
-                clearTimeout(window.derlemeZamanlayici);
-                
-                window.sinamaModuAktif = true; 
-                let uretilenKod = "";
-
-                if (tiklananBlok.type.startsWith("mblock_olay_")) {
-                    let altBlok = tiklananBlok.getNextBlock();
-                    if (altBlok) {
-                        uretilenKod = jsMotoru.blockToCode(altBlok);
-                    }
-                } else {
-                    uretilenKod = jsMotoru.blockToCode(tiklananBlok);
-                }
-                
-                window.sinamaModuAktif = false; 
-                
-                if (uretilenKod) {
-                    try {
-                        // KESİN ÇÖZÜM 2: Üst üste test tıklamalarında motorun çıldırmasını önle
-                        window.aktifOyunDonguleri = []; 
-                        window.oyunMotoruCalisiyor = true; 
-                       eval("(async () => {\n" + uretilenKod + "\n})();");
-                    } catch (hata) {
-                        console.error("Test Çalıştırma Hatası:", hata);
-                    }
-                }
-            }
-            return; 
-        }
-
-        // 2. NORMAL CANLI DERLEME
-        if (event.type === Blockly.Events.BLOCK_MOVE || event.type === Blockly.Events.BLOCK_CHANGE || event.type === Blockly.Events.BLOCK_DELETE || event.type === Blockly.Events.BLOCK_CREATE) {
-            clearTimeout(window.derlemeZamanlayici);
-            window.derlemeZamanlayici = setTimeout(() => {
-                // KESİN ÇÖZÜM 3: Oyun şu an akıyorsa (oynanıyorsa), derleme yapıp oyunu bölme!
-                if (!window.oyunMotoruCalisiyor) {
-                    window.arkaPlandaDerle(workspace);
-                }
-            }, 800);
-        }
-    });
-};
-
-// Sessizce kodları okuyan ve JS'ye çeviren işçi
-window.arkaPlandaDerle = function(workspace) {
-    try {
-        window.aktifOyunDonguleri = []; 
-        window.oyunTetikleyicileri = { tuslar: {}, bayrak: [], kukla: [] };
-        let uretilenKod = jsMotoru.workspaceToCode(workspace);
-        console.log("ÜRETİLEN KOD:", uretilenKod);
-        eval(uretilenKod);
-    } catch (hata) {
-        console.error("Canlı Derleme Hatası:", hata);
-    }
-};
-
-// Ekranda "Yeşil Bayrak" butonuna basıldığında tetikler
-window.yesilBayraklariTetikle = function() {
-    // KESİN ÇÖZÜM 4: Yeşil bayrağa basınca da 800ms bombasını iptal et
-    clearTimeout(window.derlemeZamanlayici);
-
-    if (typeof window.oyunuDurdur === 'function') {
-        window.oyunuDurdur();
-    }
-
-    // Bazı sürümlerde workspace mainWorkspace altında durur — ikisini de dene
-    const calismaAlani = window.ogrenciWorkspace
-        || (typeof Blockly !== 'undefined' ? Blockly.mainWorkspace : null);
-
-    if (!calismaAlani) {
-        console.error('Yeşil bayrak: çalışma alanı bulunamadı.');
-        return;
-    }
-
-    // Son saniye eklenen bloklar varsa, oynamaya başlamadan önce acil derleme yap
-    window.arkaPlandaDerle(calismaAlani);
-
-    window.oyunMotoruCalisiyor = true;
-    console.log("🟢 Oyun Başladı!");
-
-    const bayraklar = (window.oyunTetikleyicileri && window.oyunTetikleyicileri.bayrak) || [];
-
-    /* [2026-08] YEŞİL BAYRAK SESSİZ KALIYORDU:
-       Öğrenci blokları koyup bayrağa basıyor ama hiçbir şey olmuyordu.
-       Sebep: bloklar "🏳️ Yeşil bayrak tıklandığında" ŞAPKA bloğunun altına
-       takılı değilse kod üretilmiyor (başıboş bloklar çalıştırılmaz).
-       Artık sessizce hiçbir şey yapmak yerine öğrenciye ne yapması
-       gerektiğini söylüyoruz. */
-    if (bayraklar.length === 0) {
-        const blokSayisi = calismaAlani.getAllBlocks(false).length;
-        const mesaj = (blokSayisi === 0)
-            ? '👋 Henüz hiç blok eklemedin! Soldaki menüden blokları sürükleyip bırak.'
-            : '🏳️ Bloklarını "Yeşil bayrak tıklandığında" bloğunun ALTINA takmalısın.\n\n'
-            + 'Bu bloğu "Olaylar" kategorisinde bulabilirsin.';
-
-        if (typeof hakemSonucGoster === 'function') {
-            hakemSonucGoster(mesaj, 'bilgi');
-        } else {
-            alert(mesaj);
-        }
-        return;
-    }
-
-    bayraklar.forEach(cb => cb());
-};
+window.sinamaModuAktif = false;
+/* [2026-11] Canlı derleme, tek blok denemesi ve yeşil bayrak sahne_motoru.js'e
+   taşındı (çoklu kukla + mBlock koordinatları). Bu dosyada artık sadece hakem var. */
 
 /* ============================================================================
  * GERÇEK HAKEM — "✅ Görevimi Kontrol Et" butonunun beyni

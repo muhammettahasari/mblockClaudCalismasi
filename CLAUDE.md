@@ -331,6 +331,51 @@ Tablo **canlı**dır (10 sn yoklama, `api/sinif_ilerleme_durumu.php`).
 > Hepsi bittiyse `sonErisilenGorev()` öğrenciyi son görevde bırakır;
 > **yayındaki ilk göreve düşürme**, yoksa öğrenci 1. bölümde takılı kalır.
 
+
+### J. Sahne Motoru & 200 Görevlik Müfredat ✅ (2026-11)
+
+**Sahne motoru** `v2_gorev_sistemi/assets/js/ogrenci/sahne_motoru.js` (`window.MBM`).
+Eski `oyun_sahnesi.js` motoru tek kuklayı sol-üst piksel koordinatıyla oynatıyordu,
+diğer kuklaların kodu hiç çalışmıyordu ve 65 bloğun 37'sinin tercümesi yoktu.
+
+- **Koordinatlar mBlock ile birebir:** sahne 480×360, orta (0,0), **y YUKARI** artar,
+  yön **90 = sağ**, 0 = yukarı, -90 = sol. Panel (X/Y/Yön) de bu değerleri gösterir.
+- **Kostümler SAĞA bakacak şekilde çizilir** (Scratch kuralı). Yukarı bakan çizilen bir
+  roket "yön 0"da sola döner — yeni kukla çizerken buna dikkat.
+- **Her kuklanın kodu ayrı derlenir ve hepsi aynı anda çalışır** (`MBM.derle()`):
+  `S.olay('bayrak'|'tus'|'tikla'|'mesaj', param, async function(S){...})`.
+  Tercüman `kod_tercumani.js`; `S` = kukla bağlamı (`Baglam` sınıfı), `D` = ortak veri.
+- **Yeşil bayrak sahneyi "son elle düzenlenen" hâline getirir** (`MBM.anlik`), sonra
+  betikleri başlatır. "↺ Başa Dön" görevin ilk hâline döner (`MBM.gorevBaslangic`).
+- Döngüler her turda bir kare bekler (`await S.kare()`); "durdur" (`MBM.durdur`)
+  `D.kosu` sayacını artırır, eski betikler bir sonraki beklemede `DurdurSinyali` ile ölür.
+- **Kare bekleme rAF + 50 ms yedek saatle** çalışır: pencere küçültülünce rAF hiç
+  gelmez, yedek olmasa betikler sonsuza dek takılır.
+- Yeni bloklar: kalem (7 blok), mesaj yayınla/aldığımda, dönüş stili, durdur,
+  olana kadar bekle, cevap, zamanlayıcı, nota çal, ses çal, ses durdur.
+- **Renk algılama** dekor + kalem pikseline bakar; doygunluğu < 0.45 olan (pastel)
+  renkler hiçbir sınıfa girmez — "mavi" deyince açık gökyüzü sayılmasın diye.
+  Renk görevi tasarlarken SAF renk kullan (#16a34a yeşil, #dc2626 kırmızı, #2563eb mavi).
+- Blockly sürümü **13.4.0'a sabitlendi** (oynatıcı + tasarlayıcı). Sürüm yükseltirken
+  dinamik açılır menüleri (`mbmDinamikMenu`) test et.
+
+**Görev sahnesi** `icerik_json.sahne = {dekorlar:[{adi,yol}], kuklalar:[{adi,x,y,boyut,yon,donus_stili,goster,kostumler:[{adi,yol}]}], degiskenler:[]}`
+— yollar site köküne göre. Yoksa varsayılan Astronot kuklası gelir (eski görevler).
+`gorev_api.php` güncellemede `sahne` ve `mufredat` alanlarını KORUR (tasarlayıcı bunları göndermez).
+
+**Müfredat:** 20 bölüm × 10 görev = 200 görev (M001…M200). Liste ve kurallar: `docs/MUFREDAT.md`.
+Üretici: `kurulum/mufredat_uretici/uret.py` → SVG'ler + `mufredat.sql` (tekrar çalıştırılabilir).
+Eski 8 deneme görevi silinmedi: yayından kaldırıldı, "Arşiv" bölümüne (id 99, sıra 999) taşındı.
+
+> ⚠️ **Cevap anahtarı tarayıcıya GÖNDERİLMEZ.** `oynatici.php` `blueprint` ve `ipucu`
+> alanlarını sayfaya basmadan siler. Yeni bir öğrenci sayfası yazarken `icerik_json`'u
+> olduğu gibi basma.
+
+> ⚠️ **Hakem toleransları (`v2_hakem.php`):** yuvaya gerçek blok takılıysa altındaki
+> gölge sayı yok sayılır; sayılar normalize edilir (10.0 = 10); TEXT/MESAJ alanlarında
+> büyük-küçük harf, boşluk ve noktalama farkı yok sayılır. Açılır menü değerleri birebir.
+
+
 ---
 
 ## 5. Kritik Mimari Kurallar
